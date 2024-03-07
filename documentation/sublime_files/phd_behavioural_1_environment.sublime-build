@@ -1,0 +1,5 @@
+{
+	"cmd": ["/Users/kenneth.van.der.zee/.local/share/virtualenvs/phd_behavioural_1-5BiNMa0P/bin/python", "-u", "$file"],
+	"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
+	"selector": "source.python"
+}
