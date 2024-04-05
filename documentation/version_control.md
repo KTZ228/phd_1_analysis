@@ -72,7 +72,7 @@ C:\Users\<username>\AppData\Roaming\Python\Python38\Scripts
 ### Installing the virtual environment and its packages using pipenv
 Since this is an existing project, you will have to install the packages described in the `pipfile`.
 
-One way to do this is by navigating to the folder using the terminal command `cd ~/Documents/python_tests`.
+One way to do this is by navigating to the folder using the terminal command `cd ~/Documents/phd_1_analysis`.
 Subsequentially, you will need to create the environment using `pipenv install --python 3.8.18`.
 These steps are the same for when you create a new project or install the packages of an existing project, so you can also use this command for your own work.
 * Note that if you don't specify the Python version installed in the folder, pipenv will default to the global environment.
@@ -127,3 +127,4 @@ Create a simple hello world function to see if the build file was adjusted corre
 ## External links
 Additional documentation on how to install or update packages in your virtual environment [pip tutorial](https://jcutrer.com/python/pipenv-pipfile).
 [Additional documentation on pyenv and pipenv](https://www.rootstrap.com/blog/how-to-manage-your-python-projects-with-pipenv-pyenv)
+https://realpython.com/python-virtual-environments-a-primer/
