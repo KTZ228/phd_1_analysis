@@ -1,40 +1,19 @@
 # Version control
-## Managing Python versions
+Python and it's packages are notorious for creating unexpected incompatibility between packages caused by updates.
+For this reason, it is good coding practice to 'freeze' the version of every package you are using for each project separately.
+This is done by creating a 'virtual environment'.
+When a project has a virtual environment, every new member can easily download the same version of each package, preventing incompatibility issues.
+This guide will explain how to install Python and the virtual environment for the project.
 
-### Start by installing Homebrew (similar to pip, macos only)
-We will start by installing the package manager Homebrew so that we can install the necessary packages in subsequent steps.
-Go to the [Homebrew website](https://brew.sh) and input the command into your terminal window.
-After it is finished installing, it will present one or two commands in the terminal that you need to run to add Homebrew to the terminal path. If you skip this step Homebrew cannot be found by the terminal, meaning that you can't use the package manager.
+## Python installation
+Check what version of Python is described in the venv folder since you will have to install the same version.
+Simply go to the Python site and download the installer for your operating system.
 
-* Have not been able to test a suitable replacement for windows.
-
-### Setup pyenv
-Install pyenv using brew:
-`brew install pyenv`
-* Note that pyenv cannot be installed using pip
-
-The following commands needs to be executed so that the system wide python directory contains aliasses to the default pyenv.
-```
-if command -v pyenv 1>/dev/null 2>&1; then
-  eval "$(pyenv init -)"
-fi
-
-export PYENV_ROOT="$HOME/.pyenv/shims"
-export PATH="$PYENV_ROOT:$PATH"
-export PIPENV_PYTHON="$PYENV_ROOT/python"
-```
-
-#### Installing the desired python version
-Check what version of Python is described in the venv folder. We will be installing the same version.
-Let's say the used Python version is 3.11.6.
-
-Go to the Python website and install that version onto your PC.
-Make sure to enable `add Python 3.11.6 to the path` to ensure that the system can access this version of Python.
+Make sure to enable `add Python 3.xx.x to the path` to ensure that the system can access this version of Python.
 
 ## Managing package versions
-
-
-We use `venv` to do version control.
+you can use different packages to manage virtual environments for other projects.
+However, since we used `venv` to create and manage the virtual environment for this project, you will have to too.
 
 ### Installing the virtual environment and its packages using pipenv
 Since this is an existing project, you will have to install the packages described in the `pipfile`.
@@ -53,10 +32,8 @@ Go to the interpreter menu (bottom right) and add a new interpreter.
 Go to the Virtualenv panel. Select an existing environment and set the location to the path of the project ending with `phd_1_analysis/venv`.
 Next, check whether the correct version of python and its packages are installed in the 'python interpreter' menu. the Python version will be listed at the top.
 
-* Note that when having installed new packages into the pipenv, the interpreter still needs to be updated in PyCharm/DataSpell. This can be done by typing `pipenv update` into the terminal in PyCharm/DataSpell itself.
-
 ### Using Sublime Text
-Sublime text is the program that is used to run our python experiments on the lab PC's.
+Sublime text has a lot less fuss than IDE's, so they are better suited for more experienced programmers.
 Here, we will set up a build system (interpreter) for Sublime that links directly to your project.
 
 #### Installing package control
@@ -92,6 +69,4 @@ Create a simple hello world function to see if the build file was adjusted corre
 # Happy coding!
 
 ## External links
-Additional documentation on how to install or update packages in your virtual environment [pip tutorial](https://jcutrer.com/python/pipenv-pipfile).
-[Additional documentation on pyenv and pipenv](https://www.rootstrap.com/blog/how-to-manage-your-python-projects-with-pipenv-pyenv)
 https://realpython.com/python-virtual-environments-a-primer/
