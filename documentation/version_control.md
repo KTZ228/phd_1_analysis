@@ -25,49 +25,16 @@ export PIPENV_PYTHON="$PYENV_ROOT/python"
 ```
 
 #### Installing the desired python version
-Check what version of Python is described in the pipfile found in the project folder. We will be installing the same version.
-Let's say the used Python version is 3.8.18.
+Check what version of Python is described in the venv folder. We will be installing the same version.
+Let's say the used Python version is 3.11.6.
 
-We will install it using the command: `pyenv install 3.8.18`
-To see what python versions are installed in pyenv you can type: `pyenv versions`
-
-#### Activate pyenv on startup of new terminal
-Type the following into the terminal for further instructions:
-`pyenv init`
-It probably warns you to copy something akin to the following code block into the '.zprofile' file:
-```
-export PYENV_ROOT="$HOME/.pyenv"
-command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-```
-You can find this file in the home directory (unhide using command + shift + period).
-Simply add the set of commands to the end of it and save the file.
-Any new terminal window should now be able to load the correct local and global python versions.
-
-#### Set a global python environment
-If you haven't installed python before you will need to set one as the system default.
-This can be done using: `pyenv global 3.8.18`
-Check if this is executed correctly by typing `python --version`
-* You can use any version of python installed in pyenv.
-
-#### Set a local python environment for each project
-The main reason for using this is obviously to set a python version for each project.
-This can be done using the following:
-Navigate to the project folder: `cd ~/Documents/python_tests`
-Then, set the local python environment using `pyenv local 3.8.18`
+Go to the Python website and install that version onto your PC.
+Make sure to enable `add Python 3.11.6 to the path` to ensure that the system can access this version of Python.
 
 ## Managing package versions
 
-### Pipenv
-Try this to see if (and what version of) pipenv is installed: `pipenv -h`.
 
-If not, you install it by typing the following (this is where pip comes in): `brew install pipenv`.
-
-Define python paths for pipenv (test if this is necessary):
-```
-C:\Users\<username>\AppData\Roaming\Python\Python38\Site-Packages
-C:\Users\<username>\AppData\Roaming\Python\Python38\Scripts
-```
+We use `venv` to do version control.
 
 ### Installing the virtual environment and its packages using pipenv
 Since this is an existing project, you will have to install the packages described in the `pipfile`.
@@ -83,7 +50,7 @@ These steps are the same for when you create a new project or install the packag
 Open the project first.
 Then, you will need to select the interpreter manually.
 Go to the interpreter menu (bottom right) and add a new interpreter.
-Select the pipenv environment. Use the base interpreter and leave the 'install packages from pipfile' option enabled.
+Go to the Virtualenv panel. Select an existing environment and set the location to the path of the project ending with `phd_1_analysis/venv`.
 Next, check whether the correct version of python and its packages are installed in the 'python interpreter' menu. the Python version will be listed at the top.
 
 * Note that when having installed new packages into the pipenv, the interpreter still needs to be updated in PyCharm/DataSpell. This can be done by typing `pipenv update` into the terminal in PyCharm/DataSpell itself.

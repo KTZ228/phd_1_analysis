@@ -1,0 +1,38 @@
+import os
+import glob
+
+
+def list_files_with_date_and_subject_id(file_path):
+    # Creates a list of the most recent results for each subject ID and session
+    unique_subject_ids, unique_sessions = unique_subject_ids_and_sessions(file_path)
+
+    # Temporary list of subjects and sessions
+    unique_subject_ids = [1, 2, 3, 8]
+    unique_sessions = [1]
+
+    # Loop through subject ID's and sessions and pick the most recent result for each of them
+    recent_files = []
+    for subject_id, value in enumerate(unique_subject_ids):
+        for session_number, value in enumerate(unique_sessions):
+            file_structure_filtered = os.path.join(file_path, f'*sub-{unique_subject_ids[subject_id]:003}_session-{unique_sessions[session_number]:02}*')
+            list_files_filtered = glob.glob(file_structure_filtered)
+            try:
+                recent_file = max(list_files_filtered)
+                recent_files.append(recent_file)
+            except ValueError:
+                print(f'sub-{unique_subject_ids[subject_id]:003} did not complete session-{unique_sessions[session_number]:02}')
+
+    return recent_files
+
+
+def unique_subject_ids_and_sessions(file_path):
+    # Extracts the subject ID's and sessions from the filenames
+    unique_subject_ids = set()
+    unique_sessions = set()
+    for file_name in os.listdir(file_path):
+        if "experiment_output" in file_name and ".csv" in file_name:
+            subject_id = file_name.split('_')[2]
+            unique_subject_ids.add(subject_id)
+            session_number = file_name.split('_')[3]
+            unique_sessions.add(session_number)
+    return unique_subject_ids, unique_sessions
