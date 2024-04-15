@@ -16,7 +16,7 @@ def unique_subject_ids_and_sessions(file_path):
     return unique_subject_ids, unique_sessions
 
 
-def list_files_with_date_and_subject_id(file_path):
+def list_files_with_date_and_subject_id(file_path: str) -> list:
     # Creates a list of the most recent results for each subject ID and session
     unique_subject_ids, unique_sessions = unique_subject_ids_and_sessions(file_path)
 
@@ -39,7 +39,7 @@ def list_files_with_date_and_subject_id(file_path):
     return recent_files
 
 
-def combine_result_files(recent_results):
+def combine_result_files(recent_results: list) -> pd.DataFrame:
     try:
         if not isinstance(recent_results, list) or not all(isinstance(item, str) for item in recent_results):
             raise ValueError('Input must be a list of strings')
