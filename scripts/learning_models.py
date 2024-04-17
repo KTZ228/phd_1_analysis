@@ -2,11 +2,11 @@ import numpy as np
 
 # Based on https://shawnrhoads.github.io/gu-psyc-347/module-03-01_Models-of-Learning.html
 
-# Specify the random responding model as a function
+
 def simulate_random_responders(bias: float,
                                trials: int,
                                mu: list[float]):
-    '''Model to simulate random responders with a bias towards one of two options.
+    """Model to simulate random responders with a bias towards one of two options.
 
     Parameters
     ----------
@@ -23,7 +23,7 @@ def simulate_random_responders(bias: float,
         all choices
     responses : numpy.ndarray
         all rewards
-    '''
+    """
 
     choices = np.zeros(trials, dtype=int)
     rewards = np.zeros(trials, dtype=int)
@@ -45,7 +45,7 @@ def simulate_random_responders(bias: float,
 def simulate_win_stay_lose_shift(epsilon: float,
                                  trials: int,
                                  mu_sequence: list[float]):
-    '''Model to simulate responders that base their decision to stay or shift on the previous trial only.
+    """Model to simulate responders that base their decision to stay or shift on the previous trial only.
 
     Parameters
     ----------
@@ -62,7 +62,7 @@ def simulate_win_stay_lose_shift(epsilon: float,
         all choices
     responses : numpy.ndarray
         all rewards
-    '''
+    """
 
     choices = np.zeros(trials, dtype=int)
     rewards = np.zeros(trials, dtype=int)
@@ -114,7 +114,7 @@ def simulate_rescorla_wagner(alpha,
                              trials,
                              mu_sequence,
                              noisy_choice=True):
-    '''Model to simulate responders that operate in accordance with the Rescorla-Wagner model.
+    """Model to simulate responders that operate in accordance with the Rescorla-Wagner model.
 
     Parameters
     ----------
@@ -137,13 +137,13 @@ def simulate_rescorla_wagner(alpha,
         all rewards
     Q_stored: numpy.ndarray
         not sure yet
-    '''
+    """
 
-    choices = np.zeros((trials), dtype=int)
-    responses = np.zeros((trials), dtype=int)
+    choices = np.zeros(trials, dtype=int)
+    responses = np.zeros(trials, dtype=int)
 
-    Q_stored = np.zeros((2, trials), dtype = float)
-    Q = [0.5, 0.5]
+    q_stored = np.zeros((2, trials), dtype=float)
+    q = [0.5, 0.5]
 
     for trial in range(trials):
 
@@ -152,10 +152,10 @@ def simulate_rescorla_wagner(alpha,
         mu = [round(1-mu, 1), mu]
 
         # store values for Q_{t+1}
-        Q_stored[:,trial] = Q
+        q_stored[:, trial] = q
 
         # compute choice probabilities
-        p0 = np.exp(theta*Q[0]) / (np.exp(theta*Q[0]) + np.exp(theta*Q[1]))
+        p0 = np.exp(theta*q[0]) / (np.exp(theta*q[0]) + np.exp(theta*q[1]))
         p1 = 1 - p0
 
         # make choice according to choice probabilities
@@ -167,14 +167,14 @@ def simulate_rescorla_wagner(alpha,
                 choices[trial] = 0
             else:
                 choices[trial] = 1
-        else: # make choice without noise
-            choices[trial] = np.argmax([p0,p1])
+        else:  # make choice without noise
+            choices[trial] = np.argmax([p0, p1])
 
         # generate reward based on reward probability
         responses[trial] = np.random.rand() < mu[choices[trial]]
 
         # update values
-        delta = responses[trial] - Q[choices[trial]]
-        Q[choices[trial]] = Q[choices[trial]] + alpha * delta
+        delta = responses[trial] - q[choices[trial]]
+        q[choices[trial]] = q[choices[trial]] + alpha * delta
 
-    return choices, responses, Q_stored
+    return choices, responses, q_stored
