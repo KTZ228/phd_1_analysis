@@ -222,6 +222,7 @@ $RECYCLE.BIN/
 
 # Ignore plots folder
 plots/
+pre-processed/
 
 # R specific gitignore
 
