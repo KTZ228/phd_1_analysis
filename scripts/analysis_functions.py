@@ -21,8 +21,8 @@ def list_files_with_date_and_subject_id(file_path: str) -> list:
     unique_subject_ids, unique_sessions = unique_subject_ids_and_sessions(file_path)
 
     # Temporary list of subjects and sessions, this is hardcoded so will cause issues in the future
-    unique_subject_ids = [1, 2, 3]
-    unique_sessions = [1]
+    unique_subject_ids = [999]
+    unique_sessions = [2]
 
     # Loop through subject ID's and sessions and pick the most recent result for each of them
     recent_files = []
@@ -48,7 +48,7 @@ def combine_result_files(recent_results: list) -> pd.DataFrame:
 
     combined_results_dataframe = pd.DataFrame()
     for list_number, value in enumerate(recent_results):
-        result_dataframe = pd.read_csv(recent_results[list_number])
+        result_dataframe = pd.read_csv(recent_results[list_number], sep=';')
         recent_result_basename = os.path.basename(recent_results[list_number])
         result_dataframe['subject_id'] = recent_result_basename.split('_')[2]
         result_dataframe['session'] = recent_result_basename.split('_')[3]

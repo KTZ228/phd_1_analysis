@@ -1,7 +1,7 @@
 # Styleguide
 Whenever you're working on scripts for yourself it doesn't really matter what coding style you use.
 When contributing to a shared project however, it becomes much more important to keep the coding style consistent since a lack of consistency can quickly turn it into an unreadable mess.
-If you have any suggestions on how to improve the coding style please let me know.
+If you can think of any additions for this styleguide please let me know.
 
 ## General
 - Build scripts that consist of multiple easy to understand and descriptive functions instead of one long script with your entire experiment or analysis.
@@ -17,10 +17,59 @@ If you have any suggestions on how to improve the coding style please let me kno
         - Something like `isppa_map_mni_3D_matrix`.
 
 ## Issues
-- If you find an issue, don't just work around it but either try to improve it so that it becomes more error prone or ask me (Kenneth) to do so.
+If you find an issue, don't just work around it but either try to improve it so that it becomes more error prone or ask me (Kenneth) to do so.
 
 ## Python
+
+### Overall style
 For Python, we have adopted the widely used [pep8 style](https://realpython.com/python-pep8/#whitespace-in-expressions-and-statements).
-IDE's such as PyCharm and DataSpell also give tips on how to adhere to this style.
-In addition, [articles](https://realpython.com/documenting-python-code/) about documenting your code can also help you make your code easier to read for the next intern.
-Lastly, if using docstrings, you should adhere to the NumPy format.
+IDE's such as PyCharm and DataSpell can help you adhere to this style by giving tips in the bottom panel.
+
+### Docstrings
+Docstrings are fancy version of comment blocks in the beginning of functions to explain what the function does, what input it accepts, what output and errors it can produce etc. For this project, we use to the Numpy format. An example of this is presented below:
+
+```
+
+def numpy_docstrings(num1, num2) -> int:
+    """
+    Add up two integer numbers.
+
+    This function simply wraps the ``+`` operator, and does not
+    do anything interesting, except for illustrating what
+    the docstring of a very simple function looks like.
+
+    Parameters
+    ----------
+    num1 : int
+        First number to add.
+    num2 : int
+        Second number to add.
+
+    Returns
+    -------
+    int
+        The sum of ``num1`` and ``num2``.
+
+    Raises
+    ======
+     MyException
+        if anything bad happens
+
+    See Also
+    --------
+    subtract : Subtract one integer from another.
+
+    Examples
+    --------
+    >>> add(2, 2)
+    4
+    >>> add(25, 0)
+    25
+    >>> add(10, -10)
+    0
+    """
+    return num1 + num2
+```
+
+### Documenting
+Documenting your code can only make your code easier to read. Not only for other interns but also for future you who has other things on his/her mind. [I found that this article contains great tips on documenting styles](https://realpython.com/documenting-python-code/).

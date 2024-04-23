@@ -1,0 +1,5 @@
+# Steps to create a new requirements file
+
+pip install pipreqs
+
+pipreqs '/Users/kenneth.van.der.zee/Documents/phd_1_analysis'
