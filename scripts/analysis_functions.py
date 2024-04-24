@@ -21,8 +21,8 @@ def list_files_with_date_and_subject_id(file_path: str) -> list:
     unique_subject_ids, unique_sessions = unique_subject_ids_and_sessions(file_path)
 
     # Temporary list of subjects and sessions, this is hardcoded so will cause issues in the future
-    unique_subject_ids = [999]
-    unique_sessions = [2]
+    unique_subject_ids = list(range(1, 46))#[20,27,40]
+    unique_sessions = [1]
 
     # Loop through subject ID's and sessions and pick the most recent result for each of them
     recent_files = []
