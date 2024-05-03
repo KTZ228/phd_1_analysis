@@ -1,20 +1,38 @@
 import pandas as pd
 
-def determine_WSLS(row):
+
+def determine_WSLS(row) -> (
+    int):
+    """ A simple function that accepts a row from a dataframe with the columns subjectively_correct_one_back,
+    response and response_one_back and tells you what WSLS strategy is used by participants.
+    Made to work together with the 'add_WSLS_column' function.
+
+    Parameters
+    ----------
+    row
+        A row of a dataframe.
+
+    Returns
+    -------
+    strategy: int
+        An integer describing the strategy used for that specific row.
+    """
     if (row['subjectively_correct_one_back'] == True and row['response'] == 'up' and row['response_one_back'] == 'up') or (
             row['subjectively_correct_one_back'] == True and row['response'] == 'down' and row['response_one_back'] == 'down'):
-        return 'win-stay'
+        strategy = 1 #'win-stay'
     elif (row['subjectively_correct_one_back'] == True and row['response'] == 'up' and row['response_one_back'] == 'down') or (
             row['subjectively_correct_one_back'] == True and row['response'] == 'down' and row['response_one_back'] == 'up'):
-        return 'win-shift'
+        strategy = -1 #'win-shift'
     elif (row['subjectively_correct_one_back'] == False and row['response'] == 'up' and row['response_one_back'] == 'up') or (
             row['subjectively_correct_one_back'] == False and row['response'] == 'down' and row['response_one_back'] == 'down'):
-        return 'lose-stay'
+        strategy = -1 #'lose-stay'
     elif (row['subjectively_correct_one_back'] == False and row['response'] == 'up' and row['response_one_back'] == 'down') or (
             row['subjectively_correct_one_back'] == False and row['response'] == 'down' and row['response_one_back'] == 'up'):
-        return 'lose-shift'
+        strategy = 1 #'lose-shift'
     else:
-        return 'undefined'
+        strategy = 0 #'undefined'
+
+    return strategy
 
 
 def add_WSLS_column(dataframe: pd.DataFrame) -> (

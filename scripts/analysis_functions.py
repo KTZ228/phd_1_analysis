@@ -7,7 +7,8 @@ import numpy as np
 
 def unique_subject_ids_and_sessions(file_path: str) -> (
         list, list):
-    """Extracts the subject ID's and sessions from the filenames
+    """Extracts the subject ID's and sessions from the filenames.
+    Made to work together with the 'list_files_with_date_and_subject_id' function.
 
     Parameters
     ----------
@@ -41,8 +42,8 @@ def unique_subject_ids_and_sessions(file_path: str) -> (
 
 
 def list_files_with_date_and_subject_id(file_path: str,
-                                        unique_subject_ids: list(int) = [],
-                                        unique_sessions: list(int) = []) -> (
+                                        unique_subject_ids: list = [],
+                                        unique_sessions: list = []) -> (
         list):
     """This will create a list of the most recent files of every subject and every session.
 
