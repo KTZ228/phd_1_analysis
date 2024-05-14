@@ -299,6 +299,87 @@ def trials_before_stabilisation(dataframe: pd.DataFrame,
     return results
 
 
+def bin_responses_for_congruency(dataframe: pd.DataFrame,
+                                 bin_range: list) -> (
+        pd.DataFrame):
+
+    # Replace the string responses with ints
+    mapping = {'up': 100, 'down': 0, np.NaN: -100}
+    dataframe = replace_strings_with_integers(dataframe,
+                                              mapping,
+                                              'response',
+                                              'response_int')
+
+    # In case you haven't run the separate_reversals function
+    if 'all_reversals' not in dataframe.columns:
+        dataframe = separate_reversals(dataframe)
+
+    # Order by all four of these so that the trials around a switch can be subtracted
+    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
+    dataframe = dataframe.reset_index(drop=True)
+
+    # Define the window size
+    before = min(bin_range)
+    after = max(bin_range)
+
+    # Make a list out of the indexes
+    switch_indices = dataframe.index[dataframe['all_reversals'] == 1.0].tolist()
+
+    # Initialize an empty list to collect the new rows
+    new_rows = []
+
+    # Process each switch index
+    for switch_index in switch_indices:
+        start_index = max(switch_index + before, 0)
+        end_index = min(switch_index + after + 1, len(dataframe))
+        trial_window = dataframe.iloc[start_index:end_index]
+
+        # Reset the index to create 'trials_around_switch'
+        trial_window = trial_window.reset_index(drop=True)
+        trial_window.index -= (switch_index - start_index)
+        trial_window['trials_around_switch'] = trial_window.index
+
+        # Get the first and last values of the 'congruency' column
+        first_congruency = trial_window['congruency'].iloc[0]
+        last_congruency = trial_window['congruency'].iloc[-1]
+
+        # Determine the transition string
+        if first_congruency == 'congruent' and last_congruency == 'incongruent':
+            transition = 'congruent_to_incongruent'
+        elif first_congruency == 'incongruent' and last_congruency == 'congruent':
+            transition = 'incongruent_to_congruent'
+        else:
+            transition = 'no_transition'
+
+        # Determine emotional valence string
+        stimuli_type = trial_window['stimuli_type'].iloc[0]
+
+        if stimuli_type == 1 or stimuli_type == 2:
+            emotional_valence = 'angry'
+        elif stimuli_type == 3 or stimuli_type == 4:
+            emotional_valence = 'happy'
+        else:
+            emotional_valence = 'no_emotion'
+
+        # Collect the necessary columns
+        for i, row in trial_window.iterrows():
+            new_rows.append({
+                'trials_around_switch': row['trials_around_switch'],
+                'response_int': row['response_int'],
+                'subject_id': row['subject_id'],
+                'session': row['session'],
+                'congruency': row['congruency'],
+                'stimuli_type': row['stimuli_type'],
+                'transition': transition,
+                'emotional_valence': emotional_valence
+            })
+
+    # Create a new DataFrame from the collected rows
+    result_df = pd.DataFrame(new_rows)
+
+    return result_df
+
+
 def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                                unique_subject_ids: list,
                                unique_stimuli_types: list,
