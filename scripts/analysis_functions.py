@@ -147,14 +147,27 @@ def replace_strings_with_integers(dataframe: pd.DataFrame,
 
 
 def check_congruency(row):
+    """ Functions that reads a row and sees whether the conditions are congruent or not.
+
+    Parameters
+    ----------
+    row : pd.DataFrame.row
+
+    Returns
+    -------
+    condition : str
+        A string containing the congruency condition for the given row.
+    """
     if (row['probability_condition'] == 80 and row['stimuli_type'] in [3, 4]) or (
             row['probability_condition'] == 20 and row['stimuli_type'] in [1, 2]):
-        return 'congruent'
+        condition = 'congruent'
     elif (row['probability_condition'] == 20 and row['stimuli_type'] in [3, 4]) or (
             row['probability_condition'] == 80 and row['stimuli_type'] in [1, 2]):
-        return 'incongruent'
+        condition = 'incongruent'
     else:
-        return 'undefined'
+        condition = 'undefined'
+
+    return condition
 
 
 def separate_reversals(dataframe: pd.DataFrame) -> (
@@ -204,7 +217,86 @@ def separate_reversals(dataframe: pd.DataFrame) -> (
     # Drop the working columns reversals and non_reversals
     dataframe = dataframe_without_unpredictive_blocks.drop(columns=['reversals', 'non-reversals'])
 
+    dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
+    dataframe = dataframe.reset_index(drop=True)
+
     return dataframe
+
+
+def trials_before_stabilisation(dataframe: pd.DataFrame,
+                                stability_level: int,
+                                bin_range: list,
+                                switch_value: float) -> (
+        pd.DataFrame):
+    """This function makes a new dataframe that lists all switches and how long it took to reach a stable level of responses.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        A dataframe that can already contain the 'reversals' column but does not have to.
+    stability_level : int
+        An integer that represents a percentage of objectively correct responses that should be reached before counting as a stable level.
+    bin_range : list
+        A list of the minimum and maximum value around the switch that I want to analyse.
+    switch_value : float
+        The column value indicating whether we want to look at reversals or non-reversals.
+
+    Returns
+    -------
+    dataframe : pd.DataFrame
+        A dataframe with just the participant, session and switch numbers plus the time it took since the switch.
+    """
+    # In case you haven't run the separate_reversals function
+    if 'all_reversals' not in dataframe.columns:
+        dataframe = separate_reversals(dataframe)
+
+    # Create an emtpy list to fill with results instead of appending to the dataframe for performance reasons
+    results = []
+    # Order by all four of these so that the trials around a switch can be subtracted
+    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
+    dataframe = dataframe.reset_index(drop=True)
+    # Create an object containing the indexes of all reversals
+    switches = dataframe[dataframe['all_reversals'] == switch_value].index
+
+    for index in switches:
+        subject_id = dataframe.loc[index, 'subject_id']
+        session = dataframe.loc[index, 'session']
+        stimuli_type = dataframe.loc[index, 'stimuli_type']
+        trial = dataframe.loc[index, 'trial']
+
+        # Extract subsequent trials data, limited by the bin_range
+        subsequent_data = dataframe.loc[index+min(bin_range):index+max(bin_range)]
+
+        # For some dumb reason, the Pandas developers forgot to develop the opposite of the 'expanding' function so we have to reverse it twice instead
+        reversed_dataframe = subsequent_data.iloc[::-1].reset_index(drop=True)
+
+        # Calculate the expanding mean
+        reversed_dataframe['expanding_mean'] = reversed_dataframe['objectively_correct_boolean'].expanding().mean()
+
+        # Reverse the result back to the original order
+        subsequent_data = reversed_dataframe.iloc[::-1].reset_index(drop=True)
+
+        # Compare to stability level
+        cumulative_average = subsequent_data['expanding_mean'].ge(stability_level)
+
+        # Find the first instance where the average is >= stability_level
+        if (cumulative_average == True).any():
+            stabilisation_index = cumulative_average.idxmax()
+        else:
+            stabilisation_index = max(bin_range) + 1
+
+        results.append({
+            'subject_id': subject_id,
+            'session': session,
+            'stimuli_type': stimuli_type,
+            'trial': trial,
+            'number_of_trials_before_stabilising': int(stabilisation_index)
+        })
+
+    # Only translating it into a dataframe now to optimise performance
+    results = pd.DataFrame(results)
+
+    return results
 
 
 def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
