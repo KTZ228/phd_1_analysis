@@ -1,5 +1,0 @@
-# Steps to create a new requirements file, please let me know if you had to install any new packages
-
-pip install pipreqs
-
-pipreqs '/Users/kenneth.van.der.zee/Documents/phd_1_analysis'

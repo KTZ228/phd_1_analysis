@@ -6,14 +6,13 @@ What makes this environment different from a simple list containing all packages
 This guide will explain how to install Python and the existing virtual environment for the project.
 
 ## Python installation
-Check what version of Python is described in the `venv>lib>python3.xx` folder since you will have to install the same version.
-You can find each version of Python on their site. Make sure to choose the installer.
+For this project, we are going to use Python 3.10.14. Make sure to download this exact version from the Python website.
 
-When installing with the installer, make sure to enable `add Python 3.xx.x to the path` to ensure that every part of the system can access this version of Python.
+When installing with the installer, make sure to enable `add Python 3.10.14 to the path` to ensure that every part of your computer can access this version of Python.
 
 ## Managing package versions
 You can use different packages to manage virtual environments for other projects.
-However, since we used `venv` to create and manage the virtual environment for this project, you will have to too.
+However, since I used `venv` to create and manage the virtual environment for this project, you will have to too.
 
 ### Installing this project's venv
 To do this, you first have to make a virtual environment. The steps that you have to go through are 'create it' and 'activate it', both of which are described [here](https://realpython.com/python-virtual-environments-a-primer/) for your respective OS.
@@ -23,7 +22,7 @@ After that, you can install all the dependencies of the project by telling pip t
 For some more documentation, you can check [this article](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/).
 
 ## Opening the project using PyCharm/DataSpell
-I personally prefer these compared to conda or VScode since they're made purely for Python development. Uni has licences for these products so just create an account using your uni mail.
+I personally prefer these compared to conda or VScode since they're made purely for Python development. Radboud has licences for these products so just create an account using your uni mail.
 
 We will need to complete some additional steps to ensure that these IDE's use the virtual environment instead of the global python install.
 
