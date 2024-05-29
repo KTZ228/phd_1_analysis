@@ -158,11 +158,11 @@ def check_congruency(row):
     condition : str
         A string containing the congruency condition for the given row.
     """
-    if (row['probability_condition'] == 80 and row['stimuli_type'] in [3, 4]) or (
-            row['probability_condition'] == 20 and row['stimuli_type'] in [1, 2]):
+    if (row['probability_condition'] > 50 and row['stimuli_type'] in [3, 4]) or (
+            row['probability_condition'] < 50 and row['stimuli_type'] in [1, 2]):
         condition = 'congruent'
-    elif (row['probability_condition'] == 20 and row['stimuli_type'] in [3, 4]) or (
-            row['probability_condition'] == 80 and row['stimuli_type'] in [1, 2]):
+    elif (row['probability_condition'] < 50 and row['stimuli_type'] in [3, 4]) or (
+            row['probability_condition'] > 50 and row['stimuli_type'] in [1, 2]):
         condition = 'incongruent'
     else:
         condition = 'undefined'
