@@ -170,6 +170,59 @@ def check_congruency(row):
     return condition
 
 
+def check_volatility(dataframe: pd.DataFrame) -> (
+        pd.DataFrame):
+    """ Functions that reads a row and sees whether it belongs to a block that is volatile or stable.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+
+    Returns
+    -------
+    dataframe : pd.DataFrame
+        The same dataframe containing the new column info.
+    """
+
+    # Initialize the new column with empty strings
+    dataframe['volatility'] = ''
+
+    # Sort based on stimuli_types
+    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
+    dataframe = dataframe.reset_index(drop=True)
+
+    # Variables to track the current streak
+    current_value = dataframe.loc[0, 'probability_condition']
+    start_index = 0
+
+    # Iterate over the rows of the DataFrame
+    for i in range(1, len(dataframe)):
+        if dataframe.loc[i, 'probability_condition'] != current_value:
+            # Calculate the streak length
+            streak_length = i - start_index
+
+            # Determine if the streak is 'short' or 'long'
+            label = 'volatile' if streak_length < 15 else 'stable'
+
+            # Mark the streak in the 'length' column
+            dataframe.loc[start_index:i, 'volatility'] = label
+
+            # Update the current_value and start_index for the next streak
+            current_value = dataframe.loc[i, 'probability_condition']
+            start_index = i
+
+    # Handle the last streak
+    streak_length = len(dataframe) - start_index
+    label = 'volatile' if streak_length < 15 else 'stable'
+    dataframe.loc[start_index:, 'volatility'] = label
+
+    # Reset the original order of the dataframe
+    dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
+    dataframe = dataframe.reset_index(drop=True)
+
+    return dataframe
+
+
 def separate_reversals(dataframe: pd.DataFrame) -> (
     pd.DataFrame):
     """ Function that first detects the switches and then divides them up into reversals and non-reversals
