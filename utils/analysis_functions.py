@@ -173,6 +173,7 @@ def check_congruency(row):
 def check_volatility(dataframe: pd.DataFrame) -> (
         pd.DataFrame):
     """ Functions that reads a row and sees whether it belongs to a block that is volatile or stable.
+    WARNING: the definition between a stable and volatile period is hard-coded at 15. Change is necessary.
 
     Parameters
     ----------
@@ -183,6 +184,10 @@ def check_volatility(dataframe: pd.DataFrame) -> (
     dataframe : pd.DataFrame
         The same dataframe containing the new column info.
     """
+
+    # This differentiates between a stable and volatile block
+    ## This is hardcoded which is not ideal. You'll understand how much you need to rush thing when you start a PhD.
+    stable_cutoff = 15
 
     # Initialize the new column with empty strings
     dataframe['volatility'] = ''
@@ -213,7 +218,7 @@ def check_volatility(dataframe: pd.DataFrame) -> (
 
     # Handle the last streak
     streak_length = len(dataframe) - start_index
-    label = 'volatile' if streak_length < 15 else 'stable'
+    label = 'volatile' if streak_length < stable_cutoff else 'stable'
     dataframe.loc[start_index:, 'volatility'] = label
 
     # Reset the original order of the dataframe
