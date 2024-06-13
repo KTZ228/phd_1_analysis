@@ -181,15 +181,16 @@ def check_volatility(dataframe: pd.DataFrame) -> (
 
     Returns
     -------
-    dataframe : pd.DataFrame
+    new_dataframe : pd.DataFrame
         The same dataframe containing the new column info.
     """
 
     # This differentiates between a stable and volatile block
-    ## This is hardcoded which is not ideal. You'll understand how much you need to rush thing when you start a PhD.
+    ## This is hardcoded which is not ideal. You'll understand how much you need to rush things when you start a PhD.
     stable_cutoff = 15
 
     # Initialize the new column with empty strings
+    dataframe['temp_volatility'] = ''
     dataframe['volatility'] = ''
 
     # Sort based on stimuli_types
@@ -210,16 +211,19 @@ def check_volatility(dataframe: pd.DataFrame) -> (
             label = 'volatile' if streak_length < 15 else 'stable'
 
             # Mark the streak in the 'length' column
-            dataframe.loc[start_index:i, 'volatility'] = label
+            dataframe.loc[start_index:i, 'temp_volatility'] = label
 
             # Update the current_value and start_index for the next streak
             current_value = dataframe.loc[i, 'probability_condition']
+            previous_label = dataframe.loc[max([0, start_index-1]), 'temp_volatility']
+            if previous_label != label:
+                dataframe.loc[start_index:i, 'volatility'] = previous_label
+            else:
+                dataframe.loc[start_index:i, 'volatility'] = label
             start_index = i
 
-    # Handle the last streak
-    streak_length = len(dataframe) - start_index
-    label = 'volatile' if streak_length < stable_cutoff else 'stable'
-    dataframe.loc[start_index:, 'volatility'] = label
+    # Handle the last streak, always copies the last value
+    dataframe.loc[start_index:, 'temp_volatility'] = label # still doesn't work
 
     # Reset the original order of the dataframe
     dataframe = dataframe.sort_values(by=['trial'], ascending=[True])

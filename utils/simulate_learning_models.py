@@ -62,6 +62,8 @@ def list_sequences(file_path: str,
     -------
     recent_files : list
         A list of all the most recent files of every subject and every session.
+    output_filenames : list
+        A list of the output names for the simulated data.
     """
     if unique_subject_ids is None or unique_sessions is None:
         # Creates a list of the most recent results for each subject ID and session
@@ -69,6 +71,7 @@ def list_sequences(file_path: str,
 
     # Loop through subject ID's and sessions and pick the most recent result for each of them
     recent_files = []
+    output_filenames = []
     for subject_id, value in enumerate(unique_subject_ids):
         for session_number, value in enumerate(unique_sessions):
             file_structure_filtered = os.path.join(file_path,
@@ -81,39 +84,31 @@ def list_sequences(file_path: str,
                 print(
                     f'sub-{unique_subject_ids[subject_id]:003} did not complete session-{unique_sessions[session_number]:02}')
 
-    return recent_files
+    return recent_files, output_filenames
 
 
-def combine_sequence_files(recent_results: list) -> pd.DataFrame:
-    """ This function takes a list of csv's and combines them into one big dataframe.
+def read_sequence_files(sequence_filename: str) -> pd.DataFrame:
+    """ This function simply takes the .
 
     Parameters
     ----------
-    recent_results : list
+    sequence_filename : str
         This list should contain the location of the to be imported CSV's with the full path.
         The filenames of each CSV should adhere to the format [experiment_output_sub-001_session-01*.csv].
 
     Returns
     -------
-    combined_sequences_dataframe : pd.DataFrame
-        A dataframe containing the sequences of all files listed in the folder.
+    sequence_dataframe : pd.DataFrame
+        A dataframe containing the sequence of a single subject and session.
     """
-    try:
-        if not isinstance(recent_results, list) or not all(isinstance(item, str) for item in recent_results):
-            raise ValueError('Input must be a list of strings')
-    except ValueError as error:
-        print(f'error: {error}')
 
-    combined_sequences_dataframe = pd.DataFrame()
-    for list_number, value in enumerate(recent_results):
-        result_dataframe = pd.read_csv(recent_results[list_number], sep=';')
-        recent_result_basename = os.path.basename(recent_results[list_number])
-        result_dataframe['subject_id'] = recent_result_basename.split('_')[3]
-        result_dataframe['session'] = recent_result_basename.split('_')[4].removesuffix('.csv')
-        combined_sequences_dataframe = pd.concat([combined_sequences_dataframe, result_dataframe], ignore_index=True)
+    sequence_dataframe = pd.read_csv(sequence_filename, sep=';')
+    sequence_basename = os.path.basename(sequence_filename)
+    sequence_dataframe['subject_id'] = sequence_basename.split('_')[3]
+    sequence_dataframe['session'] = sequence_basename.split('_')[4].removesuffix('.csv')
 
-    combined_sequences_dataframe.drop(columns=['iti', 'reinforcement_condition', 'face_type', 'stimuli_name'], inplace=True)
-    return combined_sequences_dataframe
+    sequence_dataframe.drop(columns=['iti', 'face_type', 'stimuli_name'], inplace=True)
+    return sequence_dataframe
 
 
 def simulate_random_responders(bias: float,
