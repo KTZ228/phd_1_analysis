@@ -170,6 +170,28 @@ def check_congruency(row):
     return condition
 
 
+def check_valence(row):
+    """ Functions that reads a row and notes the valence.
+
+    Parameters
+    ----------
+    row : pd.DataFrame.row
+
+    Returns
+    -------
+    condition : str
+        A string containing the valence for the given row.
+    """
+    if row['stimuli_type'] == 1 or row['stimuli_type'] == 2:
+        emotional_valence = 'angry'
+    elif row['stimuli_type'] == 3 or row['stimuli_type'] == 4:
+        emotional_valence = 'happy'
+    else:
+        emotional_valence = 'no_emotion'
+
+    return emotional_valence
+
+
 def check_volatility(dataframe: pd.DataFrame) -> (
         pd.DataFrame):
     """ Functions that reads a row and sees whether it belongs to a block that is volatile or stable.
@@ -181,7 +203,7 @@ def check_volatility(dataframe: pd.DataFrame) -> (
 
     Returns
     -------
-    new_dataframe : pd.DataFrame
+    dataframe : pd.DataFrame
         The same dataframe containing the new column info.
     """
 
@@ -223,7 +245,7 @@ def check_volatility(dataframe: pd.DataFrame) -> (
             start_index = i
 
     # Handle the last streak, always copies the last value
-    dataframe.loc[start_index:, 'temp_volatility'] = label # still doesn't work
+    dataframe.loc[start_index:, 'volatility'] = label
 
     # Reset the original order of the dataframe
     dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
