@@ -14,21 +14,17 @@ def determine_WSLS(row) -> (
 
     Returns
     -------
-    strategy: int
+    strategy : int
         An integer describing the strategy used for that specific row.
     """
-    if (row['subjectively_correct_one_back'] == True and row['response'] == 'up' and row['response_one_back'] == 'up') or (
-            row['subjectively_correct_one_back'] == True and row['response'] == 'down' and row['response_one_back'] == 'down'):
-        strategy = 1 #'win-stay'
-    elif (row['subjectively_correct_one_back'] == True and row['response'] == 'up' and row['response_one_back'] == 'down') or (
-            row['subjectively_correct_one_back'] == True and row['response'] == 'down' and row['response_one_back'] == 'up'):
-        strategy = -1 #'win-shift'
-    elif (row['subjectively_correct_one_back'] == False and row['response'] == 'up' and row['response_one_back'] == 'up') or (
-            row['subjectively_correct_one_back'] == False and row['response'] == 'down' and row['response_one_back'] == 'down'):
-        strategy = -1 #'lose-stay'
-    elif (row['subjectively_correct_one_back'] == False and row['response'] == 'up' and row['response_one_back'] == 'down') or (
-            row['subjectively_correct_one_back'] == False and row['response'] == 'down' and row['response_one_back'] == 'up'):
-        strategy = 1 #'lose-shift'
+    if row['subjectively_correct_one_back'] == 'True' and row['response'] == row['response_one_back']:
+        strategy = 2 #'win-stay'
+    elif row['subjectively_correct_one_back'] == 'True' and row['response'] != row['response_one_back']:
+        strategy = 1 #'win-shift'
+    elif row['subjectively_correct_one_back'] == 'False' and row['response'] == row['response_one_back']:
+        strategy = 4 #'lose-stay'
+    elif row['subjectively_correct_one_back'] == 'False' and row['response'] != row['response_one_back']:
+        strategy = 3 #'lose-shift'
     else:
         strategy = 0 #'undefined'
 
@@ -62,5 +58,7 @@ def add_WSLS_column(dataframe: pd.DataFrame) -> (
     dataframe['response_one_back'] = dataframe.groupby('stimuli_type')['response'].shift(1)
 
     dataframe['WSLS'] = dataframe.apply(determine_WSLS, axis=1)
+
+    dataframe.drop(columns=['subjectively_correct_one_back', 'response_one_back'], inplace=True)
 
     return dataframe

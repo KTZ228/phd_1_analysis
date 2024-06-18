@@ -192,18 +192,18 @@ def check_valence(row):
     return emotional_valence
 
 
-def check_volatility(dataframe: pd.DataFrame) -> (
+def check_volatility(group: pd.DataFrame) -> (
         pd.DataFrame):
     """ Functions that reads a row and sees whether it belongs to a block that is volatile or stable.
     WARNING: the definition between a stable and volatile period is hard-coded at 15. Change is necessary.
 
     Parameters
     ----------
-    dataframe : pd.DataFrame
+    group : pd.DataFrame
 
     Returns
     -------
-    dataframe : pd.DataFrame
+    group : pd.DataFrame
         The same dataframe containing the new column info.
     """
 
@@ -212,20 +212,20 @@ def check_volatility(dataframe: pd.DataFrame) -> (
     stable_cutoff = 15
 
     # Initialize the new column with empty strings
-    dataframe['temp_volatility'] = ''
-    dataframe['volatility'] = ''
+    group['temp_volatility'] = ''
+    group['volatility'] = ''
 
     # Sort based on stimuli_types
-    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
-    dataframe = dataframe.reset_index(drop=True)
+    group = group.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
+    group = group.reset_index(drop=True)
 
     # Variables to track the current streak
-    current_value = dataframe.loc[0, 'probability_condition']
+    current_value = group.loc[0, 'probability_condition']
     start_index = 0
 
-    # Iterate over the rows of the DataFrame
-    for i in range(1, len(dataframe)):
-        if dataframe.loc[i, 'probability_condition'] != current_value:
+    # Iterate over the rows of the group
+    for i in range(1, len(group)):
+        if group.loc[i, 'probability_condition'] != current_value:
             # Calculate the streak length
             streak_length = i - start_index
 
@@ -233,25 +233,33 @@ def check_volatility(dataframe: pd.DataFrame) -> (
             label = 'volatile' if streak_length < 15 else 'stable'
 
             # Mark the streak in the 'length' column
-            dataframe.loc[start_index:i, 'temp_volatility'] = label
+            group.loc[start_index:i, 'temp_volatility'] = label
 
             # Update the current_value and start_index for the next streak
-            current_value = dataframe.loc[i, 'probability_condition']
-            previous_label = dataframe.loc[max([0, start_index-1]), 'temp_volatility']
+            current_value = group.loc[i, 'probability_condition']
+            previous_label = group.loc[max([0, start_index-1]), 'temp_volatility']
             if previous_label != label:
-                dataframe.loc[start_index:i, 'volatility'] = previous_label
+                group.loc[start_index:i, 'volatility'] = previous_label
             else:
-                dataframe.loc[start_index:i, 'volatility'] = label
+                group.loc[start_index:i, 'volatility'] = label
             start_index = i
 
     # Handle the last streak, always copies the last value
-    dataframe.loc[start_index:, 'volatility'] = label
+    group.loc[start_index:, 'volatility'] = label
 
-    # Reset the original order of the dataframe
-    dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
-    dataframe = dataframe.reset_index(drop=True)
+    # Reset the original order of the group
+    group = group.sort_values(by=['trial'], ascending=[True])
+    group = group.reset_index(drop=True)
 
-    return dataframe
+    # Find the index where the value switches
+    switch_index = group['probability_condition'].diff().ne(0)#.idxmax()
+    true_indices = switch_index[switch_index].index.tolist()
+    if len(true_indices) > 1:
+        second_true_index = true_indices[1]
+    else:
+        second_true_index = None
+    # Slice the group from the switch point
+    return group.iloc[second_true_index:]
 
 
 def separate_reversals(dataframe: pd.DataFrame) -> (
