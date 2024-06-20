@@ -59,6 +59,9 @@ def add_WSLS_column(dataframe: pd.DataFrame) -> (
 
     dataframe['WSLS'] = dataframe.apply(determine_WSLS, axis=1)
 
+    test_dataframe = dataframe.sort_values(by=['WSLS'], ascending=[True])
+    print(test_dataframe[['subjectively_correct_one_back', 'response_one_back', 'response', 'WSLS']])
+
     dataframe.drop(columns=['subjectively_correct_one_back', 'response_one_back'], inplace=True)
 
     return dataframe
