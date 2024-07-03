@@ -160,10 +160,10 @@ def check_congruency(row):
     """
     if (row['probability_condition'] > 50 and row['stimuli_type'] in [3, 4]) or (
             row['probability_condition'] < 50 and row['stimuli_type'] in [1, 2]):
-        condition = 'congruent'
+        condition = 'incongruent'
     elif (row['probability_condition'] < 50 and row['stimuli_type'] in [3, 4]) or (
             row['probability_condition'] > 50 and row['stimuli_type'] in [1, 2]):
-        condition = 'incongruent'
+        condition = 'congruent'
     else:
         condition = 'undefined'
 
