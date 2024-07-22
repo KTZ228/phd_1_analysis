@@ -17,13 +17,16 @@ def determine_WSLS(row) -> (
     strategy : int
         An integer describing the strategy used for that specific row.
     """
-    if row['subjectively_correct_one_back'] == 'True' and row['response'] == row['response_one_back']:
+    subjectively_correct_one_back = bool(row['subjectively_correct_one_back'])
+    subjectively_correct_one_back = row['subjectively_correct_one_back']
+
+    if subjectively_correct_one_back == 'True' and row['response'] == row['response_one_back']:
         strategy = 2 #'win-stay'
-    elif row['subjectively_correct_one_back'] == 'True' and row['response'] != row['response_one_back']:
+    elif subjectively_correct_one_back == 'True' and row['response'] != row['response_one_back']:
         strategy = 1 #'win-shift'
-    elif row['subjectively_correct_one_back'] == 'False' and row['response'] == row['response_one_back']:
+    elif subjectively_correct_one_back == 'False' and row['response'] == row['response_one_back']:
         strategy = 4 #'lose-stay'
-    elif row['subjectively_correct_one_back'] == 'False' and row['response'] != row['response_one_back']:
+    elif subjectively_correct_one_back == 'False' and row['response'] != row['response_one_back']:
         strategy = 3 #'lose-shift'
     else:
         strategy = 0 #'undefined'
@@ -60,7 +63,7 @@ def add_WSLS_column(dataframe: pd.DataFrame) -> (
     dataframe['WSLS'] = dataframe.apply(determine_WSLS, axis=1)
 
     test_dataframe = dataframe.sort_values(by=['WSLS'], ascending=[True])
-    print(test_dataframe[['subjectively_correct_one_back', 'response_one_back', 'response', 'WSLS']])
+    print(test_dataframe[['subject_id', 'session', 'stimuli_type', 'trial', 'subjectively_correct_one_back', 'response_one_back', 'response', 'WSLS']])
 
     dataframe.drop(columns=['subjectively_correct_one_back', 'response_one_back'], inplace=True)
 
@@ -126,7 +129,7 @@ def add_CSIS_column(dataframe: pd.DataFrame) -> (
     dataframe['CSIS'] = dataframe.apply(determine_CSIS, axis=1)
 
     #test_dataframe = dataframe.sort_values(by=['CSIS'], ascending=[True])
-    print(dataframe[['subject_id', 'session', 'stimuli_type', 'trial', 'congruency_one_back', 'response_one_back', 'response', 'CSIS']])
+    #print(dataframe[['subject_id', 'session', 'stimuli_type', 'trial', 'congruency_one_back', 'response_one_back', 'response', 'CSIS']])
 
     dataframe.drop(columns=['congruency_one_back', 'response_one_back'], inplace=True)
 

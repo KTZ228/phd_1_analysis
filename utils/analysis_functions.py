@@ -192,18 +192,18 @@ def check_valence(row):
     return emotional_valence
 
 
-def check_volatility(group: pd.DataFrame) -> (
+def check_volatility(dataframe: pd.DataFrame) -> (
         pd.DataFrame):
     """ Functions that reads a row and sees whether it belongs to a block that is volatile or stable.
     WARNING: the definition between a stable and volatile period is hard-coded at 15. Change is necessary.
 
     Parameters
     ----------
-    group : pd.DataFrame
+    dataframe : pd.DataFrame
 
     Returns
     -------
-    group : pd.DataFrame
+    dataframe : pd.DataFrame
         The same dataframe containing the new column info.
     """
 
@@ -212,54 +212,54 @@ def check_volatility(group: pd.DataFrame) -> (
     stable_cutoff = 15
 
     # Initialize the new column with empty strings
-    group['temp_volatility'] = ''
-    group['volatility'] = ''
+    dataframe['temp_volatility'] = ''
+    dataframe['volatility'] = ''
 
     # Sort based on stimuli_types
-    group = group.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
-    group = group.reset_index(drop=True)
+    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
+    dataframe = dataframe.reset_index(drop=True)
 
     # Variables to track the current streak
-    current_value = group.loc[0, 'probability_condition']
+    current_value = dataframe.loc[0, 'probability_condition']
     start_index = 0
 
-    # Iterate over the rows of the group
-    for i in range(1, len(group)):
-        if group.loc[i, 'probability_condition'] != current_value:
+    # Iterate over the rows of the dataframe
+    for index, value in enumerate(dataframe['probability_condition']):
+        if dataframe.loc[index, 'probability_condition'] != current_value:
             # Calculate the streak length
-            streak_length = i - start_index
+            streak_length = index - start_index
 
             # Determine if the streak is 'short' or 'long'
             label = 'volatile' if streak_length < 15 else 'stable'
 
             # Mark the streak in the 'length' column
-            group.loc[start_index:i, 'temp_volatility'] = label
+            dataframe.loc[start_index:index, 'temp_volatility'] = label
 
             # Update the current_value and start_index for the next streak
-            current_value = group.loc[i, 'probability_condition']
-            previous_label = group.loc[max([0, start_index-1]), 'temp_volatility']
+            current_value = dataframe.loc[index, 'probability_condition']
+            previous_label = dataframe.loc[max([0, start_index-1]), 'temp_volatility']
             if previous_label != label:
-                group.loc[start_index:i, 'volatility'] = previous_label
+                dataframe.loc[start_index:index, 'volatility'] = previous_label
             else:
-                group.loc[start_index:i, 'volatility'] = label
-            start_index = i
+                dataframe.loc[start_index:index, 'volatility'] = label
+            start_index = index
 
     # Handle the last streak, always copies the last value
-    group.loc[start_index:, 'volatility'] = label
+    dataframe.loc[start_index:, 'volatility'] = label
 
-    # Reset the original order of the group
-    group = group.sort_values(by=['trial'], ascending=[True])
-    group = group.reset_index(drop=True)
+    # Reset the original order of the dataframe
+    dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
+    dataframe = dataframe.reset_index(drop=True)
 
     # Find the index where the value switches
-    switch_index = group['probability_condition'].diff().ne(0)#.idxmax()
+    switch_index = dataframe['probability_condition'].diff().ne(0)#.idxmax()
     true_indices = switch_index[switch_index].index.tolist()
     if len(true_indices) > 1:
         second_true_index = true_indices[1]
     else:
         second_true_index = None
-    # Slice the group from the switch point
-    return group.iloc[second_true_index:]
+    # Slice the dataframe from the switch point
+    return dataframe.iloc[second_true_index:]
 
 
 def separate_reversals(dataframe: pd.DataFrame) -> (
@@ -392,7 +392,8 @@ def trials_before_stabilisation(dataframe: pd.DataFrame,
 
 
 def bin_responses_for_congruency(dataframe: pd.DataFrame,
-                                 bin_range: list) -> (
+                                 bin_range: list,
+                                 grouping_factor: str = 'stimuli_type') -> (
         pd.DataFrame):
 
     # Replace the string responses with ints
@@ -416,6 +417,7 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
 
     # Make a list out of the indexes
     switch_indices = dataframe.index[dataframe['all_reversals'] == 1.0].tolist()
+    print(switch_indices)
 
     # Initialize an empty list to collect the new rows
     new_rows = []
@@ -443,28 +445,53 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
         else:
             transition = 'no_transition'
 
-        # Determine emotional valence string
-        stimuli_type = trial_window['stimuli_type'].iloc[0]
+        match grouping_factor:
+            case 'stimuli_type':
+                # Determine emotional valence string
+                stimuli_type = trial_window['stimuli_type'].iloc[0]
 
-        if stimuli_type == 1 or stimuli_type == 2:
-            emotional_valence = 'angry'
-        elif stimuli_type == 3 or stimuli_type == 4:
-            emotional_valence = 'happy'
-        else:
-            emotional_valence = 'no_emotion'
+                if stimuli_type == 1 or stimuli_type == 2:
+                    emotional_valence = 'angry'
+                elif stimuli_type == 3 or stimuli_type == 4:
+                    emotional_valence = 'happy'
+                else:
+                    emotional_valence = 'no_emotion'
 
-        # Collect the necessary columns
-        for i, row in trial_window.iterrows():
-            new_rows.append({
-                'trials_around_switch': row['trials_around_switch'],
-                'response_int': row['response_int'],
-                'subject_id': row['subject_id'],
-                'session': row['session'],
-                'congruency': row['congruency'],
-                'stimuli_type': row['stimuli_type'],
-                'transition': transition,
-                'emotional_valence': emotional_valence
-            })
+                # Collect the necessary columns
+                for i, row in trial_window.iterrows():
+                    new_rows.append({
+                        'trials_around_switch': row['trials_around_switch'],
+                        'response_int': row['response_int'],
+                        'subject_id': row['subject_id'],
+                        'session': row['session'],
+                        'congruency': row['congruency'],
+                        'stimuli_type': row['stimuli_type'],
+                        'transition': transition,
+                        'emotional_valence': emotional_valence
+                    })
+            case 'volatility':
+                # Determine emotional valence string
+                volatility = trial_window['volatility'].iloc[0]
+
+                if volatility == 'stable':
+                    volatility = 'stable'
+                elif volatility == 'volatile':
+                    volatility = 'volatile'
+                else:
+                    volatility = 'no_emotion'
+
+                # Collect the necessary columns
+                for i, row in trial_window.iterrows():
+                    new_rows.append({
+                        'trials_around_switch': row['trials_around_switch'],
+                        'response_int': row['response_int'],
+                        'subject_id': row['subject_id'],
+                        'session': row['session'],
+                        'congruency': row['congruency'],
+                        'stimuli_type': row['stimuli_type'],
+                        'transition': transition,
+                        'volatility': volatility
+                    })
 
     # Create a new DataFrame from the collected rows
     result_df = pd.DataFrame(new_rows)
@@ -480,7 +507,7 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                                mapping: dict = None) -> (
         pd.DataFrame):
     if bin_range is None:
-        bin_range = [0, 12]
+        bin_range = [0, 10]
     switches_all_stimuli_types = pd.DataFrame()
 
     if additional_grouping_factor == 'False':
