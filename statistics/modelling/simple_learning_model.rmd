@@ -1,0 +1,27 @@
+---
+title: "Simple learning model"
+output: html_document
+---
+
+This is a first attempt at a pipeline to run learning models on the data of phd_task_1.
+
+```{r}
+library('rstan')
+
+```
+
+R-Stan options
+```{r}
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+```
+
+```{r}
+schools_dat <- list(J = 8, 
+                    y = c(28,  8, -3,  7, -1,  1, 18, 12),
+                    sigma = c(15, 10, 16, 11,  9, 11, 10, 18))
+```
+
+```{r}
+fit <- stan(file = 'schools.stan', data = schools_dat)
+```

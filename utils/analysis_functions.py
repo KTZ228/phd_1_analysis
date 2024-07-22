@@ -146,7 +146,8 @@ def replace_strings_with_integers(dataframe: pd.DataFrame,
     return dataframe
 
 
-def check_congruency(row):
+def check_congruency(row,
+                     binary_output: bool = False):
     """ Functions that reads a row and sees whether the conditions are congruent or not.
 
     Parameters
@@ -160,17 +161,27 @@ def check_congruency(row):
     """
     if (row['probability_condition'] > 50 and row['stimuli_type'] in [3, 4]) or (
             row['probability_condition'] < 50 and row['stimuli_type'] in [1, 2]):
-        condition = 'incongruent'
+        if binary_output is True:
+            condition = -1
+        else:
+            condition = 'incongruent'
     elif (row['probability_condition'] < 50 and row['stimuli_type'] in [3, 4]) or (
             row['probability_condition'] > 50 and row['stimuli_type'] in [1, 2]):
-        condition = 'congruent'
+        if binary_output is True:
+            condition = 1
+        else:
+            condition = 'congruent'
     else:
-        condition = 'undefined'
+        if binary_output is True:
+            condition = 0
+        else:
+            condition = 'undefined'
 
     return condition
 
 
-def check_valence(row):
+def check_valence(row,
+                  binary_output: bool = False):
     """ Functions that reads a row and notes the valence.
 
     Parameters
@@ -183,16 +194,26 @@ def check_valence(row):
         A string containing the valence for the given row.
     """
     if row['stimuli_type'] == 1 or row['stimuli_type'] == 2:
-        emotional_valence = 'angry'
+        if binary_output is True:
+            emotional_valence = -1
+        else:
+            emotional_valence = 'angry'
     elif row['stimuli_type'] == 3 or row['stimuli_type'] == 4:
-        emotional_valence = 'happy'
+        if binary_output is True:
+            emotional_valence = 1
+        else:
+            emotional_valence = 'happy'
     else:
-        emotional_valence = 'no_emotion'
+        if binary_output is True:
+            emotional_valence = 0
+        else:
+            emotional_valence = 'no_emotion'
 
     return emotional_valence
 
 
-def check_volatility(dataframe: pd.DataFrame) -> (
+def check_volatility(dataframe: pd.DataFrame,
+                     binary_output: bool = False) -> (
         pd.DataFrame):
     """ Functions that reads a row and sees whether it belongs to a block that is volatile or stable.
     WARNING: the definition between a stable and volatile period is hard-coded at 15. Change is necessary.
@@ -230,7 +251,10 @@ def check_volatility(dataframe: pd.DataFrame) -> (
             streak_length = index - start_index
 
             # Determine if the streak is 'short' or 'long'
-            label = 'volatile' if streak_length < 15 else 'stable'
+            if binary_output is True:
+                label = -1 if streak_length < 15 else 1
+            else:
+                label = 'volatile' if streak_length < 15 else 'stable'
 
             # Mark the streak in the 'length' column
             dataframe.loc[start_index:index, 'temp_volatility'] = label
