@@ -162,7 +162,7 @@ def check_congruency(row,
     if (row['probability_condition'] > 50 and row['stimuli_type'] in [3, 4]) or (
             row['probability_condition'] < 50 and row['stimuli_type'] in [1, 2]):
         if binary_output is True:
-            condition = -1
+            condition = 0
         else:
             condition = 'incongruent'
     elif (row['probability_condition'] < 50 and row['stimuli_type'] in [3, 4]) or (
@@ -173,7 +173,7 @@ def check_congruency(row,
             condition = 'congruent'
     else:
         if binary_output is True:
-            condition = 0
+            condition = -1
         else:
             condition = 'undefined'
 
@@ -195,7 +195,7 @@ def check_valence(row,
     """
     if row['stimuli_type'] == 1 or row['stimuli_type'] == 2:
         if binary_output is True:
-            emotional_valence = -1
+            emotional_valence = 0
         else:
             emotional_valence = 'angry'
     elif row['stimuli_type'] == 3 or row['stimuli_type'] == 4:
@@ -205,7 +205,7 @@ def check_valence(row,
             emotional_valence = 'happy'
     else:
         if binary_output is True:
-            emotional_valence = 0
+            emotional_valence = -1
         else:
             emotional_valence = 'no_emotion'
 
@@ -252,7 +252,7 @@ def check_volatility(dataframe: pd.DataFrame,
 
             # Determine if the streak is 'short' or 'long'
             if binary_output is True:
-                label = -1 if streak_length < 15 else 1
+                label = 0 if streak_length < 15 else 1
             else:
                 label = 'volatile' if streak_length < 15 else 'stable'
 

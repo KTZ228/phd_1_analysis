@@ -7,7 +7,7 @@ data {
   int<lower=1> ns; // subject number
   int<lower=1> nt; // trial number
   int<lower=1, upper=4> cue[ns, nt]; // cue type
-  int<lower=0, upper=3> choice[ns, nt]; // choice data  1 for no go response, 2 for go response
+  int<lower=0, upper=3> choice[ns, nt]; // choice data 1 for no go response, 2 for go response
   int<lower=-1, upper=1> val[ns,nt]; // valence of the stimulus, 1 for reward, -1 for punishment
   real outcome[ns, nt]; // outcome for each action
 }
@@ -58,7 +58,7 @@ transformed parameters {
 
     // trial loop
     for (t in 1:nt) {
-      // caluclate action weight for go and no go action
+      // calculate action weight for go and no go action
       wv_g[cue[i, t]]  = qv_g[cue[i, t]] + bias[i] + pi_[i] * val[i,t];
       wv_ng[cue[i, t]] = qv_ng[cue[i, t]];
       pGo   = inv_logit(tau[i]*(wv_g[cue[i, t]] - wv_ng[cue[i, t]]));
