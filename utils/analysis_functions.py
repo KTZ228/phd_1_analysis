@@ -252,7 +252,7 @@ def check_volatility(dataframe: pd.DataFrame,
 
             # Determine if the streak is 'short' or 'long'
             if binary_output is True:
-                label = 0 if streak_length < 15 else 1
+                label = 1 if streak_length < 15 else 0
             else:
                 label = 'volatile' if streak_length < 15 else 'stable'
 
@@ -528,7 +528,8 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                                unique_stimuli_types: list,
                                additional_grouping_factor: str = 'False',
                                bin_range: list = None,
-                               mapping: dict = None) -> (
+                               mapping: dict = None,
+                               separate_congruency: bool = False) -> (
         pd.DataFrame):
     if bin_range is None:
         bin_range = [0, 10]
@@ -567,44 +568,88 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
         except KeyError as error:
             print(f'error: {error}')
 
-        for index_stimuli in unique_stimuli_types:
-            for index_subject_id in unique_subject_ids:
-                dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
-                                                         (input_dataframe['subject_id'] == index_subject_id)]
+        if separate_congruency is True:
+            for index_stimuli in unique_stimuli_types:
+                for index_subject_id in unique_subject_ids:
+                    dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
+                                                             (input_dataframe['subject_id'] == index_subject_id)]
 
-                # Add column that notes if a switch occurred recently
-                dataframe_single_group['switch'] = dataframe_single_group['probability_condition'].diff().ne(0)
+                    # Add column that notes if a switch occurred recently
+                    dataframe_single_group['switch'] = dataframe_single_group['probability_condition'].diff().ne(0)
 
-                # Filter out trials with 50% reward probability
-                dataframe_for_switches = dataframe_single_group
-                dataframe_for_switches = dataframe_for_switches.drop(dataframe_for_switches
-                                                                     [(
-                                                                              dataframe_for_switches.probability_condition == 50) |
-                                                                      (
-                                                                              dataframe_for_switches.objectively_correct == 'Late')].index,
-                                                                     inplace=False)
+                    # Filter out trials with 50% reward probability
+                    dataframe_for_switches = dataframe_single_group
+                    dataframe_for_switches = dataframe_for_switches.drop(dataframe_for_switches
+                                                                         [(
+                                                                                  dataframe_for_switches.probability_condition == 50) |
+                                                                          (
+                                                                                  dataframe_for_switches.objectively_correct == 'Late')].index,
+                                                                         inplace=False)
 
-                unique_groups = dataframe_for_switches[additional_grouping_factor].unique()
+                    unique_groups = dataframe_for_switches[additional_grouping_factor].unique()
+                    unique_congruency_groups = dataframe_for_switches['congruency'].unique()
 
-                for index_grouping_factor in unique_groups:
-                    dataframe_grouping_factor = dataframe_for_switches[
-                        (dataframe_for_switches[additional_grouping_factor] == index_grouping_factor)]
-                    dataframe_grouping_factor = dataframe_grouping_factor.reset_index(drop=True)
+                    for index_congruency in unique_congruency_groups:
+                        for index_grouping_factor in unique_groups:
+                            dataframe_grouping_factor = dataframe_for_switches[
+                                (dataframe_for_switches[additional_grouping_factor] == index_grouping_factor) |
+                                (dataframe_for_switches['congruency'] == index_congruency)]
+                            dataframe_grouping_factor = dataframe_grouping_factor.reset_index(drop=True)
 
-                    # Add switches to a list
-                    switches_per_group = dataframe_grouping_factor.index[
-                        dataframe_grouping_factor['switch'] == True].tolist()
+                            # Add switches to a list
+                            switches_per_group = dataframe_grouping_factor.index[
+                                dataframe_grouping_factor['switch'] == True].tolist()
 
-                    for index_switches, values in enumerate(switches_per_group):
-                        switches_dataframe = dataframe_grouping_factor.iloc[
-                                             values + min(bin_range):values + max(bin_range) + 1]
-                        bin_around_switch = [index_subject_id, index_stimuli, index_grouping_factor]
-                        bin_around_switch.extend(switches_dataframe['objectively_correct_boolean'].tolist())
-                        bin_around_switch_dataframe = pd.DataFrame([bin_around_switch])
-                        switches_all_stimuli_types = pd.concat(
-                            [switches_all_stimuli_types, bin_around_switch_dataframe])
+                            for index_switches, values in enumerate(switches_per_group):
+                                switches_dataframe = dataframe_grouping_factor.iloc[
+                                                     values + min(bin_range):values + max(bin_range) + 1]
+                                bin_around_switch = [index_subject_id, index_stimuli, index_congruency, index_grouping_factor]
+                                bin_around_switch.extend(switches_dataframe['objectively_correct_boolean'].tolist())
+                                bin_around_switch_dataframe = pd.DataFrame([bin_around_switch])
+                                switches_all_stimuli_types = pd.concat(
+                                    [switches_all_stimuli_types, bin_around_switch_dataframe])
 
-        switches_all_stimuli_types.rename(mapping, axis=1, inplace=True)
+            switches_all_stimuli_types.rename(mapping, axis=1, inplace=True)
+
+        else:
+            for index_stimuli in unique_stimuli_types:
+                for index_subject_id in unique_subject_ids:
+                    dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
+                                                             (input_dataframe['subject_id'] == index_subject_id)]
+
+                    # Add column that notes if a switch occurred recently
+                    dataframe_single_group['switch'] = dataframe_single_group['probability_condition'].diff().ne(0)
+
+                    # Filter out trials with 50% reward probability
+                    dataframe_for_switches = dataframe_single_group
+                    dataframe_for_switches = dataframe_for_switches.drop(dataframe_for_switches
+                                                                         [(
+                                                                                  dataframe_for_switches.probability_condition == 50) |
+                                                                          (
+                                                                                  dataframe_for_switches.objectively_correct == 'Late')].index,
+                                                                         inplace=False)
+
+                    unique_groups = dataframe_for_switches[additional_grouping_factor].unique()
+
+                    for index_grouping_factor in unique_groups:
+                        dataframe_grouping_factor = dataframe_for_switches[
+                            (dataframe_for_switches[additional_grouping_factor] == index_grouping_factor)]
+                        dataframe_grouping_factor = dataframe_grouping_factor.reset_index(drop=True)
+
+                        # Add switches to a list
+                        switches_per_group = dataframe_grouping_factor.index[
+                            dataframe_grouping_factor['switch'] == True].tolist()
+
+                        for index_switches, values in enumerate(switches_per_group):
+                            switches_dataframe = dataframe_grouping_factor.iloc[
+                                                 values + min(bin_range):values + max(bin_range) + 1]
+                            bin_around_switch = [index_subject_id, index_stimuli, index_grouping_factor]
+                            bin_around_switch.extend(switches_dataframe['objectively_correct_boolean'].tolist())
+                            bin_around_switch_dataframe = pd.DataFrame([bin_around_switch])
+                            switches_all_stimuli_types = pd.concat(
+                                [switches_all_stimuli_types, bin_around_switch_dataframe])
+
+            switches_all_stimuli_types.rename(mapping, axis=1, inplace=True)
 
     switches_all_stimuli_types = switches_all_stimuli_types.reset_index(drop=True)
     return switches_all_stimuli_types

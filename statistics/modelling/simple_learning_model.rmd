@@ -1,87 +1,78 @@
 ---
-title: "Simple learning model"
-output: html_document
+title: "AmydACC learning rate model"
+author: Kenneth van der Zee
+date: July 29, 2024
+output:
+  pdf_document:
+    number_sections: true
+    fig_caption: true
 ---
 
-This is a first attempt at a pipeline to run learning models on the data of phd_task_1.
+# Import libraries
 
 ```{r}
-library('rstan')
+rm(list = ls()) # Empty up the environment
 
+library('rstan')
+library('glue')
 ```
 
-R-Stan options
+# R-Stan options
+
 ```{r}
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 ```
 
+# Import to be used dataset
+
 ```{r}
-AmydACC_data <- read.csv('/Users/kenneth.van.der.zee/Documents/phd_1_analysis/pre-processed/modelling_data/combined_dataframe_binary.csv', sep = ';')
+amydacc_data <- read.csv('/Users/kenneth.van.der.zee/Documents/phd_1_analysis/pre-processed/modelling_data/combined_dataframe_binary.csv', sep = ';')
+
+names(amydacc_data)[names(amydacc_data) == 'trial'] <- 'N'
 ```
-
-# Prepare stan data
-```{r}
-# To be used dataset
-AmydACC_test_data <- subset(AmydACC_data)
-names(AmydACC_test_data)[names(AmydACC_test_data) == 'trial'] <- 'N'
-
-# Prepare data for stan
-stan_data_amydacc <- list(
-  N = nrow(AmydACC_test_data),
-  S = length(unique(AmydACC_test_data$subject_id)),
-  subject_id = as.integer(AmydACC_test_data$subject_id - min(AmydACC_test_data$subject_id) + 1),
-  subjectively_correct_int = AmydACC_test_data$subjectively_correct_int,
-  objectively_correct_int = AmydACC_test_data$objectively_correct_int,
-  stimuli_type = AmydACC_test_data$valence
-)
-
-```
-
-```{r}
-# Example data
-data <- data.frame(
-  trial = 1:10,
-  subjectively_correct_int = c(0, 1, 0, 1, 1, 0, 1, 1, 0, 1),
-  objectively_correct_int = c(0, 1, 0, 1, 0, 0, 1, 1, 0, 1),
-  stimuli_type = c(1, 1, 3, 3, 1, 1, 3, 3, 1, 3),
-  subject_id = c(901, 902, 903, 904, 905, 906, 907, 908, 909, 910)
-)
 
 # Prepare data for Stan
-stan_data <- list(
-  N = nrow(data),
-  S = length(unique(data$subject_id)),
-  subject_id = as.integer(data$subject_id - min(data$subject_id) + 1),
-  subjectively_correct_int = data$subjectively_correct_int,
-  objectively_correct_int = data$objectively_correct_int,
-  stimuli_type = data$stimuli_type
-)
-```
 
 ```{r}
-fit <- stan(file = 'AmydACC_model_1.stan', data = stan_data_amydacc)
+data_formatted_for_stan <- list(
+  N = nrow(amydacc_data),
+  S = length(unique(amydacc_data$subject_id)),
+  subject_id = as.integer(amydacc_data$subject_id - min(amydacc_data$subject_id) + 1), # This is to ensure that all subject_id's start at 1
+  subjectively_correct_int = amydacc_data$subjectively_correct_int,
+  stimuli_type = amydacc_data$stimuli_type,
+  volatility = amydacc_data$volatility,
+  response_int = amydacc_data$response_int
+)
+
 ```
+
+# Run through model
+
+```{r}
+fit <- stan(file = 'AmydACC_model_2.stan', data = data_formatted_for_stan, iter = 10000, chains = 4) # 50000 is ideal
+```
+
+# Print raw model results
 
 ```{r}
 print(fit)
 ```
 
+# Average the model learning rates
+
 ```{r}
 # Extract samples
-samples <- extract(fit)
+fit_summary <- summary(fit)
+summary_df <- as.data.frame(fit_summary$summary)
 
-# Calculate the average learning rates and initial expected values across subjects
-mean_alpha0 <- mean(samples$alpha0)
-mean_alpha1 <- mean(samples$alpha1)
-mean_V1_type1 <- mean(samples$V1_type1)
-mean_V1_type3 <- mean(samples$V1_type3)
+alpha0_mu <- summary_df["alpha0_mu", "mean"]
+alpha1_mu <- summary_df["alpha1_mu", "mean"]
+
 
 # Print the averages
-cat("Average learning rate for stimulus type 1:", mean_alpha0, "\n")
-cat("Average learning rate for stimulus type 3:", mean_alpha1, "\n")
-cat("Average initial expected value for stimulus type 1:", mean_V1_type1, "\n")
-cat("Average initial expected value for stimulus type 3:", mean_V1_type3, "\n")
+glue('Average learning rate for the stable blocks is {plogis(alpha0_mu)}\n')
+glue('Average learning rate for the volatile blocks is {plogis(alpha0_mu+alpha1_mu)}') # check whether they should be added up or not
 ```
 
 ```{r}
