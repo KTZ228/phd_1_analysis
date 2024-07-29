@@ -3,8 +3,8 @@ data {
   int<lower=0> S; // Number of subjects
   int<lower=1,upper=S> subject_id[N]; // Subject identifiers
   int<lower=0,upper=1> subjectively_correct_int[N]; // Subjective feedback (0 or 1)
-  int<lower=0,upper=1> objectively_correct_int[N]; // Objective performance (0 or 1)
   int<lower=0,upper=1> stimuli_type[N]; // stimuli type (1 or 3)
+  int<lower=0,upper=1> response_int[N]; // the response given by the participant
 }
 
 parameters {
@@ -15,6 +15,16 @@ parameters {
 }
 
 transformed parameters {
+  vector<lower=0, upper=1>[S] alpha;
+  vector<lower=-mu_pr[2]/sigma[2]>[S] tau;
+  vector[ns] ep;
+  matrix[ns,nt] utility;
+  
+  //matt-trick
+  alpha = inv_logit(mu_pr[1] + sigma[1] * alpha_raw);
+  tau = mu_pr[2] + sigma[2] * tau_raw;
+  ep = inv_logit(mu_pr[3] + sigma[3] * ep_raw);
+  
   real V_type1[N]; // Expected values for stimulus type 1
   real V_type3[N]; // Expected values for stimulus type 3
   
@@ -56,9 +66,9 @@ model {
   // Likelihood
   for (t in 1:N) {
     if (stimuli_type[t] == 0) {
-      subjectively_correct_int[t] ~ bernoulli(V_type1[t]);
+      response_int[t] ~ bernoulli(V_type1[t]);
     } else if (stimuli_type[t] == 1) {
-      subjectively_correct_int[t] ~ bernoulli(V_type3[t]);
+      response_int[t] ~ bernoulli(V_type3[t]);
     }
   }
 }
