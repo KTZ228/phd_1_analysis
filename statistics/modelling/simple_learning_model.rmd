@@ -76,5 +76,12 @@ glue('Average learning rate for the volatile blocks is {plogis(alpha0_mu+alpha1_
 ```
 
 ```{r}
-print('this is just here so I can run all previous blocks')
+traceplot(fit, pars = 'alpha0_mu')
+traceplot(fit, pars = 'alpha1_mu')
+
+summary(fit)$summary[, "n_eff"]
+```
+
+```{r}
+print('Use this to run all previous blocks')
 ```

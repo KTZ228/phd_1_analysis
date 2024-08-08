@@ -526,16 +526,16 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
 def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                                unique_subject_ids: list,
                                unique_stimuli_types: list,
-                               additional_grouping_factor: str = 'False',
+                               first_grouping_factor: str = 'False',
                                bin_range: list = None,
                                mapping: dict = None,
-                               separate_congruency: bool = False) -> (
+                               second_grouping_factor: str = 'False') -> (
         pd.DataFrame):
     if bin_range is None:
         bin_range = [0, 10]
     switches_all_stimuli_types = pd.DataFrame()
 
-    if additional_grouping_factor == 'False':
+    if first_grouping_factor == 'False':
         for index_stimuli in unique_stimuli_types:
             for index_subject_id in unique_subject_ids:
                 dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
@@ -564,11 +564,15 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
 
     else:
         try:
-            input_dataframe[additional_grouping_factor]
+            input_dataframe[first_grouping_factor]
         except KeyError as error:
             print(f'error: {error}')
 
-        if separate_congruency is True:
+        if second_grouping_factor != 'False':
+            try:
+                input_dataframe[second_grouping_factor]
+            except KeyError as error:
+                print(f'error: {error}')
             for index_stimuli in unique_stimuli_types:
                 for index_subject_id in unique_subject_ids:
                     dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
@@ -586,14 +590,14 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                                                                                   dataframe_for_switches.objectively_correct == 'Late')].index,
                                                                          inplace=False)
 
-                    unique_groups = dataframe_for_switches[additional_grouping_factor].unique()
-                    unique_congruency_groups = dataframe_for_switches['congruency'].unique()
+                    unique_groups = dataframe_for_switches[first_grouping_factor].unique()
+                    unique_congruency_groups = dataframe_for_switches[second_grouping_factor].unique()
 
                     for index_congruency in unique_congruency_groups:
                         for index_grouping_factor in unique_groups:
                             dataframe_grouping_factor = dataframe_for_switches[
-                                (dataframe_for_switches[additional_grouping_factor] == index_grouping_factor) |
-                                (dataframe_for_switches['congruency'] == index_congruency)]
+                                (dataframe_for_switches[first_grouping_factor] == index_grouping_factor) |
+                                (dataframe_for_switches[second_grouping_factor] == index_congruency)]
                             dataframe_grouping_factor = dataframe_grouping_factor.reset_index(drop=True)
 
                             # Add switches to a list
@@ -629,11 +633,11 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                                                                                   dataframe_for_switches.objectively_correct == 'Late')].index,
                                                                          inplace=False)
 
-                    unique_groups = dataframe_for_switches[additional_grouping_factor].unique()
+                    unique_groups = dataframe_for_switches[first_grouping_factor].unique()
 
                     for index_grouping_factor in unique_groups:
                         dataframe_grouping_factor = dataframe_for_switches[
-                            (dataframe_for_switches[additional_grouping_factor] == index_grouping_factor)]
+                            (dataframe_for_switches[first_grouping_factor] == index_grouping_factor)]
                         dataframe_grouping_factor = dataframe_grouping_factor.reset_index(drop=True)
 
                         # Add switches to a list
