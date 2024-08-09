@@ -263,7 +263,8 @@ def check_volatility(dataframe: pd.DataFrame,
             current_value = dataframe.loc[index, 'probability_condition']
             previous_label = dataframe.loc[max([0, start_index-1]), 'temp_volatility']
             if previous_label != label:
-                dataframe.loc[start_index:index, 'volatility'] = previous_label
+                dataframe.loc[start_index:(start_index+10), 'volatility'] = previous_label
+                dataframe.loc[(start_index+10):index, 'volatility'] = label
             else:
                 dataframe.loc[start_index:index, 'volatility'] = label
             start_index = index
@@ -275,7 +276,7 @@ def check_volatility(dataframe: pd.DataFrame,
     dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
     dataframe = dataframe.reset_index(drop=True)
 
-    # Find the index where the value switches
+    # This is where the first stable block gets removed
     switch_index = dataframe['probability_condition'].diff().ne(0)#.idxmax()
     true_indices = switch_index[switch_index].index.tolist()
     if len(true_indices) > 1:
@@ -283,7 +284,7 @@ def check_volatility(dataframe: pd.DataFrame,
     else:
         second_true_index = None
     # Slice the dataframe from the switch point
-    return dataframe.iloc[second_true_index:]
+    return dataframe#.iloc[second_true_index:]
 
 
 def separate_reversals(dataframe: pd.DataFrame) -> (
