@@ -41,7 +41,7 @@ data_formatted_for_stan <- list(
   subject_id = as.integer(amydacc_data$subject_id - min(amydacc_data$subject_id) + 1), # This is to ensure that all subject_id's start at 1
   subjectively_correct_int = amydacc_data$subjectively_correct_int,
   stimuli_type = amydacc_data$stimuli_type,
-  volatility = amydacc_data$volatility,
+  volatility = amydacc_data$valence,#volatility,
   response_int = amydacc_data$response_int
 )
 
@@ -50,7 +50,7 @@ data_formatted_for_stan <- list(
 # Run through model
 
 ```{r}
-fit <- stan(file = 'AmydACC_model_2.stan', data = data_formatted_for_stan, iter = 10000, chains = 4) # 50000 is ideal
+fit <- stan(file = 'AmydACC_model_2.stan', data = data_formatted_for_stan, iter = 20000, chains = 4) # 50000 is ideal
 ```
 
 # Print raw model results
