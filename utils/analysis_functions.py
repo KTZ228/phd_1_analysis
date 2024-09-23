@@ -262,15 +262,20 @@ def check_volatility(dataframe: pd.DataFrame,
             # Update the current_value and start_index for the next streak
             current_value = dataframe.loc[index, 'probability_condition']
             previous_label = dataframe.loc[max([0, start_index-1]), 'temp_volatility']
-            if previous_label != label:
-                dataframe.loc[start_index:(start_index+10), 'volatility'] = previous_label
-                dataframe.loc[(start_index+10):index, 'volatility'] = label
+            # For a new participant or different stimuli_type
+            if dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max([0, start_index-1]), 'stimuli_type']:
+                dataframe.loc[start_index:(start_index + 6), 'volatility'] = previous_label
+                dataframe.loc[(start_index + 6):index, 'volatility'] = label
+            if previous_label != label and dataframe.loc[index, 'trial'] > dataframe.loc[max([0, start_index-1]), 'trial']:
+                dataframe.loc[start_index:(start_index+4), 'volatility'] = previous_label
+                dataframe.loc[(start_index+5):index, 'volatility'] = label
             else:
                 dataframe.loc[start_index:index, 'volatility'] = label
             start_index = index
 
-    # Handle the last streak, always copies the last value
+    # Handle the last streak, always copies the last value, this is the issue
     dataframe.loc[start_index:, 'volatility'] = label
+    print(dataframe)
 
     # Reset the original order of the dataframe
     dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
@@ -624,6 +629,8 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
 
                     # Add column that notes if a switch occurred recently
                     dataframe_single_group['switch'] = dataframe_single_group['probability_condition'].diff().ne(0)
+                    dataframe_single_group['switch'].iloc[0] = 'False'
+                    print(dataframe_single_group[['subject_id', 'trial', 'probability_condition', 'switch', first_grouping_factor]])
 
                     # Filter out trials with 50% reward probability
                     dataframe_for_switches = dataframe_single_group
