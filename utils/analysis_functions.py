@@ -3,6 +3,7 @@ import glob
 import re
 import pandas as pd
 import numpy as np
+from zmq.backend import first
 
 
 def unique_subject_ids_and_sessions(file_path: str) -> (
@@ -228,6 +229,7 @@ def check_volatility(dataframe: pd.DataFrame,
         The same dataframe containing the new column info.
     """
 
+    """
     # This differentiates between a stable and volatile block
     ## This is hardcoded which is not ideal. You'll understand how much you need to rush things when you start a PhD.
     stable_cutoff = 15
@@ -246,36 +248,36 @@ def check_volatility(dataframe: pd.DataFrame,
 
     # Iterate over the rows of the dataframe
     for index, value in enumerate(dataframe['probability_condition']):
-        if dataframe.loc[index, 'probability_condition'] != current_value:
+        if (dataframe.loc[index, 'probability_condition'] != current_value or
+                dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
+                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type']):
             # Calculate the streak length
             streak_length = index - start_index
 
             # Determine if the streak is 'short' or 'long'
             if binary_output is True:
-                label = 1 if streak_length < 15 else 0
+                label = 1 if streak_length < stable_cutoff else 0
             else:
-                label = 'volatile' if streak_length < 15 else 'stable'
+                label = 'volatile' if streak_length < stable_cutoff else 'stable'
 
             # Mark the streak in the 'length' column
-            dataframe.loc[start_index:index, 'temp_volatility'] = label
+            dataframe.loc[start_index:index-1, 'volatility'] = label
 
             # Update the current_value and start_index for the next streak
             current_value = dataframe.loc[index, 'probability_condition']
             previous_label = dataframe.loc[max([0, start_index-1]), 'temp_volatility']
             # For a new participant or different stimuli_type
-            if dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max([0, start_index-1]), 'stimuli_type']:
-                dataframe.loc[start_index:(start_index + 6), 'volatility'] = previous_label
-                dataframe.loc[(start_index + 6):index, 'volatility'] = label
-            if previous_label != label and dataframe.loc[index, 'trial'] > dataframe.loc[max([0, start_index-1]), 'trial']:
+            if dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max([0, start_index-1]), 'stimuli_type'] or dataframe.loc[index, 'subject_id'] != dataframe.loc[max([0, start_index-1]), 'subject_id']:
+                dataframe.loc[start_index:index, 'volatility'] = previous_label
+            elif previous_label != label and dataframe.loc[index, 'trial'] > dataframe.loc[max([0, start_index-1]), 'trial']:
                 dataframe.loc[start_index:(start_index+4), 'volatility'] = previous_label
                 dataframe.loc[(start_index+5):index, 'volatility'] = label
             else:
                 dataframe.loc[start_index:index, 'volatility'] = label
             start_index = index
 
-    # Handle the last streak, always copies the last value, this is the issue
+    # Handle the last streak, always copies the last value
     dataframe.loc[start_index:, 'volatility'] = label
-    print(dataframe)
 
     # Reset the original order of the dataframe
     dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
@@ -290,6 +292,68 @@ def check_volatility(dataframe: pd.DataFrame,
         second_true_index = None
     # Slice the dataframe from the switch point
     return dataframe#.iloc[second_true_index:]
+    """
+
+    # This differentiates between a stable and volatile block
+    stable_cutoff = 15
+
+    # Initialize the new column with empty strings
+    dataframe['volatility'] = ''
+    previous_label = 'stable'
+
+    # Sort based on stimuli_types
+    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'],
+                                      ascending=[True, True, True, True])
+    dataframe = dataframe.reset_index(drop=True)
+
+    # Variables to track the current streak
+    current_value = dataframe.loc[0, 'probability_condition']
+    start_index = 0
+
+    # Iterate over the rows of the dataframe
+    for index in range(1, len(dataframe)):
+        # Check if 'probability_condition', 'subject_id', or 'stimuli_type' changes
+        if (dataframe.loc[index, 'probability_condition'] != current_value or
+                dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
+                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type']):
+
+            # Calculate the streak length
+            streak_length = index - start_index
+
+            # Determine if the streak is 'short' or 'long'
+            if binary_output:
+                label = 1 if streak_length < stable_cutoff else 0
+            else:
+                label = 'volatile' if streak_length < stable_cutoff else 'stable'
+
+            # Assign the label to the 'volatility' column for the streak
+            if (dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
+                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type']):
+                dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
+            elif label == 'stable' and previous_label == 'volatile':
+                dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = previous_label
+                dataframe.loc[start_index+6:index - 1, 'volatility'] = label
+            else:
+                dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
+
+            # Update the current_value and start_index for the next streak
+            current_value = dataframe.loc[index, 'probability_condition']
+            previous_label = label
+            start_index = index
+
+    # Handle the last streak
+    streak_length = len(dataframe) - start_index
+    if binary_output:
+        label = 1 if streak_length < stable_cutoff else 0
+    else:
+        label = 'volatile' if streak_length < stable_cutoff else 'stable'
+    dataframe.loc[start_index:, 'volatility'] = label
+
+    # Reset the original order of the dataframe
+    dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
+    dataframe = dataframe.reset_index(drop=True)
+
+    return dataframe
 
 
 def separate_reversals(dataframe: pd.DataFrame) -> (
@@ -537,10 +601,76 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                                mapping: dict = None,
                                second_grouping_factor: str = 'False') -> (
         pd.DataFrame):
+
+    # Make a list of the range of the bin
     if bin_range is None:
         bin_range = [0, 10]
-    switches_all_stimuli_types = pd.DataFrame()
+    bin_list = list(range(bin_range[0], bin_range[1]))
 
+    # Add column that notes if a switch occurred recently
+    input_dataframe = input_dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
+    input_dataframe['switch'] = input_dataframe['probability_condition'].diff().ne(0)
+
+    # Remove 50% rows and rows without responses
+    input_dataframe = input_dataframe.drop(input_dataframe[(input_dataframe.probability_condition == 50) |
+                                                          (input_dataframe.objectively_correct == 'Late')].index, inplace=False)
+
+    # First switch for each participant should be removed
+    ## First do so for the very first row
+    input_dataframe['switch'].iloc[0] = 'False'
+    ## And then for all other points where the subject_id or stimuli_type changes
+    change_mask = ((input_dataframe['subject_id'] != input_dataframe['subject_id'].shift()) |
+                   (input_dataframe['stimuli_type'] != input_dataframe['stimuli_type'].shift()))
+    input_dataframe.loc[change_mask, 'switch'] = 'False'
+
+    # Add switches to a list
+    switches_per_group = input_dataframe.index[
+        input_dataframe['switch'] == True].tolist()
+
+    # Make column names
+    if second_grouping_factor != 'False' and first_grouping_factor != 'False':
+        nested_list_for_dataframe = [['subject_id', 'stimuli_type', first_grouping_factor, second_grouping_factor] + bin_list]
+    elif first_grouping_factor !=False and second_grouping_factor == 'False':
+        nested_list_for_dataframe = [['subject_id', 'stimuli_type', first_grouping_factor] + bin_list]
+    else:
+        nested_list_for_dataframe = [['subject_id', 'stimuli_type'] + bin_list]
+
+    for index, index_in_dataframe in enumerate(switches_per_group):
+        current_subject_id = input_dataframe.loc[index_in_dataframe, 'subject_id']
+        current_stimuli_type = input_dataframe.loc[index_in_dataframe, 'stimuli_type']
+
+        # Get the integer position of the index label
+        start_pos = input_dataframe.index.get_loc(index_in_dataframe)
+
+        # Get the next 6 rows starting from the start_label
+        objectively_correct_answers_within_bin = (input_dataframe.iloc[start_pos + bin_range[0]:start_pos + bin_range[1]]['objectively_correct_boolean']).tolist()
+
+        if second_grouping_factor != 'False' and first_grouping_factor != 'False':
+            current_first_grouping_factor = input_dataframe.loc[index_in_dataframe, first_grouping_factor]
+            current_second_grouping_factor = input_dataframe.loc[index_in_dataframe, second_grouping_factor]
+
+            current_factors =  [current_subject_id, current_stimuli_type, current_first_grouping_factor, current_second_grouping_factor]
+            current_row = current_factors + objectively_correct_answers_within_bin
+            nested_list_for_dataframe.append(current_row)
+        elif first_grouping_factor != 'False' and second_grouping_factor == 'False':
+            current_first_grouping_factor = input_dataframe.loc[index_in_dataframe, first_grouping_factor]
+
+            current_factors = [current_subject_id, current_stimuli_type, current_first_grouping_factor]
+            current_row = current_factors + objectively_correct_answers_within_bin
+            nested_list_for_dataframe.append(current_row)
+        else:
+            current_factors = [current_subject_id, current_stimuli_type]
+            current_row = current_factors + objectively_correct_answers_within_bin
+            nested_list_for_dataframe.append(current_row)
+
+    # Turn nested list into output dataframe
+    output_dataframe = pd.DataFrame(nested_list_for_dataframe)
+    output_dataframe.columns = output_dataframe.iloc[0]
+    output_dataframe = output_dataframe[1:]
+
+    '''
+    switches_all_stimuli_types = pd.DataFrame()
+    
     if first_grouping_factor == 'False':
         for index_stimuli in unique_stimuli_types:
             for index_subject_id in unique_subject_ids:
@@ -630,7 +760,7 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                     # Add column that notes if a switch occurred recently
                     dataframe_single_group['switch'] = dataframe_single_group['probability_condition'].diff().ne(0)
                     dataframe_single_group['switch'].iloc[0] = 'False'
-                    print(dataframe_single_group[['subject_id', 'trial', 'probability_condition', 'switch', first_grouping_factor]])
+                    #print(dataframe_single_group[['subject_id', 'trial', 'probability_condition', 'switch', 'stimuli_type', first_grouping_factor]])
 
                     # Filter out trials with 50% reward probability
                     dataframe_for_switches = dataframe_single_group
@@ -664,7 +794,9 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
             switches_all_stimuli_types.rename(mapping, axis=1, inplace=True)
 
     switches_all_stimuli_types = switches_all_stimuli_types.reset_index(drop=True)
-    return switches_all_stimuli_types
+    '''
+
+    return output_dataframe
 
 
 def find_switches_in_dataframe_separate_reversals(input_dataframe: pd.DataFrame,
