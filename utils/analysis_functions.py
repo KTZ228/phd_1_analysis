@@ -3,7 +3,6 @@ import glob
 import re
 import pandas as pd
 import numpy as np
-from zmq.backend import first
 
 
 def unique_subject_ids_and_sessions(file_path: str) -> (
@@ -150,6 +149,7 @@ def replace_strings_with_integers(dataframe: pd.DataFrame,
 def check_congruency(row,
                      binary_output: bool = False):
     """ Functions that reads a row and sees whether the conditions are congruent or not.
+    So here, we code the movement where you push the joystick away from you for happy faces as incongruent.
 
     Parameters
     ----------
@@ -299,7 +299,10 @@ def check_volatility(dataframe: pd.DataFrame,
 
     # Initialize the new column with empty strings
     dataframe['volatility'] = ''
-    previous_label = 'stable'
+    if binary_output:
+        previous_label = 0
+    else:
+        previous_label = 'stable'
 
     # Sort based on stimuli_types
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'],
@@ -307,13 +310,12 @@ def check_volatility(dataframe: pd.DataFrame,
     dataframe = dataframe.reset_index(drop=True)
 
     # Variables to track the current streak
-    current_value = dataframe.loc[0, 'probability_condition']
     start_index = 0
 
     # Iterate over the rows of the dataframe
     for index in range(1, len(dataframe)):
         # Check if 'probability_condition', 'subject_id', or 'stimuli_type' changes
-        if (dataframe.loc[index, 'probability_condition'] != current_value or
+        if (dataframe.loc[index, 'probability_condition'] != dataframe.loc[start_index, 'probability_condition'] or
                 dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
                 dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type']):
 
@@ -327,9 +329,14 @@ def check_volatility(dataframe: pd.DataFrame,
                 label = 'volatile' if streak_length < stable_cutoff else 'stable'
 
             # Assign the label to the 'volatility' column for the streak
+            ## First part ensures that the last short block is labelled correctly
             if (dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
                 dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type']):
                 dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
+            elif (dataframe.loc[index, 'subject_id'] != dataframe.loc[max(start_index - 1, 0), 'subject_id'] or
+                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max(start_index - 1, 0), 'stimuli_type']):
+                dataframe.loc[start_index:index - 1, 'volatility'] = label
+            ## This is here to ensure that a transition from volatile to stable or vice versa leads to the first set of trails being labelled as the previous condition
             elif label == 'stable' and previous_label == 'volatile':
                 dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = previous_label
                 dataframe.loc[start_index+6:index - 1, 'volatility'] = label
@@ -337,7 +344,6 @@ def check_volatility(dataframe: pd.DataFrame,
                 dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
 
             # Update the current_value and start_index for the next streak
-            current_value = dataframe.loc[index, 'probability_condition']
             previous_label = label
             start_index = index
 
@@ -612,8 +618,8 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
     input_dataframe['switch'] = input_dataframe['probability_condition'].diff().ne(0)
 
     # Remove 50% rows and rows without responses
-    input_dataframe = input_dataframe.drop(input_dataframe[(input_dataframe.probability_condition == 50) |
-                                                          (input_dataframe.objectively_correct == 'Late')].index, inplace=False)
+    input_dataframe = input_dataframe.drop(input_dataframe[(input_dataframe.probability_condition == 50)].index, inplace=False)# |
+                                                          #(input_dataframe.objectively_correct == 'Late')].index, inplace=False)
 
     # First switch for each participant should be removed
     ## First do so for the very first row
@@ -623,9 +629,15 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                    (input_dataframe['stimuli_type'] != input_dataframe['stimuli_type'].shift()))
     input_dataframe.loc[change_mask, 'switch'] = 'False'
 
+    if second_grouping_factor == 'False' and first_grouping_factor == 'False':
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch']])
+    elif second_grouping_factor == 'False':
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch', first_grouping_factor]])
+    else:
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch', first_grouping_factor, second_grouping_factor]])
+
     # Add switches to a list
-    switches_per_group = input_dataframe.index[
-        input_dataframe['switch'] == True].tolist()
+    switches_per_group = input_dataframe.index[input_dataframe['switch'] == True].tolist()
 
     # Make column names
     if second_grouping_factor != 'False' and first_grouping_factor != 'False':
