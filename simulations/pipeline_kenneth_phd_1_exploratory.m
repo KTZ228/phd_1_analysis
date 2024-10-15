@@ -14,11 +14,11 @@ addpath('/home/common/matlab/fieldtrip/qsub')
 %% The following options can be altered
 run_amygdala_sims = 1;
 run_layered_sims = 1;
-test_pipeline = 1;
+test_pipeline = 0;
 
 % Add an integer or list of the subjects you want to simulate
 stimulation_depth = '65mm';
-subject_list = 9%[8, 9, 10, 14];
+subject_list = [8, 9, 10, 14];
 
 % Set config files and export location
 if run_amygdala_sims == 1
