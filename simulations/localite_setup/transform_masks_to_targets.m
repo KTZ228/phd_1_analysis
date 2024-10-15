@@ -22,10 +22,10 @@ subject_aff_trans = sprintf('sub%03d_affine_transformation_matrix.mat', subject_
 
 %% Split dACC mask
 dacc_mask = niftiread(raw_dacc);
-info = niftiinfo(statistical_map_name);
+info = niftiinfo(raw_dacc);
 
-left_mask = niftiread('masks/payam_left_hemisphere_mask.nii.gz');
-right_mask = niftiread('masks/payam_right_hemisphere_mask.nii.gz');
+left_mask = uint8(niftiread('masks/payam_left_hemisphere_mask.nii.gz'));
+right_mask = uint8(niftiread('masks/payam_right_hemisphere_mask.nii.gz'));
 
 left_dacc_mask = left_mask .* dacc_mask;
 right_dacc_mask = right_mask .* dacc_mask;
@@ -45,10 +45,13 @@ system(sprintf('/opt/fsl/6.0.6/bin/invwarp --ref=%s --warp=fslfnirt_native_to_MN
 %% Warp masks using inverse transformation matrix
 % Use the inverse warp to transform the masks to subject space
 
-% Transform the left dACC mask to subject space
+% Transform the raw dACC mask to subject space
 system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/payam_raw_dACC_mask_resampled.nii.gz --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_raw_dacc_mask.nii.gz --interp=nn', subject_t1, subject_id));
 % Transform the left dACC mask to subject space
-%system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/payam_raw_dACC_mask_resampled.nii.gz --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_raw_dacc_mask.nii.gz --interp=nn', subject_t1, subject_id));
+%system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/payam_left_dACC_mask.nii.gz --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_left_dacc_mask.nii.gz --interp=nn', subject_t1, subject_id));
+% Transform the right dACC mask to subject space
+%system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/payam_right_dACC_mask.nii.gz --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_right_dacc_mask.nii.gz --interp=nn', subject_t1, subject_id));
+
 
 % Transform left amygdala mask to subject space
 system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_amygdala_left_jeulich_85_mask.nii.gz --interp=nn', subject_t1, left_amygdala, subject_id));
