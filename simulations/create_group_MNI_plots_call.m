@@ -5,30 +5,30 @@ cd /home/affneu/kenvdzee/Documents/PRESTUS
 addpath('functions')
 addpath(genpath('toolboxes')) 
 addpath('/home/common/matlab/fieldtrip/qsub')
-masks_location = '/project/3023001.06/Simulations/kenneth_test/simulations/ROI_masks/';
-config_location = '/home/affneu/kenvdzee/Documents/acoustic_simulation_scripts/configs/';
+masks_location = '/project/3023001.06/Simulations/kenneth_test/target_coordinate_selection/masks/';
+config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/simulations/configs/';
 
-plotting_target = 'left_amygdala';
+plotting_target = 'left_dacc';
 
-if strcmp(plotting_target, 'left_dACC')
-    parameters = load_parameters('config_kenneth_phd_1_dACC_exploratory_CTX250-001_203_60.9mm.yaml', config_location);
-    parameters.results_filename_affix = '_target_left_dACC';
-    maskname = 'dACC_sphere_5mmiso_groupL_bin_MNI152.nii.gz';
+if strcmp(plotting_target, 'left_dacc')
+    parameters = load_parameters('config_kenneth_phd_1_dACC_exploratory_PCD15287_01002_left_55mm.yaml', config_location);
+    parameters.results_filename_affix = '_target_left_medial_dACC';
+    maskname = 'payam_left_dacc_mask.nii.gz';
     slice_axis = 'x';
-elseif strcmp(plotting_target, 'right_dACC')
-    parameters = load_parameters('config_kenneth_phd_1_dACC_exploratory_CTX250-026_105_61.5mm.yaml', config_location);
-    parameters.results_filename_affix = '_target_right_dACC';
-    maskname = 'dACC_sphere_5mmiso_groupR_bin_MNI152.nii.gz';
+elseif strcmp(plotting_target, 'right_dacc')
+    parameters = load_parameters('config_kenneth_phd_1_dACC_exploratory_PCD15287_01002_right_55mm.yaml', config_location);
+    parameters.results_filename_affix = '_target_right_medial_dACC';
+    maskname = 'payam_right_dacc_mask.nii.gz';
     slice_axis = 'x';
 elseif strcmp(plotting_target, 'left_amygdala')
-    parameters = load_parameters('config_kenneth_phd_1_amygdala_exploratory_CTX250-001_203_60.9mm.yaml', config_location);
+    parameters = load_parameters('config_kenneth_phd_1_amygdala_exploratory_PCD15287_01002_left_80mm.yaml', config_location);
     parameters.results_filename_affix = '_target_left_amygdala';
-    maskname = 'juelich_prob_GM_Amygdala_laterobasal_groupR_thr85_bin.nii.gz';
+    maskname = 'juelich_probability_atlas_left_amygdala_laterobasal_threshold-85_bin.nii.gzz';
     slice_axis = 'y';
 elseif strcmp(plotting_target, 'right_amygdala')
-    parameters = load_parameters('config_kenneth_phd_1_amygdala_exploratory_CTX250-026_105_61.5mm.yaml', config_location);
+    parameters = load_parameters('config_kenneth_phd_1_amygdala_exploratory_PCD15287_01002_right_80mm.yaml', config_location);
     parameters.results_filename_affix = '_target_right_amygdala';
-    maskname = 'juelich_prob_GM_Amygdala_laterobasal_groupL_thr85_bin.nii.gz';
+    maskname = 'juelich_probability_atlas_right_amygdala_laterobasal_threshold-85_bin.nii.gz';
     slice_axis = 'y';
 else
     disp('Please select a plotting_target')
@@ -39,7 +39,7 @@ end
 files = struct2table(dir(parameters.data_path));
 subject_list_table = files(logical(contains(files.name, 'sub') .* ~contains(files.name, 'm2m')),:);
 subject_list = str2double((extract(subject_list_table{:,1}, digitsPattern))');
-subject_list = 1;
+subject_list = [8, 9, 10, 14];
 
 % Load ROI
 mask_location = fullfile(masks_location, maskname);
