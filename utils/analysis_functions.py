@@ -194,12 +194,12 @@ def check_valence(row,
     condition : str
         A string containing the valence for the given row.
     """
-    if row['stimuli_type'] == 1 or row['stimuli_type'] == 2:
+    if row['stimuli_type'] == 1:# or row['stimuli_type'] == 2:
         if binary_output is True:
             emotional_valence = 0
         else:
             emotional_valence = 'angry'
-    elif row['stimuli_type'] == 3 or row['stimuli_type'] == 4:
+    elif row['stimuli_type'] == 2:# or row['stimuli_type'] == 4:
         if binary_output is True:
             emotional_valence = 1
         else:
