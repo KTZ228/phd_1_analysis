@@ -1,16 +1,16 @@
 # Location of stored data
-data_path: /project/3023001.06/Simulations/kenneth_test/original_data/
-seg_path: /project/3023001.06/Simulations/kenneth_test/simulations/segmentation_data/
+data_path: /project/3025011.02/raw_data/anatomical_data/
+seg_path: /project/3025011.02/TUS_simulations/segmentation_data/
 simnibs_bin_path: /home/affneu/kenvdzee/SimNIBS-4.0/bin/
 subject_subfolder: 1
-output_location: /project/3023001.06/Simulations/kenneth_test/simulations/exploratory/amygdala_85mm/
+output_location: /project/3025011.02/TUS_simulations/planning/amygdala_85mm/
 
 overwrite_simnibs: 0
 
 # Structure of subfolders containing T1 and T1 images
 ## It is easier to store the subject data of each participant in an individual subfolder
-t1_path_template: sub-%1$03d/*t1mprage*.nii.gz
-t2_path_template: sub-%1$03d/*t2space*.nii.gz
+t1_path_template: sub-%1$03d/*T1w.nii.gz
+t2_path_template: sub-%1$03d/*T2w.nii.gz
 
 transducer: 
   n_elements: 30 # number of elements in the transducer
@@ -32,18 +32,20 @@ overwrite_simnibs: 0
 use_forceqform: 1
 
 run_posthoc_water_sims: 1
-run_heating_sims: 0
+run_heating_sims: 1
 run_acoustic_sims: 1
 
+start_break_trials: [67, 247, 427] # End of the active stimulation phase, defined as (40/on-off cycle duration)+1;
+stop_break_trials: [180, 360, 540] # End of the inactive stimulation phase, defined as (100/on-off cycle duration);
+# Both of these can be defined as lists if you need multiple on- and off- periods
+## on-off cycle is 0.2s for this protocol
+
 thermal:
-  duty_cycle: 0.1 # share of the stimulation duration during which the stimulation is on [0 to 1] (trial length = duty_cycle * stim_duration)
-  iti: 2 # [s] interval between the trials, from the start of one trial to the start of another
-  n_trials: 60 # number of trials to simulate; the total simulated duration is then n_trials*iti seconds
-  stim_duration: 2 # [s] stimulation duration within a trial
-  # Pulse repetition frequency is not used since the cooling effects between these cycles are limited
+  duty_cycle: 0.1 # this actually is the duty_cycle
+  n_trials: 540 # end of stop_break_trials
 
   # These should only be changed if they don't meet the criteria described in "run_heating_simulations"
-  sim_time_steps: 0.01 # [s] simulation time steps during the stimulation period
-  post_stim_time_step_dur: 0.1 # post-stimulation (inter-trial) steps
-  on_off_step_duration: 0.1 # duration of the on+off cycle (e.g., with a duty cycle of 0.3 and 0.01 s time steps for simulation, the whole on+off cycle will take 0.1 s)
+  sim_time_steps: 0.1 # [s] simulation time steps during the stimulation period
+  post_stim_time_step_dur: 1 # post-stimulation (inter-trial) steps
+  on_off_step_duration: 0.6 # duration of the on+off cycle (e.g., with a duty cycle of 0.3 and 0.01 s time steps for simulation, the whole on+off cycle will take 0.1 s)
   equal_steps: 0 # is the duration of the simulation steps equal for on and off steps? if not, it is computed based on the sim_time_steps * n_steps where n_steps is the needed number of on and off steps derived from the duty cycle
