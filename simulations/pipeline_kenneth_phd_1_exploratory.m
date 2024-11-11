@@ -15,11 +15,11 @@ addpath('/home/common/matlab/fieldtrip/qsub')
 run_amygdala_sims = 1;
 run_layered_sims = 1;
 test_pipeline = 0;
-heating_sims = 0;
+heating_sims = 1;
 
 % Add an integer or list of the subjects you want to simulate
 stimulation_depth_list = ["70mm", "75mm", "80mm", "85mm", "90mm"];
-subject_list = [8, 9, 10, 14];
+subject_list = 701;
 for stimulation_depth = stimulation_depth_list
     
     % Set config files and export location
@@ -68,7 +68,7 @@ for stimulation_depth = stimulation_depth_list
         parameters_right = load_parameters(config_right_transducer, config_location);
     
         %% Load locations from the exploratory_coordinate_list
-        exploratory_coordinate_list = readtable('/project/3023001.06/Simulations/kenneth_test/simulations/exploratory_coordinate_list.csv');
+        exploratory_coordinate_list = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
         
         index_subject = exploratory_coordinate_list.subject_id == subject_id;
         index_stimulation_target_left = strcmp(exploratory_coordinate_list.stimulation_target, stimulation_target_left);
