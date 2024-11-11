@@ -160,14 +160,14 @@ def check_congruency(row,
     condition : str
         A string containing the congruency condition for the given row.
     """
-    if (row['probability_condition'] > 50 and row['stimuli_type'] in [3, 4]) or (
-            row['probability_condition'] < 50 and row['stimuli_type'] in [1, 2]):
+    if (row['probability_condition'] > 50 and row['stimuli_type'] == 2) or (
+            row['probability_condition'] < 50 and row['stimuli_type'] == 1):
         if binary_output is True:
             condition = 0
         else:
             condition = 'incongruent'
-    elif (row['probability_condition'] < 50 and row['stimuli_type'] in [3, 4]) or (
-            row['probability_condition'] > 50 and row['stimuli_type'] in [1, 2]):
+    elif (row['probability_condition'] < 50 and row['stimuli_type'] == 2) or (
+            row['probability_condition'] > 50 and row['stimuli_type'] == 1):
         if binary_output is True:
             condition = 1
         else:
@@ -194,12 +194,12 @@ def check_valence(row,
     condition : str
         A string containing the valence for the given row.
     """
-    if row['stimuli_type'] == 1:# or row['stimuli_type'] == 2:
+    if row['stimuli_type'] == 1:
         if binary_output is True:
             emotional_valence = 0
         else:
             emotional_valence = 'angry'
-    elif row['stimuli_type'] == 2:# or row['stimuli_type'] == 4:
+    elif row['stimuli_type'] == 2:
         if binary_output is True:
             emotional_valence = 1
         else:
@@ -337,7 +337,7 @@ def check_volatility(dataframe: pd.DataFrame,
                 dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max(start_index - 1, 0), 'stimuli_type']):
                 dataframe.loc[start_index:index - 1, 'volatility'] = label
             ## This is here to ensure that a transition from volatile to stable or vice versa leads to the first set of trails being labelled as the previous condition
-            elif label == 'stable' and previous_label == 'volatile':
+            elif label == 'stable' and previous_label == 'volatile' or label == 0 and previous_label == 1:
                 dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = previous_label
                 dataframe.loc[start_index+6:index - 1, 'volatility'] = label
             else:
