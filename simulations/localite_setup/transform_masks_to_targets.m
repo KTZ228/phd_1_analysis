@@ -4,44 +4,54 @@ clc; clear; close all;
 %% Script to translate the masks in MNI space to coordinates in subject space
 % First the masks need to be translated to subject space before a coordinate can be selected
 
-subject_id = 14;
+subject_id = 701;
+
+masks_folder = '/project/3025011.02/TUS_simulations/localite_masks/';
+anatomical_folder = sprintf('/project/3025011.02/raw_data/anatomical_data/sub-%03d/', subject_id);
+subject_masks_folder = sprintf('/project/3025011.02/raw_data/other/sub-%03d/ses-01/', subject_id);
 
 left_amygdala = ('juelich_probability_atlas_left_amygdala_laterobasal_threshold-85_bin.nii.gz');
+left_amygdala_location = fullfile(masks_folder, left_amygdala);
 right_amygdala = ('juelich_probability_atlas_right_amygdala_laterobasal_threshold-85_bin.nii.gz');
-mask_left_hemisphere = 'payam_left_hemisphere_mask.nii.gz';
-mask_right_hemisphere = 'payam_right_hemisphere_mask.nii.gz';
-left_dacc = ('payam_left_dacc_mask.nii.gz');
-right_dacc = ('payam_right_dacc_mask.nii.gz');
+right_amygdala_location = fullfile(masks_folder, right_amygdala);
+mask_left_hemisphere = 'left_hemisphere_mask.nii.gz';
+mask_left_hemisphere_location = fullfile(masks_folder, mask_left_hemisphere);
+mask_right_hemisphere = 'right_hemisphere_mask.nii.gz';
+mask_right_hemisphere_location = fullfile(masks_folder, mask_right_hemisphere);
 raw_dacc = ('payam_raw_dACC_mask_resampled.nii.gz');
+raw_dacc_location = fullfile(masks_folder, raw_dacc);
+left_dacc = ('payam_left_dacc_mask.nii.gz');
+left_dacc_location = fullfile(masks_folder, left_dacc);
+right_dacc = ('payam_right_dacc_mask.nii.gz');
+right_dacc_location = fullfile(masks_folder, right_dacc);
 
 %% Navigate to subject_folder and create masks
+cd (masks_folder)
 
-cd '/project/3023001.06/Simulations/kenneth_test/target_coordinate_selection/'
-
-subject_t1 = sprintf('sub-%03d_ses-mri01_acq-t1mpragesagp20p9iso_run-1_T1w.nii.gz', subject_id);
-subject_t1_post_bet = sprintf('sub-%03d_T1w_bet.nii.gz', subject_id);
-subject_aff_trans = sprintf('sub-%03d_affine_transformation_matrix.mat', subject_id);
+subject_t1 = fullfile(anatomical_folder, sprintf('sub-%03d_T1w.nii.gz', subject_id));
+subject_t1_post_bet = fullfile(subject_masks_folder, sprintf('sub-%03d_T1w_bet.nii.gz', subject_id));
+subject_aff_trans = fullfile(subject_masks_folder, sprintf('sub-%03d_affine_transformation_matrix.mat', subject_id));
 
 %% Resample MNI mask to dACC mask
-system(sprintf('flirt -in $FSLDIR/data/standard/MNI152_T1_2mm_brain_mask.nii.gz -ref masks/%s -out masks/MNI_mask_resampled.nii.gz -applyxfm -usesqform', raw_dacc));
+system(sprintf('flirt -in $FSLDIR/data/standard/MNI152_T1_2mm_brain_mask.nii.gz -ref %s -out MNI_mask_resampled.nii.gz -applyxfm -usesqform', raw_dacc_location));
 
 %% Split dACC mask
 % Make hemisphere masks
-system(sprintf('fslmaths masks/MNI_mask_resampled.nii.gz -roi 0 45 0 -1 0 -1 0 -1 masks/%s', mask_left_hemisphere));
-system(sprintf('fslmaths masks/MNI_mask_resampled.nii.gz -roi 46 45 0 -1 0 -1 0 -1 masks/%s', mask_right_hemisphere));
+system(sprintf('fslmaths MNI_mask_resampled.nii.gz -roi 0 45 0 -1 0 -1 0 -1 %s', mask_left_hemisphere));
+system(sprintf('fslmaths MNI_mask_resampled.nii.gz -roi 46 45 0 -1 0 -1 0 -1 %s', mask_right_hemisphere));
 
 % Multiply said masks with the complete dACC mask
-dacc_mask = niftiread(sprintf('masks/%s', raw_dacc));
-info = niftiinfo(sprintf('masks/%s', raw_dacc));
+dacc_mask = niftiread(fullfile(masks_folder, raw_dacc));
+info = niftiinfo(fullfile(masks_folder, raw_dacc));
 
-left_mask = niftiread(sprintf('masks/%s', mask_left_hemisphere));
-right_mask = niftiread(sprintf('masks/%s', mask_right_hemisphere));
+left_mask = niftiread(fullfile(masks_folder, mask_left_hemisphere));
+right_mask = niftiread(fullfile(masks_folder, mask_right_hemisphere));
 
 left_dacc_mask = left_mask .* dacc_mask;
 right_dacc_mask = right_mask .* dacc_mask;
 
-niftiwrite(left_dacc_mask, sprintf('masks/%s', left_dacc), info);
-niftiwrite(right_dacc_mask, sprintf('masks/%s', right_dacc), info);
+niftiwrite(left_dacc_mask, fullfile(masks_folder, left_dacc), info);
+niftiwrite(right_dacc_mask, fullfile(masks_folder, right_dacc), info);
 
 %% Make the transformation matrix
 system(sprintf('/opt/fsl/6.0.5/bin/bet %s %s -f 0.55 -R', subject_t1, subject_t1_post_bet));
@@ -56,14 +66,14 @@ system(sprintf('/opt/fsl/6.0.6/bin/invwarp --ref=%s --warp=fslfnirt_native_to_MN
 % Use the inverse warp to transform the masks to subject space
 
 % Transform the raw dACC mask to subject space
-system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_raw_dacc_mask.nii.gz --interp=nn', subject_t1, raw_dacc, subject_id));
+system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_raw_dacc_mask.nii.gz --interp=nn', subject_t1, raw_dacc_location, subject_id));
 % Transform the left dACC mask to subject space
-system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_left_dacc_mask.nii.gz --interp=nn', subject_t1, left_dacc, subject_id));
+system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_left_dacc_mask.nii.gz --interp=nn', subject_t1, left_dacc_location, subject_id));
 % Transform the right dACC mask to subject space
-system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_right_dacc_mask.nii.gz --interp=nn', subject_t1, right_dacc, subject_id));
+system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_payam_right_dacc_mask.nii.gz --interp=nn', subject_t1, right_dacc_location, subject_id));
 
 
 % Transform left amygdala mask to subject space
-system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_amygdala_left_jeulich_85_mask.nii.gz --interp=nn', subject_t1, left_amygdala, subject_id));
+system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_amygdala_left_jeulich_85_mask.nii.gz --interp=nn', subject_t1, left_amygdala_location, subject_id));
 % Transform right amygdala mask to subject space
-system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=masks/%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_amygdala_right_jeulich_85_mask.nii.gz --interp=nn', subject_t1, right_amygdala, subject_id));
+system(sprintf('/opt/fsl/6.0.6/bin/applywarp --ref=%s --in=%s --warp=fslfnirt_MNI_to_native_space_warpcoef.nii.gz --out=sub-%03d_amygdala_right_jeulich_85_mask.nii.gz --interp=nn', subject_t1, right_amygdala_location, subject_id));
