@@ -1,65 +1,49 @@
-% Set subject id
+clc; clear; close all;
+
+%% Set subject id
 subject_id = 701;
 
-% Load csv with all PRESTUS coordinates
+%% Load csv with all PRESTUS coordinates
 all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
-
+% Filter out everything but the subject's rows
 subject_simulation_coordinates = all_simulation_coordinates(all_simulation_coordinates.subject_id == subject_id, :);
 
-%% Define a function to translate everything to RAS
-function subject_RAS_coordinates = translateToRAS(subject_simulation_coordinates, affineMatrix)
-    % translateToRAS applies an affine transformation to voxel coordinates in a table.
-    %
-    % Parameters:
-    %   filteredT     - The input table containing voxel coordinates.
-    %   affineMatrix  - The 4x4 affine transformation matrix.
-    %
-    % Returns:
-    %   updatedTable  - The table with updated RAS coordinates.
-
-    % Validate affine matrix
-    if ~isequal(size(affineMatrix), [4, 4])
-        error('Affine matrix must be a 4x4 matrix.');
-    end
-
-    % Extract voxel coordinates
-    voxel_coords_entry = subject_simulation_coordinates{:, 3:5};  % Columns 3,4,5
-    voxel_coords_focus = subject_simulation_coordinates{:, 6:8};  % Columns 6,7,8
-
-    % Number of rows
-    numRows = height(subject_simulation_coordinates);
-
-    % Append ones for homogeneous coordinates
-    voxel_coords_entry_homog = [voxel_coords_entry, ones(numRows, 1)];
-    voxel_coords_focus_homog = [voxel_coords_focus, ones(numRows, 1)];
-
-    % Apply affine transformation
-    ras_coords_entry = (affineMatrix * voxel_coords_entry_homog')';
-    ras_coords_focus = (affineMatrix * voxel_coords_focus_homog')';
-
-    % Extract RAS coordinates
-    ras_coords_entry = ras_coords_entry(:, 1:3);
-    ras_coords_focus = ras_coords_focus(:, 1:3);
-
-    % Update the table
-    subject_RAS_coordinates = subject_simulation_coordinates;
-    subject_RAS_coordinates{:, 3:5} = ras_coords_entry;
-    subject_RAS_coordinates{:, 6:8} = ras_coords_focus;
-
-    % Optional: Rename columns
-    subject_RAS_coordinates.Properties.VariableNames(3:5) = {'entry_x', 'entry_y', 'entry_z'};
-    subject_RAS_coordinates.Properties.VariableNames(6:8) = {'focus_x', 'focus_y', 'focus_z'};
-    
-    % Round to 3 decimals
-    subject_RAS_coordinates{:, 3:8} = round(subject_RAS_coordinates{:, 3:8}, 3);
+%% Retreive the affine matrix from the anatomical file
+subject_nifti_info = niftiinfo(sprintf('/project/3025011.02/raw_data/anatomical_data/sub-%03d/sub-%03d_T1w.nii.gz', subject_id, subject_id));
+subject_affine_matrix = subject_nifti_info.Transform.T';
+% Validate it
+if ~isequal(size(subject_affine_matrix), [4, 4])
+    error('Affine matrix must be a 4x4 matrix.');
 end
 
-%% Apply function to existing table
-% Call the function with your table and affine matrix
-subject_RAS_coordinates = translateToRAS(subject_simulation_coordinates, affine);
+%% Extract voxel coordinates
+% Separate coordinates for the entry points from the focus points
+voxel_coords_entry = subject_simulation_coordinates{:, 3:5};
+voxel_coords_focus = subject_simulation_coordinates{:, 6:8};
 
+%% Apply affine transformation
+% Add extra column so that it can be multiplied by the 4x4 affine matrix
+number_of_targets = height(subject_simulation_coordinates);
+voxel_coords_entry_affine_size = [voxel_coords_entry, ones(number_of_targets, 1)];
+voxel_coords_focus_affine_size = [voxel_coords_focus, ones(number_of_targets, 1)];
+% Multiply affine matrix with the original matrix
+ras_coords_entry = (subject_affine_matrix * voxel_coords_entry_affine_size')';
+ras_coords_focus = (subject_affine_matrix * voxel_coords_focus_affine_size')';
+
+%% Extract RAS coordinates
+ras_coords_entry = ras_coords_entry(:, 1:3);
+ras_coords_focus = ras_coords_focus(:, 1:3);
+
+%% Wrap the new coordinates with the original table
+subject_RAS_coordinates = subject_simulation_coordinates;
+subject_RAS_coordinates{:, 3:5} = ras_coords_entry;
+subject_RAS_coordinates{:, 6:8} = ras_coords_focus;
+% Rename the columns
+subject_RAS_coordinates.Properties.VariableNames(3:5) = {'entry_x', 'entry_y', 'entry_z'};
+subject_RAS_coordinates.Properties.VariableNames(6:8) = {'focus_x', 'focus_y', 'focus_z'};
+% Round to 3 decimals
+subject_RAS_coordinates{:, 3:8} = round(subject_RAS_coordinates{:, 3:8}, 3);
 % Display the updated table
-disp('Updated Table with RAS Coordinates:');
 disp(subject_RAS_coordinates);
 
 %% Write table to subject folder
