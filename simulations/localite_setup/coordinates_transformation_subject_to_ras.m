@@ -9,7 +9,7 @@ all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/plan
 subject_simulation_coordinates = all_simulation_coordinates(all_simulation_coordinates.subject_id == subject_id, :);
 
 %% Retreive the affine matrix from the anatomical file
-subject_nifti_info = niftiinfo(sprintf('/project/3025011.02/raw_data/anatomical_data/sub-%03d/sub-%03d_T1w.nii.gz', subject_id, subject_id));
+subject_nifti_info = niftiinfo(sprintf('/project/3025011.02/bids/sub-x%03d/ses-01/anat/sub-%03d*mprage_T1w.nii.gz', subject_id, subject_id));
 subject_affine_matrix = subject_nifti_info.Transform.T';
 % Validate it
 if ~isequal(size(subject_affine_matrix), [4, 4])
@@ -47,4 +47,4 @@ subject_RAS_coordinates{:, 3:8} = round(subject_RAS_coordinates{:, 3:8}, 3);
 disp(subject_RAS_coordinates);
 
 %% Write table to subject folder
-writetable(subject_RAS_coordinates,sprintf('/project/3025011.02/raw_data/other/sub-%03d/ses-01/sub-%03d_localite_coordinates.csv', subject_id, subject_id),'Delimiter',';')  
+writetable(subject_RAS_coordinates,sprintf('/project/3025011.02/masks/subject_coordinates/sub-%03d_localite_coordinates.csv', subject_id),'Delimiter',';')  
