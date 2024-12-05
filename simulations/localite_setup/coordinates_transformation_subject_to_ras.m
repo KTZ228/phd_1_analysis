@@ -1,7 +1,7 @@
 clc; clear; close all;
 
 %% Set subject id
-subject_id = 701;
+subject_id = 603;
 
 %% Load csv with all PRESTUS coordinates
 all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
@@ -9,7 +9,11 @@ all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/plan
 subject_simulation_coordinates = all_simulation_coordinates(all_simulation_coordinates.subject_id == subject_id, :);
 
 %% Retreive the affine matrix from the anatomical file
-subject_nifti_info = niftiinfo(sprintf('/project/3025011.02/bids/sub-x%03d/ses-01/anat/sub-%03d*mprage_T1w.nii.gz', subject_id, subject_id));
+subject_nifti_file = sprintf('sub-x%03d*_T1w.nii', subject_id);
+subject_nifti_path = sprintf('/project/3025011.02/bids/sub-x%03d/ses-mri01/anat/', subject_id);
+subject_nifti_file_and_path = fullfile(subject_nifti_path, subject_nifti_file);
+subject_nifti_file_and_path = fullfile(subject_nifti_path, dir(subject_nifti_file_and_path).name);
+subject_nifti_info = niftiinfo(subject_nifti_file_and_path);
 subject_affine_matrix = subject_nifti_info.Transform.T';
 % Validate it
 if ~isequal(size(subject_affine_matrix), [4, 4])
@@ -47,4 +51,4 @@ subject_RAS_coordinates{:, 3:8} = round(subject_RAS_coordinates{:, 3:8}, 3);
 disp(subject_RAS_coordinates);
 
 %% Write table to subject folder
-writetable(subject_RAS_coordinates,sprintf('/project/3025011.02/masks/subject_coordinates/sub-%03d_localite_coordinates.csv', subject_id),'Delimiter',';')  
+writetable(subject_RAS_coordinates,sprintf('/project/3025011.02/localite/subject_coordinates/sub-x%03d_localite_coordinates.csv', subject_id),'Delimiter',';')  
