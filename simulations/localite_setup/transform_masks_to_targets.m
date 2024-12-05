@@ -28,7 +28,7 @@ right_dacc_location = fullfile(masks_folder, right_dacc);
 %% Navigate to subject_folder and create masks
 cd (masks_folder)
 
-subject_t1 = fullfile(anatomical_folder, sprintf('sub-x%03d*_T1w.nii.gz', subject_id));
+subject_t1 = fullfile(anatomical_folder, sprintf('sub-x%03d*ce-ND_T1w.nii.gz', subject_id));
 subject_t1 = fullfile(anatomical_folder, dir(subject_t1).name);
 subject_t1_post_bet = fullfile(subject_masks_folder, sprintf('sub-x%03d_T1w_bet.nii.gz', subject_id));
 subject_aff_trans = fullfile(subject_masks_folder, sprintf('sub-x%03d_affine_transformation_matrix.mat', subject_id));
