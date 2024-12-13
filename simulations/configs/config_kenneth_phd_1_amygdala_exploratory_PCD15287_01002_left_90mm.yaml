@@ -9,8 +9,8 @@ overwrite_simnibs: 0
 
 # Structure of subfolders containing T1 and T1 images
 ## It is easier to store the subject data of each participant in an individual subfolder
-t1_path_template: sub-x%1$03d/ses-mri01/anat/*ce-ND_T1w.nii.gz
-t2_path_template: sub-x%1$03d/ses-mri01/anat/*ce-ND_T2w.nii.gz
+t1_path_template: sub-%1$03d/ses-mri01/anat/*mprage_T1w.nii.gz
+t2_path_template: sub-%1$03d/ses-mri01/anat/*mprage_T2w.nii.gz
 
 transducer: 
   n_elements: 30 # number of elements in the transducer
