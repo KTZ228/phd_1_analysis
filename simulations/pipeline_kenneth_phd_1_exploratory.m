@@ -12,7 +12,7 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-run_amygdala_sims = 1;
+run_amygdala_sims = 0;
 run_layered_sims = 1;
 test_pipeline = 1;
 heating_sims = 1;
@@ -20,8 +20,8 @@ localite_coordinates = 1;
 pilot_simulations = 1;
 
 % Add an integer or list of the subjects you want to simulate
-stimulation_depth_list = "90mm";
-subject_list = 3;
+stimulation_depth_list = "55mm";
+subject_list = 4;
 session_number = 1;
 
 for stimulation_depth = stimulation_depth_list
@@ -45,6 +45,7 @@ for stimulation_depth = stimulation_depth_list
     
     % Config location
     config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/simulations/configs/';
+    localite_location = '/project/3025011.02/localite/sub-x%03d/ses-%02d/InstrumentMarkers/';
     
     %% These parameters and functions should not be changed. Additional changes can be made in the config files
     % Add string of simulation medium as input
@@ -68,70 +69,81 @@ for stimulation_depth = stimulation_depth_list
             parameters_left.t2_path_template = strrep(parameters_left.t2_path_template, 'sub-%1$03d', 'sub-x%1$03d');
             parameters_right.t1_path_template = strrep(parameters_right.t1_path_template, 'sub-%1$03d', 'sub-x%1$03d');
             parameters_right.t2_path_template = strrep(parameters_right.t2_path_template, 'sub-%1$03d', 'sub-x%1$03d');
+            localite_location = strrep(localite_location, 'sub-%03d', 'sub-x%03d');
         end
 
         %% Setting folder locations for structural data
-        filename_t1 = dir(sprintf(fullfile(parameters_left.data_path,parameters_left.t1_path_template), subject_id));
-        t1_header = niftiinfo(fullfile(filename_t1.folder,filename_t1.name));
-        t1_image = niftiread(fullfile(filename_t1.folder,filename_t1.name));
+        filename_t1 = dir(sprintf(fullfile(parameters_left.data_path, parameters_left.t1_path_template), subject_id));
+        t1_header = niftiinfo(fullfile(filename_t1.folder, filename_t1.name));
+        t1_image = niftiread(fullfile(filename_t1.folder, filename_t1.name));
     
         %% Load coordinates
         if localite_coordinates == 1
             %% Load coordinates from Localite
+            % First check if any of the instrument_markers are named incorrectly
+            incorrectly_named_instrument_markers = readtable('/project/3025011.02/localite/instrument_marker_name_correction.csv');
+            incorrectly_named_instrument_markers = incorrectly_named_instrument_markers(incorrectly_named_instrument_markers.subject_id == subject_id, :);
+
+            % Loop through the filtered rows to find the 
+            for i = 1:height(incorrectly_named_instrument_markers)
+                % Check if 'stimulation_target_left' matches any 'intended_name'
+                if any(strcmp(stimulation_target_left, incorrectly_named_instrument_markers.intended_name))
+                    % Find the row where it matches and replace with 'original_name'
+                    match_row = strcmp(incorrectly_named_instrument_markers.intended_name, stimulation_target_left);
+                    trigger_marker_left = incorrectly_named_instrument_markers.original_name{match_row};
+                else
+                    trigger_marker_left = stimulation_target_left;
+                end
+            
+                % Check if 'stimulation_target_right' matches any 'intended_name'
+                if any(strcmp(stimulation_target_right, incorrectly_named_instrument_markers.intended_name))
+                    % Find the row where it matches and replace with 'original_name'
+                    match_row = strcmp(incorrectly_named_instrument_markers.intended_name, stimulation_target_right);
+                    trigger_marker_right = incorrectly_named_instrument_markers.original_name{match_row};
+                else
+                    trigger_marker_right = stimulation_target_right;
+                end
+            end
+
             % Set expected_focal_distance_mm
             t1_grid_step_mm = t1_header.PixelDimensions(1);
             focal_distance_t1 = norm(parameters_left.focus_pos_t1_grid - parameters_left.transducer.pos_t1_grid);
             parameters_left.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
             parameters_right.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
 
-            % Left transducer
-            reference_to_transducer_distance = -(parameters_left.transducer.curv_radius_mm - parameters_left.transducer.dist_to_plane_mm);
-            extract_dt = @(x) datetime(x.name(end-20:end-4),'InputFormat','yyyyMMddHHmmssSSS');
+            % To compensate for potential offsets between the center of the reference and the edge of the bowl
+            reference_to_transducer_distance = -(parameters_left.transducer.curv_radius_mm - parameters_left.transducer.dist_to_plane_mm) - 7;
             
-            % Load the trigger mark file
-            if pilot_simulations == 1
-                localite_file_name_and_location = sprintf('%ssub-x%03d/ses-mri%02d/other/localite_sub-x%03d_ses-mri%02d_left*.xml',parameters_left.data_path, subject_id, session_number, subject_id, session_number);
-            else
-                localite_file_name_and_location = sprintf('%ssub-%03d/ses-mri%02d/other/localite_sub-%03d_ses-mri%02d_left*.xml',parameters_left.data_path, subject_id, session_number, subject_id, session_number);
-            end
+            % Load the most recent trigger mark file
+            extract_dt = @(x) datetime(x.name(end-20:end-4),'InputFormat','yyyyMMddHHmmssSSS');
+            localite_file_name_and_location = sprintf(localite_location, subject_id, session_number);
             trig_mark_files = dir(localite_file_name_and_location);
             if isempty(trig_mark_files)
                 error('Localite file `%s` cannot be found', localite_file_name_and_location)
             end
+
+            % Filter out files that are not InstrumentMarker files
+            trig_mark_files = trig_mark_files(contains({trig_mark_files.name}, 'InstrumentMarker'));
             
             % Select the most recent file
             [~,idx] = sort([arrayfun(extract_dt,trig_mark_files)],'descend');
             trig_mark_files = trig_mark_files(idx);
             
-            % Translate transducer trigger markers to raster positions
-            [left_trans_ras_pos, left_focus_ras_pos] = get_trans_pos_from_trigger_markers(fullfile(trig_mark_files(1).folder, trig_mark_files(1).name), 5, ...
+            % Translate left transducer trigger markers to raster positions
+            [left_trans_ras_pos, left_focus_ras_pos] = get_trans_pos_from_instrument_markers(fullfile(trig_mark_files(1).folder, trig_mark_files(1).name), trigger_marker_left, 5, ...
                 reference_to_transducer_distance, parameters_left.expected_focal_distance_mm);
             parameters_left.transducer.pos_t1_grid = ras_to_grid(left_trans_ras_pos, t1_header);
             parameters_left.focus_pos_t1_grid = ras_to_grid(left_focus_ras_pos, t1_header);
     
-            % Right transducer
-            reference_to_transducer_distance = -(parameters_right.transducer.curv_radius_mm - parameters_right.transducer.dist_to_plane_mm);
-            
-            % Load the trigger mark file
-            if pilot_simulations == 1
-                localite_file_name_and_location = sprintf('%ssub-x%03d/ses-mri%02d/other/localite_sub-x%03d_ses-mri%02d_right*.xml',parameters_left.data_path, subject_id, session_number, subject_id, session_number);
-            else
-                localite_file_name_and_location = sprintf('%ssub-%03d/ses-mri%02d/other/localite_sub-%03d_ses-mri%02d_right*.xml',parameters_left.data_path, subject_id, session_number, subject_id, session_number);
-            end
-            trig_mark_files = dir(localite_file_name_and_location);
-            if isempty(trig_mark_files)
-                error('Localite file `%s` is not found', localite_file_name_and_location)
-            end
-            
-            % Select the most recent file
-            [~,idx] = sort([arrayfun(extract_dt,trig_mark_files)],'descend');
-            trig_mark_files = trig_mark_files(idx);
-            
-            % Translate transducer trigger markers to raster positions
-            [right_trans_ras_pos, right_focus_ras_pos] = get_trans_pos_from_trigger_markers(fullfile(trig_mark_files(1).folder, trig_mark_files(1).name), 5, ...
+            % Translate right transducer trigger markers to raster positions
+            [right_trans_ras_pos, right_focus_ras_pos] = get_trans_pos_from_instrument_markers(fullfile(trig_mark_files(1).folder, trig_mark_files(1).name), trigger_marker_right, 5, ...
                 reference_to_transducer_distance, parameters_right.expected_focal_distance_mm);
             parameters_right.transducer.pos_t1_grid = ras_to_grid(right_trans_ras_pos, t1_header);
             parameters_right.focus_pos_t1_grid = ras_to_grid(right_focus_ras_pos, t1_header);
+
+            %% Label transducer and focus locations
+            transducers = [parameters_left.transducer.pos_t1_grid parameters_right.transducer.pos_t1_grid];
+            focus = [parameters_left.focus_pos_t1_grid parameters_right.focus_pos_t1_grid];
         else
             %% Load coordinates from the exploratory_coordinate_list
             exploratory_coordinate_list = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
@@ -150,11 +162,11 @@ for stimulation_depth = stimulation_depth_list
             parameters_left.focus_pos_t1_grid = [row_coordinates_left.focus_pos_t1_grid_x, row_coordinates_left.focus_pos_t1_grid_y, row_coordinates_left.focus_pos_t1_grid_z];
             parameters_right.transducer.pos_t1_grid = [row_coordinates_right.pos_t1_grid_x, row_coordinates_right.pos_t1_grid_y, row_coordinates_right.pos_t1_grid_z];
             parameters_right.focus_pos_t1_grid = [row_coordinates_right.focus_pos_t1_grid_x, row_coordinates_right.focus_pos_t1_grid_y, row_coordinates_right.focus_pos_t1_grid_z];
-        end
         
-        %% Label transducer and focus locations
-        transducers = [parameters_left.transducer.pos_t1_grid' parameters_right.transducer.pos_t1_grid'];
-        focus = [parameters_left.focus_pos_t1_grid' parameters_right.focus_pos_t1_grid'];
+            %% Label transducer and focus locations
+            transducers = [parameters_left.transducer.pos_t1_grid' parameters_right.transducer.pos_t1_grid'];
+            focus = [parameters_left.focus_pos_t1_grid' parameters_right.focus_pos_t1_grid'];
+        end
     
         %% Preview transducer locations
         % Makes a different slice depending on the target
@@ -170,8 +182,8 @@ for stimulation_depth = stimulation_depth_list
         title('Left target')
     
         figure(2);
-        imshowpair(plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducers(:,2), focus(:,2), parameters_left), ...
-            plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducers(:,2), focus(:,2), parameters_left, 'slice_dim', slice_dim_right_figure),'montage');
+        imshowpair(plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducers(:,2), focus(:,2), parameters_right), ...
+            plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducers(:,2), focus(:,2), parameters_right, 'slice_dim', slice_dim_right_figure),'montage');
         title('Right target');
         
         %% Simulations for the left target
