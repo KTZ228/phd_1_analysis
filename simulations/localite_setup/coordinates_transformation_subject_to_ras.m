@@ -1,7 +1,7 @@
 clc; clear; close all;
 
 %% Set subject id
-subject_id = 603;
+subject_id = 4;
 
 %% Load csv with all PRESTUS coordinates
 all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
@@ -9,7 +9,7 @@ all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/plan
 subject_simulation_coordinates = all_simulation_coordinates(all_simulation_coordinates.subject_id == subject_id, :);
 
 %% Retreive the affine matrix from the anatomical file
-subject_nifti_file = sprintf('sub-x%03d*_T1w.nii', subject_id);
+subject_nifti_file = sprintf('sub-x%03d*mprage_T1w.nii.gz', subject_id);
 subject_nifti_path = sprintf('/project/3025011.02/bids/sub-x%03d/ses-mri01/anat/', subject_id);
 subject_nifti_file_and_path = fullfile(subject_nifti_path, subject_nifti_file);
 subject_nifti_file_and_path = fullfile(subject_nifti_path, dir(subject_nifti_file_and_path).name);
