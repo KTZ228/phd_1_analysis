@@ -1,6 +1,9 @@
 # Run MRI quality control
+### Navigate to the project folder
+`cd /project/3025011.02/`
+
 ### import modules
-`module load mri_qc/24.0.2`
+`module load mriqc/24.0.2`
 
 ### Submit batch jobs to slurm for quality control
 #### Subject level
