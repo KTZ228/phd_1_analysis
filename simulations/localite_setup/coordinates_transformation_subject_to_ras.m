@@ -50,5 +50,9 @@ subject_RAS_coordinates{:, 3:8} = round(subject_RAS_coordinates{:, 3:8}, 3);
 % Display the updated table
 disp(subject_RAS_coordinates);
 
+%% Remove the entrypoint columns
+subject_RAS_coordinates(:, 3:5) = [];
+
 %% Write table to subject folder
-writetable(subject_RAS_coordinates,sprintf('/project/3025011.02/localite/subject_coordinates/sub-x%03d_localite_coordinates.csv', subject_id),'Delimiter',';')  
+mkdir(sprintf('/project/3025011.02/localite/sub-x%03d', subject_id));
+writetable(subject_RAS_coordinates,sprintf('/project/3025011.02/localite/sub-x%03d/sub-x%03d_localite_coordinates.csv', subject_id, subject_id),'Delimiter',';')  

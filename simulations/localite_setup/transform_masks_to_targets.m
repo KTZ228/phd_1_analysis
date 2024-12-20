@@ -4,11 +4,11 @@ clc; clear; close all;
 %% Script to translate the masks in MNI space to coordinates in subject space
 % First the masks need to be translated to subject space before a coordinate can be selected
 
-subject_id = 002;
+subject_id = 6;
 
 masks_folder = '/project/3025011.02/localite/masks/';
 anatomical_folder = sprintf('/project/3025011.02/bids/sub-x%03d/ses-mri01/anat', subject_id);
-subject_masks_folder = sprintf('/project/3025011.02/localite/sub-x%03d/ses-01/', subject_id);
+subject_masks_folder = sprintf('/project/3025011.02/localite/sub-x%03d/masks/', subject_id);
 
 left_amygdala = ('juelich_probability_atlas_left_amygdala_laterobasal_threshold-85_bin.nii.gz');
 left_amygdala_location = fullfile(masks_folder, left_amygdala);
