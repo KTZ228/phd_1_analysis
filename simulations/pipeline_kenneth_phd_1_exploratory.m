@@ -2,7 +2,7 @@
 clc; clear;
 
 % Add simnibs to the path
-cd /home/affneu/kenvdzee/SimNIBS-4.0/
+cd /home/affneu/kenvdzee/.conda/envs/
 addpath(genpath('simnibs_env'))
 
 % Add PRESTUS to the path
@@ -12,35 +12,52 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-run_amygdala_sims = 0;
+which_sims = 'dacc'; 
 run_layered_sims = 1;
-test_pipeline = 1;
+test_pipeline = 0;
 heating_sims = 1;
-localite_coordinates = 1;
+heating_sims_thermal_dose = 1;
+localite_coordinates = 0;
 pilot_simulations = 1;
+qsub_or_slurm = 'slurm'; % qsub or slurm
 
 % Add an integer or list of the subjects you want to simulate
-stimulation_depth_list = "55mm";
-subject_list = 4;
+stimulation_depth_list = "45mm";
+subject_list = 702;
 session_number = 1;
 
 for stimulation_depth = stimulation_depth_list
     
     % Set config files and export location
-    if run_amygdala_sims == 1
-        config_left_transducer = sprintf('config_kenneth_phd_1_amygdala_exploratory_PCD15287_01002_left_%s.yaml', stimulation_depth);
-        config_right_transducer = sprintf('config_kenneth_phd_1_amygdala_exploratory_PCD15287_01002_right_%s.yaml', stimulation_depth);
+    if strcmp(which_sims, 'amygdala')
+        config_left_transducer = sprintf('config_kenneth_phd_1_amygdala_PCD15287_01001_left_%s.yaml', stimulation_depth);
+        config_right_transducer = sprintf('config_kenneth_phd_1_amygdala_PCD15287_01002_right_%s.yaml', stimulation_depth);
         stimulation_target_left = 'left_amygdala';
         stimulation_target_right = 'right_amygdala';
-    else
-        config_left_transducer = sprintf('config_kenneth_phd_1_dACC_exploratory_PCD15287_01002_left_%s.yaml', stimulation_depth);
-        config_right_transducer = sprintf('config_kenneth_phd_1_dACC_exploratory_PCD15287_01002_right_%s.yaml', stimulation_depth);
-        stimulation_target_left = 'left_posterior_dacc';
-        stimulation_target_right = 'right_posterior_dacc';
-        %stimulation_target_left = 'left_medial_dacc';
-        %stimulation_target_right = 'right_medial_dacc';
+    elseif strcmp(which_sims, 'dacc')
+        config_left_transducer = sprintf('config_kenneth_phd_1_dACC_PCD15287_01001_left_%s.yaml', stimulation_depth);
+        config_right_transducer = sprintf('config_kenneth_phd_1_dACC_PCD15287_01002_right_%s.yaml', stimulation_depth);
         %stimulation_target_left = 'left_anterior_dacc';
         %stimulation_target_right = 'right_anterior_dacc';
+        %stimulation_target_left = 'left_medial_dacc';
+        %stimulation_target_right = 'right_medial_dacc';
+        stimulation_target_left = 'left_posterior_dacc';
+        stimulation_target_right = 'right_posterior_dacc';
+    elseif strcmp(which_sims, 'sham')
+        config_left_transducer = 'config_kenneth_phd_1_sham_PCD15287_01001_left.yaml';
+        config_right_transducer = 'config_kenneth_phd_1_sham_PCD15287_01002_right.yaml';
+        stimulation_target_left = 'left_sham';
+        stimulation_target_right = 'right_sham';
+    elseif strcmp(which_sims, 'sham_test')
+        config_left_transducer = 'config_kenneth_phd_1_sham_test_PCD15287_01001_left.yaml';
+        config_right_transducer = 'config_kenneth_phd_1_sham_test_PCD15287_01002_right.yaml';
+        stimulation_target_left = 'left_sham_test';
+        stimulation_target_right = 'right_sham_test';
+    else
+        config_left_transducer = 'config_kenneth_phd_1_sham_powerless_PCD15287_01001_left.yaml';
+        config_right_transducer = 'config_kenneth_phd_1_sham_powerless_PCD15287_01002_right.yaml';
+        stimulation_target_left = 'left_sham_powerless';
+        stimulation_target_right = 'right_sham_powerless';
     end
     
     % Config location
@@ -170,10 +187,10 @@ for stimulation_depth = stimulation_depth_list
     
         %% Preview transducer locations
         % Makes a different slice depending on the target
-        if run_amygdala_sims == 1
-            slice_dim_right_figure = 3;
-        else
+        if strcmp(which_sims, 'dacc')
             slice_dim_right_figure = 1;
+        else
+            slice_dim_right_figure = 3;
         end
     
         figure(1);
@@ -192,6 +209,7 @@ for stimulation_depth = stimulation_depth_list
         parameters_left.interactive = interactive_option;
         parameters_left.simulation_medium = layered_simulations;
         parameters_left.run_heating_sims = heating_sims;
+        parameters_left.submit_medium = qsub_or_slurm;
     
         % Adjust timelimit if heating simulations are to be run
         if isfield(parameters_left,'run_heating_sims') && parameters_left.run_heating_sims == 1
@@ -204,10 +222,31 @@ for stimulation_depth = stimulation_depth_list
     
         % Set filename
         parameters_left.results_filename_affix = sprintf('_target_%s', stimulation_target_left);
+
+        % Set starting temperatures
+        if heating_sims_thermal_dose == 0
+            parameters_left.thermal.temp_0.water = 37;
+            parameters_left.thermal.temp_0.skull = 37;
+            parameters_left.thermal.temp_0.brain = 37;
+            parameters_left.thermal.temp_0.skin = 37;
+            parameters_left.thermal.temp_0.skull_trabecular = 37;
+            parameters_left.thermal.temp_0.skull_cortical = 37;
+        else
+            parameters_left.thermal.temp_0.water = 37;
+            parameters_left.thermal.temp_0.skull = 36;
+            parameters_left.thermal.temp_0.brain = 37;
+            parameters_left.thermal.temp_0.skin = 35;
+            parameters_left.thermal.temp_0.skull_trabecular = 37;
+            parameters_left.thermal.temp_0.skull_cortical = 36;
+        end
     
         % Send job to qsub (if not in testing mode)
         if test_pipeline == 0
-            single_subject_pipeline_with_slurm(subject_id, parameters_left, timelimit, memorylimit);
+            if strcmp(qsub_or_slurm, 'qsub')
+                single_subject_pipeline_with_qsub(subject_id, parameters_left)
+            else
+                single_subject_pipeline_with_slurm(subject_id, parameters_left, timelimit, memorylimit);
+            end
         end
     
         %% Simulations for right target
@@ -216,6 +255,7 @@ for stimulation_depth = stimulation_depth_list
         parameters_right.interactive = interactive_option;
         parameters_right.simulation_medium = layered_simulations;
         parameters_right.run_heating_sims = heating_sims;
+        parameters_right.submit_medium = qsub_or_slurm;
     
         % Adjust timelimit if heating simulations are to be run
         if isfield(parameters_right,'run_heating_sims') && parameters_right.run_heating_sims == 1
@@ -228,10 +268,31 @@ for stimulation_depth = stimulation_depth_list
     
         % Set filename 
         parameters_right.results_filename_affix = sprintf('_target_%s', stimulation_target_right);
-    
+
+                % Set starting temperatures
+        if heating_sims_thermal_dose == 0
+            parameters_right.thermal.temp_0.water = 37;
+            parameters_right.thermal.temp_0.skull = 37;
+            parameters_right.thermal.temp_0.brain = 37;
+            parameters_right.thermal.temp_0.skin = 37;
+            parameters_right.thermal.temp_0.skull_trabecular = 37;
+            parameters_right.thermal.temp_0.skull_cortical = 37;
+        else
+            parameters_right.thermal.temp_0.water = 37;
+            parameters_right.thermal.temp_0.skull = 36;
+            parameters_right.thermal.temp_0.brain = 37;
+            parameters_right.thermal.temp_0.skin = 35;
+            parameters_right.thermal.temp_0.skull_trabecular = 37;
+            parameters_right.thermal.temp_0.skull_cortical = 36;
+        end
+
         % Send job to qsub (if not in testing mode)
         if test_pipeline == 0
-            single_subject_pipeline_with_slurm(subject_id, parameters_right, timelimit, memorylimit);
+            if strcmp(qsub_or_slurm, 'qsub')
+                single_subject_pipeline_with_qsub(subject_id, parameters_right)
+            else
+                single_subject_pipeline_with_slurm(subject_id, parameters_right, timelimit, memorylimit);
+            end
         end
     end
 end
