@@ -1,6 +1,10 @@
 clc; clear; close all;
 
-%% Change path to tuSIM folder
+%% Ensure Simnibs paths are removed to resolve repelem.m issues
+cd /home/affneu/kenvdzee/.conda/envs/
+rmpath(genpath('simnibs_env'))
+
+%% Change path to PRESTUS folder
 cd /home/affneu/kenvdzee/Documents/PRESTUS
 
 % add paths
