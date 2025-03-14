@@ -2,7 +2,7 @@ clc; clear; close all;
 
 %% Ensure Simnibs paths are removed to resolve repelem.m issues
 cd /home/affneu/kenvdzee/.conda/envs/
-rmpath(genpath('simnibs_env'))
+%rmpath(genpath('simnibs_env'))
 
 %% Change path to PRESTUS folder
 cd /home/affneu/kenvdzee/Documents/PRESTUS
@@ -14,57 +14,58 @@ addpath('/home/common/matlab/fieldtrip/qsub')
 masks_location = '/project/3025011.02/localite/masks/';
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/simulations/configs/';
 
-plotting_target = 'right_amygdala';
+plotting_target = 'right_posterior_dacc';
+output_extension = 'dACC_45mm/intensity_60W/heatrise_optimised';
 
 if strcmp(plotting_target, 'left_anterior_dacc')
     parameters = load_parameters('config_kenneth_phd_1_dACC_PCD15287_01001_left_45mm.yaml', config_location);
     parameters.results_filename_affix = '_target_left_anterior_dacc';
-    maskname = 'payam_left_dacc_mask.nii.gz';
+    maskname = 'payam_right_dacc_mask_doubled.nii.gz';
     slice_axis = 'x';
 elseif strcmp(plotting_target, 'right_anterior_dacc')
     parameters = load_parameters('config_kenneth_phd_1_dACC_PCD15287_01002_right_45mm.yaml', config_location);
     parameters.results_filename_affix = '_target_right_anterior_dacc';
-    maskname = 'payam_right_dacc_mask.nii.gz';
+    maskname = 'payam_left_dacc_mask_doubled.nii.gz';
     slice_axis = 'x';
 elseif strcmp(plotting_target, 'left_medial_dacc')
     parameters = load_parameters('config_kenneth_phd_1_dACC_PCD15287_01001_left_45mm.yaml', config_location);
     parameters.results_filename_affix = '_target_left_medial_dacc';
-    maskname = 'payam_left_dacc_mask.nii.gz';
+    maskname = 'payam_right_dacc_mask_doubled.nii.gz';
     slice_axis = 'x';
 elseif strcmp(plotting_target, 'right_medial_dacc')
     parameters = load_parameters('config_kenneth_phd_1_dACC_PCD15287_01002_right_45mm.yaml', config_location);
     parameters.results_filename_affix = '_target_right_medial_dacc';
-    maskname = 'payam_right_dacc_mask.nii.gz';
+    maskname = 'payam_left_dacc_mask_doubled.nii.gz';
     slice_axis = 'x';
 elseif strcmp(plotting_target, 'left_posterior_dacc')
     parameters = load_parameters('config_kenneth_phd_1_dACC_PCD15287_01001_left_45mm.yaml', config_location);
     parameters.results_filename_affix = '_target_left_posterior_dacc';
-    maskname = 'payam_left_dacc_mask.nii.gz';
+    maskname = 'payam_right_dacc_mask_doubled.nii.gz';
     slice_axis = 'x';
 elseif strcmp(plotting_target, 'right_posterior_dacc')
     parameters = load_parameters('config_kenneth_phd_1_dACC_PCD15287_01002_right_45mm.yaml', config_location);
     parameters.results_filename_affix = '_target_right_posterior_dacc';
-    maskname = 'payam_right_dacc_mask.nii.gz';
+    maskname = 'payam_left_dacc_mask_doubled.nii.gz';
     slice_axis = 'x';
 elseif strcmp(plotting_target, 'left_amygdala')
-    parameters = load_parameters('config_kenneth_phd_1_amygdala_PCD15287_01002_left_90mm.yaml', config_location);
+    parameters = load_parameters('config_kenneth_phd_1_amygdala_PCD15287_01001_left_75mm.yaml', config_location);
     parameters.results_filename_affix = '_target_left_amygdala';
     maskname = 'juelich_probability_atlas_left_amygdala_laterobasal_threshold-85_bin.nii.gz';
     slice_axis = 'y';
 elseif strcmp(plotting_target, 'right_amygdala')
-    parameters = load_parameters('config_kenneth_phd_1_amygdala_PCD15287_01002_right_90mm.yaml', config_location);
+    parameters = load_parameters('config_kenneth_phd_1_amygdala_PCD15287_01002_right_75mm.yaml', config_location);
     parameters.results_filename_affix = '_target_right_amygdala';
     maskname = 'juelich_probability_atlas_right_amygdala_laterobasal_threshold-85_bin.nii.gz';
     slice_axis = 'y';
 elseif strcmp(plotting_target, 'left_sham')
     parameters = load_parameters('config_kenneth_phd_1_sham_PCD15287_01001_left.yaml', config_location);
     parameters.results_filename_affix = '_target_left_sham';
-    maskname = 'payam_raw_dACC_mask_resampled.nii.gz';
+    maskname = 'payam_right_dacc_mask_doubled.nii.gz';
     slice_axis = 'y';
 elseif strcmp(plotting_target, 'right_sham')
     parameters = load_parameters('config_kenneth_phd_1_sham_PCD15287_01002_right.yaml', config_location);
     parameters.results_filename_affix = '_target_right_sham';
-    maskname = 'payam_raw_dACC_mask_resampled.nii.gz';
+    maskname = 'payam_left_dacc_mask_doubled.nii.gz';
     slice_axis = 'y';
 else
     disp('Please select a plotting_target')
@@ -72,8 +73,8 @@ else
 end
 
 % if output is in an alternate location
-parameters.output_location = '/project/3025011.02/TUS_simulations/planning/intensity_35W/amygdala_90mm/';
-parameters.temp_output_dir = '/project/3025011.02/TUS_simulations/planning/intensity_35W/amygdala_90mm/';
+parameters.output_location = sprintf('/project/3025011.02/TUS_simulations/planning/%s/', output_extension);
+parameters.temp_output_dir = sprintf('/project/3025011.02/TUS_simulations/planning/%s/', output_extension);
 
 % Extract list of participants
 files = struct2table(dir(parameters.data_path));

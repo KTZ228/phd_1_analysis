@@ -5,10 +5,9 @@ import pandas as pd
 import numpy as np
 
 
-def unique_subject_ids_and_sessions(file_path: str) -> (
-        list, list):
-    """Extracts the subject ID's and sessions from the filenames.
-    Made to work together with the 'list_files_with_date_and_subject_id' function.
+def unique_subject_ids_and_sessions(file_path: str) ->\
+        (list, list):
+    """Extracts the subject ID's and sessions from the filenames in subdirectories.
 
     Parameters
     ----------
@@ -22,19 +21,19 @@ def unique_subject_ids_and_sessions(file_path: str) -> (
     unique_sessions : list
         Unique sessions.
     """
-    # Use regex to match pattern to filenames
-    pattern = r'experiment_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
+    pattern = r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
     unique_subject_ids = []
     unique_sessions = []
-    for filename in os.listdir(file_path):
-        match = re.match(pattern, filename)
-        if match:
-            # Extract sub and session numbers as int
-            subject_id = int(match.group(1))
-            session_number = int(match.group(2))
-            # Append to the lists
-            unique_subject_ids.append(subject_id)
-            unique_sessions.append(session_number)
+
+    # Walk through all subdirectories
+    for root, dirs, files in os.walk(file_path):
+        for filename in files:
+            match = re.match(pattern, filename)
+            if match:
+                subject_id = int(match.group(1))
+                session_number = int(match.group(2))
+                unique_subject_ids.append(subject_id)
+                unique_sessions.append(session_number)
 
     unique_subject_ids = list(set(unique_subject_ids))
     unique_sessions = list(set(unique_sessions))
@@ -43,42 +42,42 @@ def unique_subject_ids_and_sessions(file_path: str) -> (
 
 def list_files_with_date_and_subject_id(file_path: str,
                                         unique_subject_ids: list = [],
-                                        unique_sessions: list = []) -> (
-        list):
+                                        unique_sessions: list = []) -> list:
     """This will create a list of the most recent files of every subject and every session.
 
     Parameters
     ----------
     file_path : str
-        path to the experiment output folder.
+        Path to the experiment output folder.
     unique_subject_ids : list(int)
-        A list containing all subject ID's found in the folder.
+        A list containing all subject IDs found in the folder.
     unique_sessions : list(int)
         A list containing all sessions found in the folder.
 
     Returns
     -------
     recent_files : list
-        A list of all the most recent files of every subject and every session.
+        A list of the most recent files of every subject and every session.
     """
-    if len(unique_subject_ids) == 0 and len(unique_sessions) == 0:
-        # Creates a list of the most recent results for each subject ID and session
+    # If no subject IDs or sessions were provided, extract them using the helper function.
+    if not unique_subject_ids and not unique_sessions:
         unique_subject_ids, unique_sessions = unique_subject_ids_and_sessions(file_path)
 
-    # Loop through subject ID's and sessions and pick the most recent result for each of them
     recent_files = []
-    for subject_id, value in enumerate(unique_subject_ids):
-        for session_number, value in enumerate(unique_sessions):
-            file_structure_filtered = os.path.join(file_path,
-                                                   f'*sub-{unique_subject_ids[subject_id]:003}_session-{unique_sessions[session_number]:02}*')
-            list_files_filtered = glob.glob(file_structure_filtered)
+    # Iterate through each subject and session combination.
+    for subject_id in unique_subject_ids:
+        for session_number in unique_sessions:
+            # Build a recursive search pattern that looks in all subfolders.
+            file_structure_filtered = os.path.join(
+                file_path, '**', f'behavioural_output_sub-{subject_id:03}_session-{session_number:02}*.csv'
+            )
+            list_files_filtered = glob.glob(file_structure_filtered, recursive=True)
             try:
+                # Choose the most recent file (assuming lexicographical order corresponds to recency).
                 recent_file = max(list_files_filtered)
                 recent_files.append(recent_file)
             except ValueError:
-                print(
-                    f'sub-{unique_subject_ids[subject_id]:003} did not complete session-{unique_sessions[session_number]:02}')
-
+                print(f'sub-{subject_id:03} did not complete session-{session_number:02}')
     return recent_files
 
 
@@ -160,18 +159,18 @@ def check_congruency(row,
     condition : str
         A string containing the congruency condition for the given row.
     """
-    if (row['probability_condition'] > 50 and row['stimuli_type'] == 2) or (
-            row['probability_condition'] < 50 and row['stimuli_type'] == 1):
-        if binary_output is True:
-            condition = 0
-        else:
-            condition = 'incongruent'
-    elif (row['probability_condition'] < 50 and row['stimuli_type'] == 2) or (
-            row['probability_condition'] > 50 and row['stimuli_type'] == 1):
+    if (row['probability_condition'] > 50 and row['stimuli_type'] == 1) or (
+            row['probability_condition'] < 50 and row['stimuli_type'] == 2):
         if binary_output is True:
             condition = 1
         else:
             condition = 'congruent'
+    elif (row['probability_condition'] < 50 and row['stimuli_type'] == 1) or (
+            row['probability_condition'] > 50 and row['stimuli_type'] == 2):
+        if binary_output is True:
+            condition = 0
+        else:
+            condition = 'incongruent'
     else:
         if binary_output is True:
             condition = -1
@@ -550,9 +549,9 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
                 # Determine emotional valence string
                 stimuli_type = trial_window['stimuli_type'].iloc[0]
 
-                if stimuli_type == 1 or stimuli_type == 2:
+                if stimuli_type == 1:
                     emotional_valence = 'angry'
-                elif stimuli_type == 3 or stimuli_type == 4:
+                elif stimuli_type == 2:
                     emotional_valence = 'happy'
                 else:
                     emotional_valence = 'no_emotion'

@@ -1,9 +1,9 @@
 # Run MRI prep
-### Navigate to the project folder
-`cd /project/3025011.02/`
-
-### import modules
+### Load the right version of fMRIprep
 `module load fmriprep/23.2.1`
 
+### Navigate to the project folder to ensure slurm logs end up there
+`cd /project/3025011.02/`
+
 ### Run fmriprep 
-`fmriprep_sub.py /project/3025011.02/bids -r slurm --mem_mb 64000 -a " --output-spaces MNI152NLin2009cAsym:res-native"`
+`fmriprep_sub /project/3025011.02/bids --mem_mb 64000 -a " --output-spaces MNI152NLin2009cAsym:res-native" -p x007`

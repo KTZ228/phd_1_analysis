@@ -3,7 +3,7 @@
 `cd /project/3025011.02/`
 
 ### Activate environment
-`module add bidscoin`
+`module add bidscoin/4.5.0`
 `source activate /opt/bidscoin`
 
 ### Separate dicoms into folders
@@ -26,6 +26,8 @@ You can rerun this every time to apply your template to the data
 `module load bids-validator`
 
 `bids-validator /project/3025011.02/bids`
-
-### To get specific information on what is not yet BIDS-compatible in the data
 `bids-validator /project/3025011.02/bids --verbose`
+
+## Notes
+Ensure that the PETRA, acq-a and ce-ND data are in the `extra_data` folder, otherwise, MRIQC or fMRIprep can accidentally use them instead of the normal T1w and T2w files.
+The `acq-a` files are formed when an fMRI sequence is interupted prematurely. These are made up from the last `.IMA` files in the raw folder.

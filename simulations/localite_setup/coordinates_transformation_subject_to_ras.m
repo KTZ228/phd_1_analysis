@@ -1,7 +1,11 @@
 clc; clear; close all;
 
+%% Ensure Simnibs paths are removed to resolve repelem.m issues
+cd /home/affneu/kenvdzee/.conda/envs/
+rmpath(genpath('simnibs_env'))
+
 %% Set subject id
-subject_id = 4;
+subject_id = 5;
 
 %% Load csv with all PRESTUS coordinates
 all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
@@ -9,8 +13,8 @@ all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/plan
 subject_simulation_coordinates = all_simulation_coordinates(all_simulation_coordinates.subject_id == subject_id, :);
 
 %% Retreive the affine matrix from the anatomical file
-subject_nifti_file = sprintf('sub-x%03d*mprage_T1w.nii.gz', subject_id);
-subject_nifti_path = sprintf('/project/3025011.02/bids/sub-x%03d/ses-mri01/anat/', subject_id);
+subject_nifti_file = sprintf('sub-%03d*mprage_T1w.nii.gz', subject_id);
+subject_nifti_path = sprintf('/project/3025011.02/bids/sub-%03d/ses-mri01/anat/', subject_id);
 subject_nifti_file_and_path = fullfile(subject_nifti_path, subject_nifti_file);
 subject_nifti_file_and_path = fullfile(subject_nifti_path, dir(subject_nifti_file_and_path).name);
 subject_nifti_info = niftiinfo(subject_nifti_file_and_path);
@@ -54,5 +58,5 @@ disp(subject_RAS_coordinates);
 subject_RAS_coordinates(:, 3:5) = [];
 
 %% Write table to subject folder
-mkdir(sprintf('/project/3025011.02/localite/sub-x%03d', subject_id));
-writetable(subject_RAS_coordinates,sprintf('/project/3025011.02/localite/sub-x%03d/sub-x%03d_localite_coordinates.csv', subject_id, subject_id),'Delimiter',';')  
+mkdir(sprintf('/project/3025011.02/localite/sub-%03d', subject_id));
+writetable(subject_RAS_coordinates,sprintf('/project/3025011.02/localite/sub-%03d/sub-%03d_localite_coordinates.csv', subject_id, subject_id),'Delimiter',';')  

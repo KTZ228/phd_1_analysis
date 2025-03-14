@@ -3,7 +3,7 @@ data_path: /project/3025011.02/bids/
 seg_path: /project/3025011.02/TUS_simulations/segmentation_data/
 simnibs_bin_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/bin/
 subject_subfolder: 1
-output_location: /project/3025011.02/TUS_simulations/planning/amygdala_75mm/
+output_location: /project/3025011.02/TUS_simulations/planning/dACC_45mm/intensity_60W/MI_optimised/
 
 overwrite_simnibs: 0
 
@@ -18,12 +18,12 @@ transducer:
   Elements_OD_mm: [13.7667, 17.5333, 21.3, 24.5667, 26.8333, 29.1, 31.7667, 33.5333, 35.3, 37.7667, 39.2333, 40.7, 43.0, 44.3, 45.6, 47.6667, 48.8333, 50, 52.0333, 53.0667, 54.1, 56.0667, 57.0333, 58, 59.8, 60.7, 61.6, 63.3333, 64.1667, 65]
   curv_radius_mm: 75 # radius of curvature of the bowl 
   dist_to_plane_mm: 65.3 # distance to the transducer plane from the geometric focus
-  source_amp: 211505 # [Pa]
-  source_phase_deg: [0, 271.2, 215.79, 98.46, 213.74, 101.43, 152.41, 165.54, 176.05, 170.09, 162.4, 172.9, 185, 188.26, 197.51, 190.26, 182.78, 183.59, 206.7, 188.7, 197.8, 193.64, 189.14, 186.43, 205.64, 191.92, 216.9, 200.38, 174.04, 92.71] # source phase [deg]
-  pos_t1_grid: [214, 185, 139]
+  source_amp: 172809 # [Pa]
+  source_phase_deg: [0, 261.08, 201.84, 72.26, 325.92, 296.6, 82.12, 64.51, 315.57, 69.34, 68.73, 73.18, 81.56, 62.84, 88.41, 103.38, 121.91, 140.96, 194.99, 201.71, 201.1, 193.79, 206.48, 220.75, 255.95, 174.58, 285.05, 246.46, 173.19, 129.8] # source phase [deg]
+  pos_t1_grid: [136,182,262] #[136,182,250]
   source_freq_hz: 300e3 # [Hz] the central frequency
 
-focus_pos_t1_grid: [143, 143, 144]
+focus_pos_t1_grid: [123,172,211]
 
 transducer_from_localite: 0 # should we load the transducer locations from the localite file(s) 
 
