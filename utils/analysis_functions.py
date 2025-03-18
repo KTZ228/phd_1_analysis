@@ -228,71 +228,6 @@ def check_volatility(dataframe: pd.DataFrame,
         The same dataframe containing the new column info.
     """
 
-    """
-    # This differentiates between a stable and volatile block
-    ## This is hardcoded which is not ideal. You'll understand how much you need to rush things when you start a PhD.
-    stable_cutoff = 15
-
-    # Initialize the new column with empty strings
-    dataframe['temp_volatility'] = ''
-    dataframe['volatility'] = ''
-
-    # Sort based on stimuli_types
-    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
-    dataframe = dataframe.reset_index(drop=True)
-
-    # Variables to track the current streak
-    current_value = dataframe.loc[0, 'probability_condition']
-    start_index = 0
-
-    # Iterate over the rows of the dataframe
-    for index, value in enumerate(dataframe['probability_condition']):
-        if (dataframe.loc[index, 'probability_condition'] != current_value or
-                dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
-                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type']):
-            # Calculate the streak length
-            streak_length = index - start_index
-
-            # Determine if the streak is 'short' or 'long'
-            if binary_output is True:
-                label = 1 if streak_length < stable_cutoff else 0
-            else:
-                label = 'volatile' if streak_length < stable_cutoff else 'stable'
-
-            # Mark the streak in the 'length' column
-            dataframe.loc[start_index:index-1, 'volatility'] = label
-
-            # Update the current_value and start_index for the next streak
-            current_value = dataframe.loc[index, 'probability_condition']
-            previous_label = dataframe.loc[max([0, start_index-1]), 'temp_volatility']
-            # For a new participant or different stimuli_type
-            if dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max([0, start_index-1]), 'stimuli_type'] or dataframe.loc[index, 'subject_id'] != dataframe.loc[max([0, start_index-1]), 'subject_id']:
-                dataframe.loc[start_index:index, 'volatility'] = previous_label
-            elif previous_label != label and dataframe.loc[index, 'trial'] > dataframe.loc[max([0, start_index-1]), 'trial']:
-                dataframe.loc[start_index:(start_index+4), 'volatility'] = previous_label
-                dataframe.loc[(start_index+5):index, 'volatility'] = label
-            else:
-                dataframe.loc[start_index:index, 'volatility'] = label
-            start_index = index
-
-    # Handle the last streak, always copies the last value
-    dataframe.loc[start_index:, 'volatility'] = label
-
-    # Reset the original order of the dataframe
-    dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
-    dataframe = dataframe.reset_index(drop=True)
-
-    # This is where the first stable block gets removed
-    switch_index = dataframe['probability_condition'].diff().ne(0)#.idxmax()
-    true_indices = switch_index[switch_index].index.tolist()
-    if len(true_indices) > 1:
-        second_true_index = true_indices[1]
-    else:
-        second_true_index = None
-    # Slice the dataframe from the switch point
-    return dataframe#.iloc[second_true_index:]
-    """
-
     # This differentiates between a stable and volatile block
     stable_cutoff = 15
 
@@ -301,7 +236,7 @@ def check_volatility(dataframe: pd.DataFrame,
     if binary_output:
         previous_label = 0
     else:
-        previous_label = 'stable'
+        previous_label = 'volatile'
 
     # Sort based on stimuli_types
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'],
@@ -316,7 +251,9 @@ def check_volatility(dataframe: pd.DataFrame,
         # Check if 'probability_condition', 'subject_id', or 'stimuli_type' changes
         if (dataframe.loc[index, 'probability_condition'] != dataframe.loc[start_index, 'probability_condition'] or
                 dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
-                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type']):
+                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type'] or
+                dataframe.loc[index, 'session'] != dataframe.loc[start_index, 'session'] or
+                index == len(dataframe)-1):
 
             # Calculate the streak length
             streak_length = index - start_index
@@ -329,12 +266,18 @@ def check_volatility(dataframe: pd.DataFrame,
 
             # Assign the label to the 'volatility' column for the streak
             ## First part ensures that the last short block is labelled correctly
-            if (dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
-                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type']):
+            if index == len(dataframe)-1:
+                dataframe.loc[start_index:index, 'volatility'] = previous_label
+            elif (dataframe.loc[index, 'subject_id'] != dataframe.loc[start_index, 'subject_id'] or
+                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type'] or
+                dataframe.loc[index, 'session'] != dataframe.loc[start_index, 'session']):
                 dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
             elif (dataframe.loc[index, 'subject_id'] != dataframe.loc[max(start_index - 1, 0), 'subject_id'] or
-                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max(start_index - 1, 0), 'stimuli_type']):
-                dataframe.loc[start_index:index - 1, 'volatility'] = label
+                dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max(start_index - 1, 0), 'stimuli_type'] or
+                dataframe.loc[index, 'session'] != dataframe.loc[max(start_index -1, 0), 'session']):
+                #dataframe.loc[start_index:index - 1, 'volatility'] = label
+                dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = 'volatile'
+                dataframe.loc[start_index+6:index - 1, 'volatility'] = label
             ## This is here to ensure that a transition from volatile to stable or vice versa leads to the first set of trails being labelled as the previous condition
             elif label == 'stable' and previous_label == 'volatile' or label == 0 and previous_label == 1:
                 dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = previous_label
@@ -347,12 +290,12 @@ def check_volatility(dataframe: pd.DataFrame,
             start_index = index
 
     # Handle the last streak
-    streak_length = len(dataframe) - start_index
-    if binary_output:
-        label = 1 if streak_length < stable_cutoff else 0
-    else:
-        label = 'volatile' if streak_length < stable_cutoff else 'stable'
-    dataframe.loc[start_index:, 'volatility'] = label
+    #streak_length = len(dataframe) - start_index
+    #if binary_output:
+    #    label = 1 if streak_length < stable_cutoff else 0
+    #else:
+    #    label = 'volatile' if streak_length < stable_cutoff else 'stable'
+    #dataframe.loc[start_index:, 'volatility'] = label
 
     # Reset the original order of the dataframe
     dataframe = dataframe.sort_values(by=['trial'], ascending=[True])
