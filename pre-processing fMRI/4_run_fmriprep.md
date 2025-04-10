@@ -6,4 +6,5 @@
 `cd /project/3025011.02/`
 
 ### Run fmriprep 
-`fmriprep_sub /project/3025011.02/bids --mem_mb 64000 -a " --output-spaces MNI152NLin2009cAsym:res-native" -p x007`
+`fmriprep_sub /project/3025011.02/bids --mem_mb 64000 "-cw256" --args " --output-spaces MNI152NLin2009cAsym:res-native" -p x007`
+--no-submm-recon"

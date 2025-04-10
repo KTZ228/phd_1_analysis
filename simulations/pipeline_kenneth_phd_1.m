@@ -13,19 +13,16 @@ addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
 which_sims = 'target_3';
+test_pipeline = 0;
 localite_coordinates = 0;
 
 heating_sims = 1;
 heatrise_optimised = 0;
-duty_cycle = 0.2;
-stimulation_strength = 'strength_3';
 
-test_pipeline = 0;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-pilot_simulations = 0;
-subject_list = [5];%[3, 4, 5, 6, 7, 8, 9];
+subject_list = [14];
 session_number = 1;
  
 % Set config files and export location
@@ -49,10 +46,19 @@ interactive_option = 0;
 
 for subject_id = subject_list
     
+    %% Read stimulation intensity from table
+    stimulation_intensity_table = readtable('/project/3025011.02/TUS_simulations/planning/stimulation_intensity_list.csv');
+    subject_and_target_index = stimulation_intensity_table.subject_id == subject_id & strcmp(stimulation_intensity_table.stimulation_target, which_sims);
+    stimulation_strength = sprintf(('strength_%i'), stimulation_intensity_table.intensity_level(subject_and_target_index));
+    duty_cycle = stimulation_intensity_table.duty_cycle(subject_and_target_index);
+
     %% for consecutive simulations, you create multiple configs within one structure
     parameters = load_parameters(config_sequential, config_location);
 
-    if isfield(parameters, 'subsequent_heating_config')
+    if isfield(parameters, 'subsequent_heating_config') && test_pipeline == 1
+        n_consecutive_simulations = 2;
+        heating_config_list = parameters.subsequent_heating_config;
+    elseif isfield(parameters, 'subsequent_heating_config')
         n_consecutive_simulations = length(parameters.subsequent_heating_config);
         heating_config_list = parameters.subsequent_heating_config;
     else
@@ -89,14 +95,6 @@ for subject_id = subject_list
             stimulation_target_coordinates = regexprep(stimulation_target, '^target_4_', 'target_3_');
         else
             stimulation_target_coordinates = stimulation_target;
-        end
-
-        %% Adjust filenames for pilot simulations
-        if pilot_simulations == 1
-            parameters.t1_path_template = strrep(parameters.t1_path_template, 'sub-%1$03d', 'sub-x%1$03d');
-            parameters.t2_path_template = strrep(parameters.t2_path_template, 'sub-%1$03d', 'sub-x%1$03d');
-            parameters.data_path = '/project/3025011.02/pilot_data/bids/';
-            localite_location = strrep(localite_location, 'sub-%03d', 'sub-x%03d');
         end
 
         %% Setting folder locations for structural data
@@ -168,11 +166,7 @@ for subject_id = subject_list
             focus = [parameters.focus_pos_t1_grid parameters_right.focus_pos_t1_grid];
         else
             %% Load coordinates from the exploratory_coordinate_list
-            if pilot_simulations == 1
-                exploratory_coordinate_list = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list_pilots.csv');
-            else
-                exploratory_coordinate_list = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
-            end
+            exploratory_coordinate_list = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
             
             index_subject = exploratory_coordinate_list.subject_id == subject_id;
             index_stimulation_target_left = contains(exploratory_coordinate_list.stimulation_target, stimulation_target_coordinates);
@@ -203,7 +197,7 @@ for subject_id = subject_list
             plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducers(:,1), focus(:,1), parameters, 'slice_dim', slice_dim_right_figure), ...
             'montage');
         hAxes = get(hImage, 'Parent');
-        title(hAxes, sprintf('sub-%03d %s', subject_id, stimulation_target));
+        title(hAxes, sprintf('sub-%03d %s [%g; %g; %g]', subject_id, stimulation_target, transducers(:,1)));
         
         %% Simulations for the left target
         % Load additional parameters into config

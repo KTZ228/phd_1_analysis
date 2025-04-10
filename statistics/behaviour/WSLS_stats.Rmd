@@ -1,0 +1,75 @@
+---
+title: "WSLS analysis AmydACC"
+output: html_notebook
+---
+
+### Import dependencies
+```{r}
+library(emmeans)
+```
+
+### Import the dataframe
+```{r}
+WSLS_csv_location <- "/Volumes/project/3025011.02/pre-processed/behaviour/combined_dataframe_for_r.csv"
+
+WSLS_dataframe <- read.csv(WSLS_csv_location, header = TRUE, sep = ";")
+```
+
+# Win-stay analysis
+### Run a very simple regression model
+```{r}
+# Run the raw model
+model <- lm(WS ~ subjectively_correct_one_back_int + session, data = WSLS_dataframe)
+
+summary(model)
+```
+
+### Now code dummy variables
+```{r}
+# Code dummy variables for the stimulation conditions (now sessions)
+WSLS_dataframe$session <- factor(WSLS_dataframe$session, levels = c(2, 3, 4))
+WSLS_dataframe$congruency <- factor(WSLS_dataframe$congruency, levels = c(0, 1))
+WSLS_dataframe$volatility <- factor(WSLS_dataframe$volatility, levels = c(0, 1))
+WSLS_dataframe$subjectively_correct_one_back_int <- factor(WSLS_dataframe$subjectively_correct_one_back_int, levels = c(0 ,1))
+contrasts(WSLS_dataframe$session) <- contr.treatment(nlevels(WSLS_dataframe$session), base = 3) # this means that 3 is the baseline group
+WSLS_dataframe$session
+contrasts(WSLS_dataframe$session)
+
+session_2 <- c(1, 0, 0)
+session_3 <- c(0, 1, 0)
+session_4 <- c(0, 0, 1)
+
+contrasts(WSLS_dataframe$session) <- cbind(session_2, session_3, session_2)
+```
+
+### Now run the model with the dummy variables
+This might require logistic regression instead
+```{r}
+model <- lm(WS ~ subjectively_correct_one_back_int + session, data = WSLS_dataframe)
+summary(model)
+```
+
+### You can also do a pairwise comparison instead of contrasts
+```{r}
+session_emm <- emmeans(model, ~ session, type = "response")
+pairwise_comp <- pairs(session_emm)
+print(pairwise_comp)
+```
+
+#### Make different models that also test the influence of volatility or congruency
+```{r}
+model <- lm(WS ~ congruency + session, data = WSLS_dataframe)
+summary(model)
+```
+```{r}
+model <- lm(WS ~ congruency + volatility + session, data = WSLS_dataframe)
+summary(model)
+```
+
+# Lose-shift analysis
+### Run a very simple regression model
+```{r}
+model <- lm(LS ~ subjectively_correct_one_back_int + same_choice_as_one_back, data = WSLS_dataframe)
+
+summary(model)
+```
