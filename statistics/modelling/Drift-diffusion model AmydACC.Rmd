@@ -1,0 +1,1117 @@
+---
+title: "Drift-diffusion model AmydACC"
+output: html_notebook
+---
+
+# Load dependancies
+
+```{r}
+rm(list=ls()) # clear workspace
+
+set.seed(1) # set random seed so results will replicate
+# Note:  Seed will be reset in each section below, to re-initialize before running  
+# chunks of code, so that results will replicate even if portions of code are 
+# skipped or re-run on a particular session.
+
+options(digits = 3) # by default, print results to three decimal digits
+# Below packages should be loaded into workspace; each (and any dependencies)
+# must be installed from CRAN before loading via library().
+library(rtdists) # DDM functions rdiffusion(), ddiffusion(), qdiffusion()
+library(RWiener) # alternate DDM functions rwiener(), deviance.wdm(), logLik.wdm()
+library(tidyr)   # unnest() function
+library(dplyr)   # mutate() and arrange() functions
+library(purrr)   # split() and map() functions
+library(ggplot2)   # graphing
+library(gridExtra) # for multiple ggplots in one window
+library(gt)        # grammar of tables
+library(xml2)      # save formatted tables as rtf 
+library(reshape2)  # for melt() function
+
+setwd("/Users/kenneth.van.der.zee/Library/Mobile Documents/com~apple~CloudDocs/Werk/Courses/Drift diffusion modelling")
+data.pathname = "/Users/kenneth.van.der.zee/Library/Mobile Documents/com~apple~CloudDocs/Werk/Courses/Drift diffusion modelling/data/"
+
+# Then load the DMC routines:
+source("dmc/dmc.R")
+
+set.seed(1) # reset random seed so results for each portion of code will replicate
+```
+
+# Load some data in
+```{r}
+combined_results_dataframe <- read.csv("/Volumes/affneu/kenvdzee/Documents/phd_1_analysis/pre-processed/data_for_modelling/combined_dataframe_for_r.csv", header=TRUE, sep=";")
+
+print(combined_results_dataframe)
+```
+# Take one participant and one session for the first excercises
+```{r}
+str(combined_results_dataframe[c("subject_id","session")])
+combined_results_dataframe_subset <- combined_results_dataframe[
+  combined_results_dataframe$subject_id == 5 &
+  combined_results_dataframe$session    == 4,
+]
+print(combined_results_dataframe_subset)
+```
+# Combine the two conditions you want to analyse
+```{r}
+combined_results_dataframe_subset <- mutate(combined_results_dataframe_subset, congruency_performance = case_when(
+  (congruency=="1" & objectively_correct_int==1) ~ "congruent_correct",
+  (congruency=="1" & objectively_correct_int==0) ~ "congruent_incorrect",
+  (congruency=="0" & objectively_correct_int==1) ~ "incongruent_correct",
+  (congruency=="0" & objectively_correct_int==0) ~ "incongruent_incorrect" ))
+
+combined_results_dataframe_subset_table <- table(combined_results_dataframe_subset$congruency, combined_results_dataframe_subset$objectively_correct_int)
+combined_results_dataframe_subset_table
+
+(observed_prop_correct.congruent <- combined_results_dataframe_subset_table[1,2]/(combined_results_dataframe_subset_table[1,2]+combined_results_dataframe_subset_table[2,2]))
+(observed_prop_correct.incongruent <- combined_results_dataframe_subset_table[1,1]/(combined_results_dataframe_subset_table[1,1]+combined_results_dataframe_subset_table[2,1]))
+```
+
+# This is the demo data
+```{r}
+file1 <- paste(data.pathname, "testdata.csv", sep="")
+data1 <- read.csv(file1, header=TRUE)   # 500 observations of 3 variables
+
+# We'll add a variable to code 4 types of trial based on configuration 
+# of stimulus and response (s1.r1, s1.r2, s2.r1, s2.r2)
+data1 <- mutate(data1, myType = case_when(
+  (S=="s1" & R=="r1") ~ "s1.r1",
+  (S=="s1" & R=="r2") ~ "s1.r2",
+  (S=="s2" & R=="r1") ~ "s2.r1",
+  (S=="s2" & R=="r2") ~ "s2.r2" ))
+
+temp1 <- table(data1$S, data1$R) 
+temp1
+#     r1  r2
+# s1 114  36   
+# s2  61 289  
+(observed_prop_correct.s1 <- temp1[1,1]/(temp1[1,1]+temp1[1,2]))
+(observed_prop_correct.s2 <- temp1[2,2]/(temp1[2,1]+temp1[2,2]))
+# I.e., s1: 114 correct out of 150 s1 trials (76% correct); 
+# and s2: 289 correct out of 350 s2 trials (82.6% correct).
+```
+
+```{r}
+temp2 <- list(100*observed_prop_correct.congruent, 100*observed_prop_correct.incongruent)
+names(temp2) <- c("Congruent", "Incongruent")
+barplot(unlist(temp2), ylim=c(0,100), ylab="Percent Correct", xlab="Congruency")
+```
+```{r}
+# Also a quick look at mean/SD of correct and incorrect RTs in the dataset
+temp3 <- aggregate(combined_results_dataframe_subset$RT_s, list(combined_results_dataframe_subset$congruency_performance), mean)
+temp4 <- aggregate(combined_results_dataframe_subset$RT_s, list(combined_results_dataframe_subset$congruency_performance), sd)
+
+temp3
+temp4
+```
+```{r}
+# Quick frequency histograms of RTs for each stimulus, broken down
+# by correct and incorrect responses
+congruent_correct <- combined_results_dataframe_subset[combined_results_dataframe_subset$congruency_performance=="congruent_correct",]
+congruent_incorrect <- combined_results_dataframe_subset[combined_results_dataframe_subset$congruency_performance=="congruent_incorrect",]
+incongruent_correct <- combined_results_dataframe_subset[combined_results_dataframe_subset$congruency_performance=="incongruent_correct",]
+incongruent_incorrect <- combined_results_dataframe_subset[combined_results_dataframe_subset$congruency_performance=="incongruent_incorrect",]
+
+par(mfrow=c(2,2))
+hist(congruent_correct$RT_s, prob=FALSE, main="congruent_correct", breaks=seq(0,2.5,by=0.1),
+     xlab="RT (sec)", ylim=c(0,125))
+hist(congruent_incorrect$RT_s, prob=FALSE, main="congruent_incorrect", breaks=seq(0,2.5,by=0.1),
+     xlab="RT (sec)", ylim=c(0,125))
+hist(incongruent_correct$RT_s, prob=FALSE, main="incongruent_correct", breaks=seq(0,2.5,by=0.1),
+     xlab="RT (sec)", ylim=c(0,125))
+hist(incongruent_incorrect$RT_s, prob=FALSE, main="incongruent_incorrect", breaks=seq(0,2.5,by=0.1), 
+     xlab="RT (sec)", ylim=c(0,125))
+```
+
+```{r}
+###### Also find RT quantiles (.1, .3, .5, .7, .9) for each S, R
+my.quantiles <- c(0.1, 0.3, 0.5, 0.7, 0.9)
+quantiles.combined_results_dataframe_subset <- combined_results_dataframe_subset %>% group_by(congruency, objectively_correct_int) %>% nest() %>%
+  mutate(quantiles=map(data,
+                       ~ as.data.frame(t(quantile(.x$RT_s, probs=my.quantiles))))) %>%
+  unnest(quantiles) %>%
+  gather("quantile", "RT_s", '10%':'90%') %>%
+  arrange(congruency, objectively_correct_int)
+
+###### Approximate CDFs based on quantile RTs; we'll use these later ######
+data1_q_s1.r1 <- quantile(combined_results_dataframe_subset[combined_results_dataframe_subset$congruency_performance=="congruent_correct", "RT_s"], probs=my.quantiles)
+data1_q_s1.r2 <- quantile(combined_results_dataframe_subset[combined_results_dataframe_subset$congruency_performance=="congruent_incorrect", "RT_s"], probs=my.quantiles)
+data1_q_s2.r1 <- quantile(combined_results_dataframe_subset[combined_results_dataframe_subset$congruency_performance=="incongruent_correct", "RT_s"], probs=my.quantiles)
+data1_q_s2.r2 <- quantile(combined_results_dataframe_subset[combined_results_dataframe_subset$congruency_performance=="incongruent_incorrect", "RT_s"], probs=my.quantiles)
+
+
+
+####### Given some "reasonable" starting values, run the DDM on our test dataset 
+
+# Here, we'll use rwiener() to generate 150 s1 trials and 350 s2 trials.
+# Note conventions: tau is Ter, beta is z, and delta>1 indicates that
+# drift rate slopes in the correct direction for that stimuli.
+# It returns a vector of resp="upper"/"lower" where "upper" is defined
+# as r2 and q=RT in sec.
+set.seed(0) 
+dat.congruent <- rwiener(n=334, alpha=1.0, tau=0.2, beta=0.5, delta= -1)
+dat.incongruent <- rwiener(n=334, alpha=1.0, tau=0.2, beta=0.5, delta=1.25)
+dat.congruent$congruency <- rep("congruent", 334)
+dat.incongruent$congruency <- rep("incongruent", 334)
+sim.data <- rbind(dat.congruent, dat.incongruent)
+sim.data
+# rename "q" to "RT" for clarity
+names(sim.data)[names(sim.data) == 'q'] <- 'RT'
+# change resp="lower"/"upper" to r="r1"/"r2"
+sim.data <- mutate(sim.data, objectively_correct_int = case_when(
+  (resp=="correct") ~ "1",
+  (resp=="incorrect") ~ "0" ))
+# what happened on first few trials?
+head(sim.data)
+#      RT  resp  S  R
+# 1 0.382 lower s1 r1
+# 2 0.495 lower s1 r1
+# 3 0.712 lower s1 r1
+# 4 0.269 upper s1 r2
+# 5 0.328 lower s1 r1
+# 6 0.378 lower s1 r1
+
+# check the results: s1 should (usually) map to r1 and s2 to r2
+(x <- table(sim.data$congruency, sim.data$objectively_correct_int))
+x
+#     r1  r2
+# s1 116  34
+# s2  88 262
+(pred_prop_correct_DDM.s1 <- x[1,1]/(x[1,1]+x[1,2]))   # accuracy to s1 = 0.77
+(pred_prop_correct_DDM.s2 <- x[2,2]/(x[2,1]+x[2,2]))   # accuracy to s2 = 0.75
+```
+
+###### Manuscript FIGURE 5A: accuracy of predicted data
+par(mfrow=c(1,1))
+temp3 <- list(100*pred_prop_correct_DDM.s1, 100*pred_prop_correct_DDM.s2)
+names(temp3) <- c("s1", "s2")
+(a<-barplot(unlist(temp3), ylim=c(0,100), ylab="Percent Correct", xlab="Stimulus",
+        main="PREDICTED Accuracy"))
+points(x=a, unlist(temp2), col="red")  # overlay dots representing empirical accuracy
+
+###### MANUSCRIPT FIGURE 5B: frequency histograms of predicted RT ######
+P_s1r1 <- sim.data[sim.data$S=="s1"&sim.data$R=="r1",]
+P_s2r2 <- sim.data[sim.data$S=="s2"&sim.data$R=="r2",]
+P_s1r2 <- sim.data[sim.data$S=="s1"&sim.data$R=="r2",]
+P_s2r1 <- sim.data[sim.data$S=="s2"&sim.data$R=="r1",]
+par(mfrow=c(2,2))
+hist(P_s1r1$RT, prob=FALSE, main="PREDICTED: Stimulus s1, Correct", breaks=seq(0,2.5,by=0.1),
+     xlab="RT (sec)", ylim=c(0,80))
+hist(P_s2r2$RT, prob=FALSE, main="PREDICTED: Stimulus s2, Correct", breaks=seq(0,2.5,by=0.1),
+     xlab="RT (sec)", ylim=c(0,80))
+hist(P_s1r2$RT, prob=FALSE, main="PREDICTED: Stimulus s1, Error", breaks=seq(0,2.5,by=0.1),
+     xlab="RT (sec)", ylim=c(0,80))
+hist(P_s2r1$RT, prob=FALSE, main="PREDICTED: Stimulus s2, Error", breaks=seq(0,2.5,by=0.1), 
+     xlab="RT (sec)", ylim=c(0,80))
+
+
+
+
+###### Manuscript FIGURE 5C: Compare predicted quantiles vs. observed data ######
+# This figure is used to illustrate the chi-square method of parameter estimation,
+# but for illustration, we'll just use our "sensible" DDM parameters 
+
+# We already calculated above quantiles for the observed data: 
+#        data1_q_s1.r1, data1_q_s1.r2, data1_q_s2.r1, data1_q_s2.r2
+# and predicted proportion correct in observed data:
+#        observed_prop_correct.s1 and observed_prop_correct.s2
+# Next compute quantiles for the DDM; NB for simplicity, we'll use the 
+# predicted data obtained above with our "first guess" of parameter values;
+# we already have accuracy for the predicted data
+#        pred_prop_correct_DDM.s1, pred_prop_correct_DDM.s2
+
+# Next generate DDM quantiles for the predicted data
+my.quantiles <- c(0.1, 0.3, 0.5, 0.7, 0.9)
+pred_q_s1.r1 <- quantile(sim.data[sim.data$S=="s1"&sim.data$R=="r1", "RT"], probs=my.quantiles)
+pred_q_s1.r2 <- quantile(sim.data[sim.data$S=="s1"&sim.data$R=="r2", "RT"], probs=my.quantiles)
+pred_q_s2.r1 <- quantile(sim.data[sim.data$S=="s2"&sim.data$R=="r1", "RT"], probs=my.quantiles)
+pred_q_s2.r2 <- quantile(sim.data[sim.data$S=="s2"&sim.data$R=="r2", "RT"], probs=my.quantiles)
+
+### Plot quantile predictions from DDM against quantiles from observed data
+# Stim 1
+par(mfrow=c(1,2), cex=1.2)
+plot(data1_q_s1.r1, my.quantiles*observed_prop_correct.s1, pch = 2, 
+     ylim=c(0, 1), xlim = c(0.2, 1.0), col="black", type="b",
+     ylab = "Cumulative Probability", 
+     xlab = "Response Time (sec)", main="Stimulus s1")
+lines(data1_q_s1.r2, my.quantiles*(1-observed_prop_correct.s1), pch = 2, 
+      col="black", type="b")
+lines(pred_q_s1.r1, 
+      my.quantiles*pred_prop_correct_DDM.s1, 
+      col="red", type = "b")
+lines(pred_q_s1.r2, 
+      my.quantiles*(1-pred_prop_correct_DDM.s1), 
+      col="red", type = "b")
+text(x=0.85, y=0.76, "Correct")
+text(x=0.8, y=0.3, "Incorrect")
+legend("topleft", legend = c("data", "predictions"), pch = c(2, 1), 
+       col=c("black", "red"), lty = c(0, 1))
+
+# Stim 2
+plot(data1_q_s2.r2, my.quantiles*observed_prop_correct.s2, pch = 2, 
+     ylim=c(0, 1), xlim = c(0.2, 1.0), col="black", type="b",
+     ylab = "Cumulative Probability", 
+     xlab = "Response Time (sec)", main="Stimulus s2")
+lines(data1_q_s2.r1, my.quantiles*(1-observed_prop_correct.s2), pch = 2, 
+      col="black", type="b")
+lines(pred_q_s2.r2, 
+      my.quantiles*pred_prop_correct_DDM.s2, 
+      col="red", type = "b")
+lines(pred_q_s2.r1, 
+      my.quantiles*(1-pred_prop_correct_DDM.s2), 
+      col="red", type = "b")
+text(x=0.85, y=0.81, "Correct")
+text(x=0.8, y=0.25, "Incorrect")
+legend("topleft", legend = c("data", "predictions"), pch = c(2, 1), 
+       col=c("black", "red"), lty = c(0, 1))
+
+
+
+
+############################################################################
+####      Parameter estimation on our test dataset,                     ####
+####      using RWiener to do MLE.                                      ####
+############################################################################
+
+set.seed(1) # reset random seed so results will replicate
+
+# RWiener functions expect the data to be in three-column format:
+# q (RT in sec), resp (upper or lower), cond (1, 2, etc.)
+q <- data1$RT
+resp <- ifelse(data1$R=="r1", "lower", "upper") # define r1 = lower boundary, r2 = upper
+cond <- ifelse(data1$S=="s1", 1, 2)
+data1.w <- data.frame(q, resp, cond)
+table(data1.w$cond, data1.w$resp) # just checking!
+#    lower upper
+# 1   114    36
+# 2    61   289
+data1.w$resp <- factor(data1.w$resp)
+data1.w$resp <- relevel(data1.w$resp, ref="upper") # upper is reference level
+data1.w <- as.wiener(data1.w)  # finally, convert to "data.wiener" object
+# subset the data into sublists for the two trial types (conditions)
+data1.s1 = subset(data1.w, cond==1)
+data1.s2 = subset(data1.w, cond==2)
+data1.both = list(data1.s1, data1.s2)
+
+# NB: RWiener's wdm() estimates relative value zr=0..1 as fraction of a
+# NB: optimizes $value which is log-likelihood = LLE
+# NB: $convergence 1 or 2 indicates convergence, 3=maybe, 4 or 5 fail to converge
+# NB: $counts = iterations before convergence 
+# NB: optimization method defaults to BFGSD (optim) else nlm else Nelder-Mead (optim)
+
+### Here, we'll consider a simple DDM with h k=5 free parameters: 
+# a, Ter, zr, and 2 drift rates, one for s1 and one for s2.  
+# NB RWiener returns LLE; this wrapper returns negLLE
+# The wrapper function below is adapted from the RWiener documentation.
+many_drifts <- function (x, datlist) {
+  loss=0
+  for (myVar in 1:length(datlist))
+    loss = loss - logLik(wdm(datlist[[myVar]], 
+                             alpha=x[1], tau=x[2], beta=x[3], delta=x[myVar+3]))
+  return(loss)
+}
+
+# First, fit the 5-parameter DDM. Here, we will use R's optim()
+# function (which uses a Newton-type algorithm) to optimize parameter values.
+p_ddm5 <- c(1, 0.1, 0.5, 0, 0) # starting values with two d's
+data1_ddm5 <- optim(par=p_ddm5, f=many_drifts, dat=data1.both)
+data1_ddm5
+# $value 58.7
+# $par a 1.174  Ter 0.201  zr 0.603 d.s1 -1.355  d.s2 0.936
+# $counts 502
+# $convergence 1
+
+
+
+# Sanity check: 
+# Ter ~200 msec is plausible given observed RTs of 250<RT<1sec.
+# Drift rates d.s1<0 (heads toward lower
+# boundary) and d.s2>0 (heads toward upper boundary).
+# zr ~0.6 means the evidence accumulation process starts ~60%
+# of the way from lower to upper boundary, indicating a response bias
+# favoring r2; however abs(d.s1)>abs(d.s2) indicates faster evidence
+# accumulation for s1 than s2. 
+
+
+# As an aside, we should get (nearly) identical results using rtdists
+# Note, though rtdists returns $convergence=0 if ok, and uses z=z.abs!
+rt <- data1.w$q
+response <- data1.w$resp
+response <- relevel(response, ref="lower") # for rtdists, *lower* is reference level
+cond <- data1.w$cond
+temp <- data.frame(rt, response, cond)
+data1.r <- list(subset(temp, cond==1), subset(temp, cond==2))
+head(data1.r)
+# define a wrapper calling ddiffusion (instead of deviance.wdm);
+# wrapper code adapted from the rtdists documentation.
+ll_diffusion <- function(pars, datlist)
+{
+  loss=0
+  for (myVar in 1:length(datlist))
+    loss = loss - sum(log(ddiffusion(rt=datlist[[myVar]]$rt, 
+                                 response=datlist[[myVar]]$response,
+                          a=pars[1], v=pars[3+myVar], t0=pars[2], z=pars[3])))
+  return(loss)
+}
+start <- p_ddm5 # same as RWiener starting vals
+names(start) <- c("a", "t0", "z", "v1", "v2") # NB here, z=zabs not zr!
+data1_ddm5_2 <- optim(start, f=ll_diffusion, dat=data1.r, method="Nelder-Mead")
+data1_ddm5_2
+# $par a 1.174  Ter 0.201  zabs 0.708 d.s1 -1.355  d.s2 0.936
+# $value 58.7
+# $counts 478
+# $convergence 0 -- In rtdists, this code means it converged!
+# NB zabs=0.708 so zrel = zabs/a = 0.708/1.174=0.603
+
+# for comparison, the results from RWiener:
+data1_ddm5
+# $par a 1.174  Ter 0.201  zr 0.603 d.s1 -1.355  d.s2 0.935   
+# $value 58.7
+# $counts 502
+# $convergence 1 -- In RWiener, this code means it converged!
+
+
+
+
+
+# Now we'll go back to RWiener...
+
+# Generate a dataset for parameter recovery check
+# cond_list <- c("s1","s2")
+parm_recov_s1 <- cbind(rwiener(n=150, alpha=data1_ddm5$par[1],
+                               tau=data1_ddm5$par[2],
+                               beta=data1_ddm5$par[3],
+                               delta=data1_ddm5$par[4]), # v1 for s1
+                       cond=1)
+parm_recov_s2 <- cbind(rwiener(n=350, alpha=data1_ddm5$par[1],
+                               tau=data1_ddm5$par[2],
+                               beta=data1_ddm5$par[3],
+                               delta=data1_ddm5$par[5]), # v2 for s2
+                       cond=2)
+parm_recov.w <- as.wiener(rbind(parm_recov_s1, parm_recov_s2))
+parm_recov.both <- list(subset(parm_recov.w, cond==1), subset(parm_recov.w, cond==2))
+
+# what have we got?
+(x <- table(parm_recov.w$resp, parm_recov.w$cond))
+#           s1   s2
+# r2=upper  41  294
+# r1=lower 109   56   
+# i.e., predicted data: 72.7% correct on s1, 84% on s2
+# By comparison, original data1 was 76% on s1 and 82.6% on s2
+
+# How do the RTs in the recovered data match the quantiles of observed data?
+# How do the quantiles 
+my.quantiles <- c(0.1, 0.3, 0.5, 0.7, 0.9) # copied from above
+quantiles.dataR <- parm_recov.w %>% group_by(cond, resp) %>% nest() %>%
+  mutate(quantiles=map(data, 
+                       ~ as.data.frame(t(quantile(.x$q, probs=my.quantiles))))) %>%
+  unnest(quantiles) %>%
+  gather("quantile", "RT", '10%':'90%') %>%
+  arrange(cond, resp)
+# quantiles.dataR now contains fields quantile (.1, .3, etc) and RT
+# for each combination of stimulus (s1, s2) and response (r1, r2)
+#         10%   30%   50%   70%   90% 
+#    s1r1 0.314 0.369 0.456 0.585 0.868
+#    s1r2 0.257 0.292 0.332 0.436 0.608
+#    s2r1 0.287 0.330 0.399 0.539 0.727
+#    s2r2 0.265 0.312 0.403 0.536 0.833
+
+
+
+# Can the 5-parm DDM recover the generating parameter values?
+# Remember that the generating parameters were:
+data1_ddm5$par
+# $par  1.174  0.201  0.603 -1.355  0.935
+# Recover parameters from the predicted data:
+parm_recov_ddm5 <- optim(par=p_ddm5, f=many_drifts, dat=parm_recov.both, method="Nelder-Mead")
+parm_recov_ddm5
+# $value 19   $convergence=1    $counts=502
+# $par 1.144  0.204  0.599 -1.146  1.098
+
+# Not bad!
+
+
+
+
+###### FIGURE 6A: Accuracy posterior predictions, DDM using RWiener
+par(mfrow=c(1,1))
+# Simple plot of accuracy for each stimulus s1, s2
+tempX <- list((100*x[2,1])/(x[2,1]+x[1,1]), (100*x[1,2])/(x[1,2]+x[2,2]))
+names(tempX) <- c("s1", "s2")
+(b <- barplot(unlist(tempX), ylim=c(0,100), ylab="Percent Correct", xlab="Stimulus", main="PREDICTED Accuracy"))
+points(x=b, unlist(temp2), col="red")  # overlay dots representing empirical accuracy
+
+###### FIGURE 6B: PDFs for the posterior predictions, from DDM/RWiener
+temp_s1r1 <- subset(parm_recov_s1, resp=="lower")
+temp_s1r2 <- subset(parm_recov_s1, resp=="upper")
+temp_s2r1 <- subset(parm_recov_s2, resp=="lower")
+temp_s2r2 <- subset(parm_recov_s2, resp=="upper")
+par(mfrow=c(2,2))
+# stimulus s1, correct
+plot(density(s1r1$RT), main="Stimulus s1: Response r1 (correct)", xlab="RT", ylim=c(0,4))
+lines(density(temp_s1r1$q), lwd=2)
+legend("topright", c("Data","Model"), lwd=c(1,2), col=c("black", "black"))
+# stimulus s2, correct
+plot(density(s2r2$RT), main="Stimulus s2: Response r2 (correct)", xlab="RT", ylim=c(0,4))
+lines(density(temp_s2r2$q), lwd=2)
+legend("topright", c("Data","Model"), lwd=c(1,2), col=c("black", "black"))
+# stimulus s1, error
+plot(density(s1r2$RT), main="Stimulus s1: Response r2 (error)", xlab="RT", ylim=c(0,4), col="red")
+lines(density(temp_s1r2$q), lwd=2, col="red")
+legend("topright", c("Data","Model"), lwd=c(1,2), col=c("red", "red"))
+# stimulus s2, error
+plot(density(s2r1$RT), main="Stimulus s2: Response r1 (error)", xlab="RT", ylim=c(0,4), col="red")
+lines(density(temp_s2r1$q), lwd=2, col="red")
+legend("topright", c("Data","Model"), lwd=c(1,2), col=c("red", "red"))
+
+
+
+
+
+
+############################################################################
+####      Parameter estimation on our test dataset,                     ####
+####      using DMC for Bayesian parameter estimation.                  ####
+############################################################################
+
+set.seed(1) # reset random seed so results will replicate
+
+# load DMC into R workspace - if not already done above
+# source ("dmc/dmc.R")
+
+## DEFINE THE DDM MODEL OBJECT AND SOME PRIORS
+
+# load the DDM (only one DMC model can be resident at a time)
+load_model("DDM", "ddm.R")
+
+
+# define task factors (e.g. stimulus classes) & possible responses; 
+# NB each response will define one accumulator.
+# Map stimuli to correct responses; NB upper/lower boundaries
+# will correspond to correct/incorrect
+factors <- list(S=c("s1","s2"))               # two possible stimuli are s1 and s2
+responses <- c("r1","r2")	                    # two response alternatives are r1 and r1
+match.map <- list(M=list(s1="r1",s2="r2"))    # here, r1 is correct s1 and r2 for s2
+
+# define a 5-parameter DDM: a, z, t0 and 2 v (drift rate varies by stimulus)
+# Note z=zr (relative value in range 0..1)
+p.map.ddm5=list(a="1", v="S", z="1", d="1", sz="1", sv="1", t0="1", st0="1")
+constants.ddm5=c(sv=1, sz=0.2, st0=0, d=0)         	       
+B.model.ddm5 <- model.dmc(p.map.ddm5, match.map=match.map, constants=constants.ddm5, 
+                        factors=factors, responses=responses, type="rd")
+
+# We already have data1 loaded into the workspace
+head(data1)
+#    S  R    RT corr myType
+# 1 s1 r1 0.416    1  s1.r1
+# 2 s1 r2 0.261    2  s1.r2
+# 3 s1 r1 0.357    1  s1.r1
+# 4 s1 r1 0.512    1  s1.r1
+# 5 s1 r1 0.390    1  s1.r1
+# 6 s1 r1 0.489    1  s1.r1
+
+# create DMC "data.model" object -- same dataset, one for each version of DDM
+data1.Bmodel.ddm5 <- data.model.dmc(data1, B.model.ddm5)
+
+# Not run
+# As noted above, DMC has some nice plotting routines for data.model 
+# objects -- so here is another plot of the observed data
+# par(mfrow=c(1,2))
+# plot.cell.density(data1.Bmodel.ddm5[data1.Bmodel.ddm5$S=="s1",],C="r1",xlim=c(0,4))
+# plot.cell.density(data1.Bmodel.ddm5[data1.Bmodel.ddm5$S=="s2",],C="r2",xlim=c(0,4))
+
+# Define some weakly informative priors: 
+# Here, we will use truncated normal distributions for a (mean 1, SD 1, 
+# bounded 0..2) and v's (mean 0, SD 2, bounded -5..+5) and uniform distributions
+# for z (bounded 0..1) and t0 (bounded 0.1..1.0 sec).
+# Note that v>0 is speed to correct boundary (and v<0 is speed to error
+# boundary); z is relative response bias (z=0.5 means no bias), and t0
+# is lower bound of t0 distribution (if st0=0, Ter=t0, else mean Ter=t0+st0/2)
+p.prior.ddm5 <- prior.p.dmc( dists = c("tnorm","tnorm","tnorm","beta","beta"),
+                             p1=c(a=1, v.s1=0, v.s2=0, z=1, t0=1), # mean
+                             p2=c(a=1, v.s1=2, v.s2=2, z=1, t0=1), # SD
+                             lower=c(0, -5, -5, 0, .1), upper=c(2, 5, 5, 1, 1) )
+
+
+###### FIGURE 7A: DDM priors #######
+par(mfcol=c(3,2))
+plot.prior("a", p.prior.ddm5, main="a")
+plot.prior("v.s2", p.prior.ddm5, main="d.s2")
+plot.prior("t0", p.prior.ddm5, main="Ter")
+plot.prior("v.s1", p.prior.ddm5, main="d.s1")
+plot.prior("z", p.prior.ddm5, main="z")
+par(mfcol=c(1,1)) 
+
+
+
+### Do sampling
+
+# Generate starting values, run chains -- 1st 200 samples = burn-in with migration on
+samples1 <- samples.dmc(nmc=200, p.prior=p.prior.ddm5, data1.Bmodel.ddm5)
+samples2 <- run.dmc(samples1, report=50, p.migrate=.05) # NB 3 x k=5 --> 15 chains
+
+
+
+
+###### FIGURE 7B: LLE plot, start of the chains ########
+par(mfcol=c(3,2))
+plot.dmc(samples2, pll.chain=TRUE, main="Log likelihood estimate (LLE)")  # log-likelihood
+###### FIGURE 7B: traceplots for each DDM parameter, start of the chains ######
+plot.dmc(samples2)
+# Again, for consistency in the manuscript, we will change the 
+# variable names "by hand": v-->d and t0-->Ter.
+
+
+
+# looks ok, so run for 1000 more with migration off, discarding burn-in
+samples3 <- run.dmc(samples.dmc(samples=samples2, nmc=1000), report=50)  
+
+
+
+###### FIGURE 7C: LLE plot, end of the chains ########
+par(mfcol=c(3,2))
+plot.dmc(samples3, pll.chain=TRUE, main="Log likelihood estimate (LLE)")
+###### FIGURE 7C: traceplots for each DDM parameter, end of the chains ######
+plot.dmc(samples3)        # note the "hairy caterpillars"
+# We will change the variable names "by hand" for the ms: v-->d and t0-->Ter.
+
+
+# Gelman-Rubin R-hat 
+gelman.diag.dmc(samples3) 
+#        Point est. Upper C.I.
+# a          1.02       1.03
+# v.s1       1.01       1.02
+# v.s2       1.02       1.03
+# z          1.02       1.02
+# t0         1.02       1.03
+# Multivariate psrf 1.03
+
+
+
+###### Figure 7D: Posterior distributions 
+plot.dmc(samples3, p.prior=p.prior.ddm5, rug.lty=0)   
+# To maintain consistency of variable names in the manuscript, we will 
+# change the variable names "by hand" to match those in the ms: v-->d and t0-->Ter.
+
+
+
+
+
+# Report the posterior estimates from DMC
+summary.dmc(samples3)    
+# Mean a 1.233, v.s1=d.s1 1.490, v.s2=d.s1 1.156, z 0.599, t0=Ter 0.202
+# NB: DMC's convention v>0 if slopes toward correct boundary; for ms, 
+# we will flip sign, to connote that d.s1<0 slopes to lower boundary = r1.
+
+# Compare these to the values obtained from the MLE approach (RWiener):
+data1_ddm5 
+# Mean a 1.174, Ter 0.201, z 0.603, d.s1 -1.355, d.s2 0.935
+# Generally similar except DMC estimates somewhat larger (more
+# extreme) drift rates
+# Cautionary note: generally, drift rates should be considered relative 
+# rather than absolute values (i.e. compare d.s1 vs. d.s2... or compare 
+# across subjects under same model), since
+# different packages/approaches may use different scaling factors!
+
+
+
+
+###### TABLE 1: text only ######
+
+###### TABLE 2: text only ######
+
+ 
+
+###### TABLE 3: Report parameter estimates from DMC; compare RWiener/rtdists #########
+x <- summary.dmc(samples3) 
+dmc_ests <- x$statistics[,1]
+names(dmc_ests) <- c("a", "d.s1", "d.s2", "z", "Ter")
+# flip d.s1 so slope is negative
+dmc_ests[2] <- -1 * dmc_ests[2]
+dmc_ests
+#     a   d.s1  d.s2     z   Ter 
+# 1.233 -1.490 1.156 0.599 0.202 
+RW_ests <- data1_ddm5$par
+names(RW_ests) <- c("a","Ter","z","d.s1","d.s2")
+RW_ests <- RW_ests[c("a","d.s1","d.s2","z","Ter")]
+RW_ests
+#     a   d.s1   d.s2      z    Ter 
+# 1.174 -1.355  0.935  0.603  0.201
+true_vals <- c(1.2,-1.25,1.1,0.6,0.2)
+names(true_vals) <- names(RW_ests)
+
+table3 <- as.data.frame(t(data.frame(RW_ests, dmc_ests, true_vals)))
+table3$myLabels <- c("MLE (using RWiener)", "Bayesian (using DMC)", "True (generating) values")
+
+myTable3 <- table3 %>%
+  gt(rowname_col="myLabels") %>%
+  tab_header(title="DDM: Estimated Parameter Values")
+myTable3
+myTable.filename <- paste(data.pathname, "DDM_review_Table3.rtf", sep="")
+gtsave(myTable3, myTable.filename)   # or copy image from RStudio plot window
+
+
+
+
+
+
+
+
+###########################################################################
+####  Multiple files: parameter estimation & model validation.         ####  
+###########################################################################
+
+
+set.seed(1) # re-set random seed so results will replicate
+
+# NB files empdataX.csv (X=1..10) each have: one row per trial, 
+# column cond (s1/s2), resp (lower/upper), rt (in sec) -- already in
+# format to analyze via rtdists!
+
+# First, use 5-parm DDM to est pararameters for each empirical datafile
+myNumSubj <- 10
+myNparms <- 5
+empirical_ests <- data.frame(matrix(NA, nrow=myNumSubj, ncol=myNparms+3))
+names(empirical_ests) <- c("subjID", "a", "z", "d.s1", "d.s2", "Ter", "converge", "LLE")
+start <- c(1.0, 0.1, 0.5, 0.0, 0.0)  # We'll use same starting point as defined above
+names(start) <- c("a", "t0", "z", "v1", "v2") # NB here, z=zabs not zr!
+for (i in 1:myNumSubj) {
+  # read in one empirical datafile
+  infilename <- paste(data.pathname, "empdata", i, ".csv", sep="")
+  emp.data <- read.csv(infilename, header=TRUE, sep=",")
+  # estimate parms, using the ll_diffusion wrapper defined above (calls rtdist's ddiffusion)
+  data.to.model <- list(subset(emp.data, cond=="s1"), subset(emp.data, cond=="s2"))
+  one_est <- optim(start, f=ll_diffusion, dat=data.to.model, method="BFGS")
+  # save to empirical_ests
+  parms <- one_est$par
+  empirical_ests[i,"subjID"] <- i
+  empirical_ests[i,"a"] <- parms["a"]; 
+  empirical_ests[i,"Ter"] <- parms["t0"];
+  empirical_ests[i,"z"] <- parms["z"]/parms["a"]; # rtdists returns z.abs; convert to z.rel
+  empirical_ests[i, "d.s1"] <- parms["v1"];
+  empirical_ests[i,"d.s2"] <- parms["v2"]; 
+  empirical_ests[i,"converge"] <- one_est$convergence
+  empirical_ests[i,"LLE"] <- -1*one_est$value  #rtdists returns negLLE; convert to LLE
+}
+(empirical_ests <- round(empirical_ests, digits=2))
+#    subjID    a    z  d.s1 d.s2  Ter converge LLE
+# 1       1 1.09 0.46 -3.93 1.27 0.21        0 185
+# 2       2 1.91 0.48 -3.66 1.97 0.25        0  70
+# 3       3 1.85 0.51 -5.30 1.80 0.16        0 129
+# 4       4 1.19 0.55 -3.62 2.09 0.17        0 287
+# 5       5 1.10 0.46 -4.01 1.27 0.21        0 190
+# 6       6 1.65 0.49 -2.41 2.43 0.25        0 140
+# 7       7 1.20 0.44 -2.01 2.02 0.21        0 129
+# 8       8 0.78 0.40 -1.01 1.00 0.23        0 220
+# 9       9 0.83 0.53 -3.20 1.53 0.18        0 332
+# 10     10 0.85 0.43 -1.20 0.11 0.18        0 136
+# Note: remember, using rtdist's ll_diffusion(), convergence=0 means ok.
+
+
+###### TABLE 4: Hypothetical study, DDM results ######
+# Compute means and SD 
+myMeans <- c(NA, mean(empirical_ests$a), mean(empirical_ests$z), 
+             mean(empirical_ests$d.s1), 
+             mean(empirical_ests$d.s2), mean(empirical_ests$Ter),
+             NA, mean(empirical_ests$LLE))
+myMeans <- round(myMeans, digits=2)
+mySD <- c(NA, sd(empirical_ests$a), sd(empirical_ests$z), sd(empirical_ests$d.s1),
+          sd(empirical_ests$d.s2), sd(empirical_ests$Ter), 
+          NA, sd(empirical_ests$LLE))   
+mySD <- round(mySD, digits=2)
+# Create a master table, including Mean/SD
+myEstParm <- rbind(empirical_ests, myMeans, mySD)
+myEstParm$subjID[11] <- "Mean"
+myEstParm$subjID[12] <- "SD"
+myTable4 <-
+  myEstParm[,!(names(myEstParm) %in% c("converge"))] %>%
+  gt(rowname_col="subjID") %>%
+  cols_align(align="center") %>%
+  tab_spanner("Estimated Parameters", columns=c("a","z","d.s1","d.s2","Ter")) %>%
+  cols_label(subjID="Subject ID") 
+myTable4
+myTable.filename <- paste(data.pathname, "DDM_review_Table4.rtf", sep="")
+gtsave(myTable4, myTable.filename)   # or copy image from RStudio plot window
+
+
+
+# Predictive check
+# We then use 5-parm DDM to generate one simulated dataset per each set of values
+for (i in 1:myNumSubj) { # for each subject ID
+  myVals <- empirical_ests[empirical_ests$subjID==i,]
+  # 150 s1 trials (using d.s1)... note rtdists uses z.abs, not z.rel, so convert to z.abs!
+  temp.s1 <- rdiffusion(n=150, a=myVals$a, v= myVals$d.s1, t0=myVals$Ter, z=myVals$z*myVals$a)
+  # 350 s2 trials (using d.s2)
+  temp.s2 <- rdiffusion(n=350, a=myVals$a, v=myVals$d.s2, t0=myVals$Ter, z=myVals$z*myVals$a)
+  # concatenate into an "experiment" of 500 trials
+  temp.s1$cond="s1"
+  temp.s2$cond="s2"
+  temp.all=rbind(temp.s1, temp.s2) 
+  # save as simulated dataset; note column names cond=S, response=R, rt=RT;
+  # we won't change these column labels, since they match what rtdists will expect, below!
+  outfilename <-paste(data.pathname, "simdata", i, ".csv", sep="")
+  write.csv(subset(temp.all, select=c(cond, response, rt)), file=outfilename, row.names=FALSE)
+}
+
+
+# Posterior predictive check: do simulated data look like empirical data?
+# Read in each empirical datafile; calc accuracy and median RTs; 
+# then do same for simulated; then plot (similar to Figs 5 & 9)
+set.seed(0)
+myColNames <- c("s1.accuracy", "s2.accuracy", "s1.correctRT", 
+                           "s1.incorrectRT", "s2.correctRT", "s2.incorrectRT")
+myEmpirical <- matrix(nrow=10, ncol=6, dimnames=list(c(1:10), myColNames))
+for (i in 1:10) {
+  infilename <- paste(data.pathname, "empdata", i, ".csv", sep="")
+  emp.data <- read.csv(infilename, header=TRUE, sep=",")
+  myS1 <- subset(emp.data, cond=="s1")
+  myS2 <- subset(emp.data, cond=="s2")
+  myS1.correct <- subset(myS1, response=="lower")
+  myS1.incorrect <- subset(myS1, response=="upper")
+  myS2.correct <- subset(myS2, response=="upper")
+  myS2.incorrect <- subset(myS2, response=="lower")
+  myEmpirical[i,1] = 100*length(myS1.correct$rt)/length(myS1$rt)
+  myEmpirical[i,2] = 100*length(myS2.correct$rt)/length(myS2$rt)
+  if (is.na(length(myS1.correct))) myEmpirical[i,3] = NA else myEmpirical[i,3]=median(myS1.correct$rt)
+  if (is.na(length(myS1.incorrect))) myEmpirical[i,4] = NA else myEmpirical[i,4]=median(myS1.incorrect$rt)
+  if (is.na(length(myS2.correct))) myEmpirical[i,5] = NA else myEmpirical[i,5]=median(myS2.correct$rt)
+  if (is.na(length(myS2.incorrect))) myEmpirical[i,6] = NA else myEmpirical[i,6]=median(myS2.incorrect$rt)
+}
+mySimulated <- matrix(nrow=10, ncol=6, dimnames=list(c(1:10), myColNames))
+for (i in 1:10) {
+  infilename <- paste(data.pathname, "simdata", i, ".csv", sep="")
+  sim.data <- read.csv(infilename, header=TRUE, sep=",")
+  myS1 <- subset(sim.data, cond=="s1")
+  myS2 <- subset(sim.data, cond=="s2")
+  myS1.correct <- subset(myS1, response=="lower")
+  myS1.incorrect <- subset(myS1, response=="upper")
+  myS2.correct <- subset(myS2, response=="upper")
+  myS2.incorrect <- subset(myS2, response=="lower")
+  mySimulated[i,1] = 100*length(myS1.correct$rt)/length(myS1$rt)
+  mySimulated[i,2] = 100*length(myS2.correct$rt)/length(myS2$rt)
+  if (is.na(length(myS1.correct))) mySimulated[i,3] = NA else mySimulated[i,3]=median(myS1.correct$rt)
+  if (is.na(length(myS1.incorrect))) mySimulated[i,4] = NA else mySimulated[i,4]=median(myS1.incorrect$rt)
+  if (is.na(length(myS2.correct))) mySimulated[i,5] = NA else mySimulated[i,5]=median(myS2.correct$rt)
+  if (is.na(length(myS2.incorrect))) mySimulated[i,6] = NA else mySimulated[i,6]=median(myS2.incorrect$rt)
+}
+myEmpirical <- as.data.frame(myEmpirical)
+mySimulated <- as.data.frame(mySimulated)
+
+###### FIGURE 8: Scatterplots of Empirical data vs. Simulated data #####
+par(mfrow=c(1,3))
+plot(myEmpirical$s1.accuracy,mySimulated$s1.accuracy, col="black", xlim=c(50,100), ylim=c(50,100),
+     xlab="Empirical data", ylab="Simulated data", main="Accuracy (% Correct)")
+points(myEmpirical$s2.accuracy,mySimulated$s2.accuracy, col="red")
+legend(x=50, y=100, legend=c("s1", "s2"), pch=c(1,1), col=c("black", "red"))
+abline(coef=c(0,1))
+plot(myEmpirical$s1.correct,mySimulated$s1.correct, col="black", xlim=c(0,1), ylim=c(0,1),
+     xlab="Empirical data", ylab="Simulated data", main="Median RT (sec) for correct responses")
+points(myEmpirical$s2.correct,mySimulated$s2.correct, col="red")
+legend(x=0, y=1, legend=c("s1", "s2"), pch=c(1,1), col=c("black", "red"))
+abline(coef=c(0,1))
+plot(myEmpirical$s1.incorrect,mySimulated$s1.incorrect, col="black", xlim=c(0,1), ylim=c(0,1),
+     xlab="Empirical data", ylab="Simulated data", main="Median RT (sec) for incorrect responses")
+points(myEmpirical$s2.incorrect,mySimulated$s2.incorrect, col="red")
+legend(x=0, y=1, legend=c("s1", "s2"), pch=c(1,1), col=c("black", "red"))
+abline(coef=c(0,1))
+cor(myEmpirical$s1.accuracy, mySimulated$s1.accuracy)
+cor(myEmpirical$s2.accuracy, mySimulated$s2.accuracy)
+cor(myEmpirical$s1.correct, mySimulated$s1.correct)
+cor(myEmpirical$s1.incorrect, mySimulated$s1.incorrect, use="complete.obs")
+cor(myEmpirical$s2.correct, mySimulated$s2.correct)
+cor(myEmpirical$s2.incorrect, mySimulated$s2.incorrect, use="complete.obs")
+
+
+# Now, fit the 5-parm DDM to each simulated datafile, and save the parm estimates
+recovery_ests <- data.frame(matrix(NA, nrow=myNumSubj, ncol=myNparms+3))
+names(recovery_ests) <- c("subjID","a", "z", "d.s1", "d.s2", "Ter", "converge", "LLE")
+start <- c(1.0, 0.1, 0.5, 0.0, 0.0)  # We'll use same starting point as defined above
+names(start) <- c("a", "t0", "z", "v1", "v2") # NB here, z=zabs not zr!
+for (i in 1:myNumSubj) {
+  # read in one simulated datafile
+  infilename <- paste(data.pathname, "simdata", i, ".csv", sep="")
+  sim.data <- read.csv(infilename, header=TRUE, sep=",")
+  # estimate parms, using the ll_diffusino wrapper defined above (calls rtdist's ddiffusion)
+  data.to.model <- list(subset(sim.data, cond=="s1"), subset(sim.data, cond=="s2"))
+  one_est <- optim(start, f=ll_diffusion, dat=data.to.model, method="BFGS")
+  # save to recovery_ests
+  parms <- one_est$par
+  recovery_ests[i,"subjID"] <- i
+  recovery_ests[i,"a"] <- parms["a"]; 
+  recovery_ests[i,"Ter"] <- parms["t0"];
+  recovery_ests[i,"z"] <- parms["z"]/parms["a"]; # rtdists returns z.abs; convert to z.rel
+  recovery_ests[i, "d.s1"] <- parms["v1"]; 
+  recovery_ests[i,"d.s2"] <- parms["v2"]; 
+  recovery_ests[i,"converge"] <- one_est$convergence
+  recovery_ests[i,"LLE"] <- -1*one_est$value
+}
+(recovery_ests <- round(recovery_ests, digits=2))
+#    subjID    a    z  d.s1 d.s2  Ter converge   LLE
+# 1       1 1.06 0.48 -4.34 1.20 0.21        0 198.8
+# 2       2 1.89 0.50 -3.91 1.80 0.25        0  53.2
+# 3       3 1.74 0.52 -5.14 1.73 0.17        0 129.0
+# 4       4 1.23 0.55 -3.69 1.97 0.16        0 264.5
+# 5       5 1.09 0.47 -3.69 1.27 0.21        0 156.8
+# 6       6 1.62 0.49 -2.31 2.50 0.25        0 144.8
+# 7       7 1.22 0.43 -1.82 1.78 0.21        0  57.6
+# 8       8 0.80 0.41 -0.83 0.64 0.23        0 180.3
+# 9       9 0.82 0.53 -2.87 1.51 0.18        0 334.1
+# 10     10 0.85 0.41 -1.07 0.27 0.18        0 127.0
+# Note: remember, using rtdist's ll_diffusion(), convergence=0 means ok.
+
+
+###### TABLE 5: Parameter recovery study results ######
+# Compute means and SD 
+myMeans <- c(NA, mean(recovery_ests$a), mean(recovery_ests$z), 
+             mean(recovery_ests$d.s1), 
+             mean(recovery_ests$d.s2), mean(recovery_ests$Ter),
+             NA, mean(recovery_ests$LLE))
+myMeans <- round(myMeans, digits=2)
+mySD <- c(NA, sd(recovery_ests$a), sd(recovery_ests$z), sd(recovery_ests$d.s1),
+          sd(recovery_ests$d.s2), sd(recovery_ests$Ter), 
+          NA, sd(recovery_ests$LLE))   
+mySD <- round(mySD, digits=2)
+# Create a master table, including Mean/SD
+myRecovParm <- rbind(recovery_ests, myMeans, mySD)
+myRecovParm$subjID[11] <- "Mean"
+myRecovParm$subjID[12] <- "SD"
+myTable5 <-
+  myRecovParm[,!(names(myRecovParm) %in% c("converge"))] %>%
+  gt(rowname_col="subjID") %>%
+  cols_align(align="center") %>%
+  tab_spanner("Recovered Parameters", columns=c("a","z","d.s1","d.s2","Ter")) %>%
+  cols_label(subjID="Subject ID") 
+myTable5
+myTable.filename <- paste(data.pathname, "DDM_review_Table5.rtf", sep="")
+gtsave(myTable5, myTable.filename)   # or copy image from RStudio plot window
+
+
+
+
+###### FIGURE 9: Scatterplot estimated vs. recovered parameters
+r_a <- round(cor(recovery_ests$a, empirical_ests$a), digits=2)
+r_z <- round(cor(recovery_ests$z, empirical_ests$z), digits=2)
+r_d.s1 <- round(cor(recovery_ests$d.s1, empirical_ests$d.s1), digits=2)
+r_d.s2 <- round(cor(recovery_ests$d.s2, empirical_ests$d.s2), digits=2)
+r_Ter <- round(cor(recovery_ests$Ter, empirical_ests$Ter), digits=2)
+par(mfrow=c(3,2))
+xlab="Estimated Parameters"; ylab="Recovered Parameters"
+plot(recovery_ests$a, empirical_ests$a, 
+     main=paste("a: r=",r_a), xlab=xlab, ylab=ylab)
+plot(recovery_ests$d.s1, empirical_ests$d.s1, 
+     main=paste("d.s1: r=",r_d.s1), xlab=xlab, ylab=ylab)
+plot(recovery_ests$d.s2, empirical_ests$d.s2, 
+     main=paste("d.s2: r=",r_d.s2), xlab=xlab, ylab=ylab)
+plot(recovery_ests$z, empirical_ests$z, 
+     main=paste("z: r=",r_z), xlab=xlab, ylab=ylab)
+plot(jitter(recovery_ests$Ter), jitter(empirical_ests$Ter), 
+     main=paste("Ter: r=",r_Ter), xlab=xlab, ylab=ylab)
+
+
+
+
+
+
+
+############################################################################
+####      Approaches for model selection                                ####
+############################################################################
+
+
+set.seed(1) # re-set random seed so results will replicate
+
+
+# We already used rtdists to estimate parameter values for our 10
+# subjects using DDM-5 (5 free parameters: a, z, Ter, and 2 drift rates)
+(DDM5_ests <- empirical_ests)
+
+
+# Now, we'll consider a simpler DDM with k=4 free parameters: 
+# a, Ter, zr, and 1 drift rate d... but using -d for s1 and +d for s2.  
+# NB using rtdists; again, we need to convert to/from z.abs, and
+# are returning negLLE = negative of logLik
+# Wrapper below adapted from rtdists documentation.
+single_drift <- function (pars, datalist) {
+  loss = 0 
+  loss = loss - sum(log(ddiffusion(rt=datalist[[1]]$rt, 
+                                   response=datalist[[1]]$response,
+                                   a=pars[1], v= -1*pars[4], t0=pars[2], z=pars[3]*pars[1])))
+  loss = loss - sum(log(ddiffusion(rt=datalist[[2]]$rt, 
+                                   response=datalist[[2]]$response,
+                                   a=pars[1], v=pars[4], t0=pars[2], z=pars[3]*pars[1])))
+  return(loss)
+}
+
+
+# Now, use 4-parm DDM to est parameters for each empirical datafile
+myNumSubj <- 10
+myNparms <- 4
+DDM4_ests <- data.frame(matrix(NA, nrow=myNumSubj, ncol=myNparms+4))
+names(DDM4_ests) <- c("subjID", "a", "z", "d.s1", "d.s2", "Ter", "converge", "LLE")
+start4 <- c(1.0, 0.1, 0.5, 0)  # New starting points 
+names(start4) <- c("a", "t0", "z", "v") # NB here, z=zabs not zr!
+for (i in 1:myNumSubj) {
+  # read in one empirical datafile
+  infilename <- paste(data.pathname, "empdata", i, ".csv", sep="")
+  emp.data <- read.csv(infilename, header=TRUE, sep=",")
+  # estimate parms, using the ll_diffusion wrapper defined above (calls rtdist's ddiffusion)
+  data.to.model <- list(subset(emp.data, cond=="s1"), subset(emp.data, cond=="s2"))
+  one_est <- optim(start4, f=single_drift, dat=data.to.model, method="BFGS")
+  # save to empirical_ests
+  parms <- one_est$par
+  DDM4_ests[i,"subjID"] <- i
+  DDM4_ests[i,"a"] <- parms["a"]; 
+  DDM4_ests[i,"Ter"] <- parms["t0"];
+  DDM4_ests[i,"d.s1"] <- -1*parms["v"]; DDM4_ests[i,"d.s2"] <- parms["v"]
+  DDM4_ests[i, "z"] <- parms["z"]/parms["a"];
+  DDM4_ests[i, "converge"] <- one_est$convergence
+  DDM4_ests[i,"LLE"] <- -1*one_est$value  #rtdists returns negLLE; convert to LLE
+}
+(DDM4_ests <- round(DDM4_ests, digits=2))
+#    subjID    a    z  d.s1 d.s2  Ter converge   LLE
+# 1       1 1.08 0.36 -1.87 1.87 0.22        0 150.6
+# 2       2 1.88 0.22 -2.35 2.35 0.24        0  49.9
+# 3       3 1.74 0.22 -2.36 2.36 0.15        0  69.2
+# 4       4 1.17 0.43 -2.51 2.51 0.17        0 273.6
+# 5       5 1.08 0.36 -1.88 1.88 0.22        0 153.0
+# 6       6 1.65 0.30 -2.42 2.42 0.25        0 140.5
+# 7       7 1.20 0.36 -2.02 2.02 0.21        0 129.5
+# 8       8 0.78 0.51 -1.00 1.00 0.23        0 220.4
+# 9       9 0.83 0.59 -2.01 2.01 0.18        0 319.4
+# 10     10 0.85 0.47 -0.45 0.45 0.18        0 128.9
+# Again, remember rtdist's ddiffusion converge=0 if ok!
+
+
+
+###### TABLE 6: Model comparison: DDM5 vs. DDM4 ######
+# Compute means and SD 
+myMeans <- c(NA, mean(DDM4_ests$a), mean(DDM4_ests$z), 
+             mean(DDM4_ests$d.s1), 
+             mean(DDM4_ests$d.s2), mean(DDM4_ests$Ter),
+             NA, mean(DDM4_ests$LLE))
+myMeans <- round(myMeans, digits=2)
+mySD <- c(NA, sd(DDM4_ests$a), sd(DDM4_ests$z), sd(DDM4_ests$d.s1),
+          sd(DDM4_ests$d.s2), sd(DDM4_ests$Ter), 
+          NA, sd(DDM4_ests$LLE))   
+mySD <- round(mySD, digits=2)
+# Create a master table, including Mean/SD
+myDDM4 <- rbind(DDM4_ests, myMeans, mySD)
+myDDM4$subjID[11] <- "Mean"
+myDDM4$subjID[12] <- "SD"
+# add DDM5 LLE, for comparison
+myDDM4$LLEfromDDM5 <- myEstParm$LLE
+
+myTable6 <-
+  myDDM4[,!(names(myDDM4) %in% c("converge"))] %>%
+  gt(rowname_col="subjID") %>%
+  cols_align(align="center") %>%
+  tab_spanner("Estimated Parameters, using DDM-4", columns=c("a","z","d.s1","d.s2","Ter")) %>%
+  cols_label(subjID="Subject ID", LLE="LLE (from DDM-4)", LLEfromDDM5="LLE (from DDM-5)") 
+myTable6
+myTable.filename <- paste(data.pathname, "DDM_review_Table6.rtf", sep="")
+gtsave(myTable6, myTable.filename)   # or copy image from RStudio plot window
+
+
+
+
+# The larger model fits better (larger LLE on average) but at cost of
+# more complexity (more free parameters)
+
+# One way to penalize for complexity is Akaike Information Criterion (AIC)
+# AIC = 2k-2LLE
+(AIC.ddm5 <- 2*5-2*DDM5_ests$LLE)   
+(AIC.ddm4 <- 2*4-2*DDM4_ests$LLE)      
+AIC.ddm5 - AIC.ddm4  # smaller (more negative) numbers --> DDM-5 is better 
+
+(meanDDM5_LLE <- round(mean(DDM5_ests$LLE), digits=2))   # 167
+(meanDDM4_LLE <- round(mean(DDM4_ests$LLE), digits=2))   # 164
+(meanDDM5_AIC <- round(mean(AIC.ddm5), digits=2))        # -354 smaller!
+(meanDDM4_AIC <- round(mean(AIC.ddm4), digits=2))        # -319
+# AIC is somewhat smaller (more negative) for larger model -- i.e. the added complexity is "worth it."
+
+
+# Some prefer Bayesian Information Criterion (BIC) which also adjusts
+# for number of trials (which influences absolute value of LLE)
+# Formally, BIC provides estimate of the posterior probability being 
+# true (lower BIC -> more likely that this is "true" model). BIC is only
+# valid if n>>k (number of observations, here trials >> number of free
+# parameters. As a rule (Kass & Raftery, 1995), if difference between BIC
+# between a complex and more simple models is:
+#   <2:   more complex model is "not worth it"
+#   2-6:  positive evidence in favor of more complex model
+#   6-10: strong evidence in favor of more complex model
+#   10+:  very strong evidence in favor of more complex model
+
+# BIC = k*log(n)-2LLE 
+n <- 500   # assuming n=500 for all subject/datafiles, log(n)=6.21
+
+(BIC.ddm5 <- 5*log(n)-2*DDM5_ests$LLE)   
+(BIC.ddm4 <- 4*log(n)-2*DDM4_ests$LLE)      
+BIC.ddm5 - BIC.ddm4  # smaller (more negative) numbers --> DDM-5 is better 
+
+(meanDDM5_BIC <- round(mean(BIC.ddm5), digits=2))    # -333 -- smaller!
+(meanDDM4_BIC <- round(mean(BIC.ddm4), digits=2))    # -302
+# BIC is smaller (more negative) for larger model -- i.e. added complexity is "worth it."
+
+
+
+###### TABLE 7: AIC AND BIC - not included in MS ######
+myLabels <- c("DDM-5 (5 parameters including 2 drift rates)",
+              "DDM-4 (4 parameters including 1 drift rate)")
+myMeanLLE <- c(meanDDM5_LLE, meanDDM4_LLE)
+myK <- c(5,4)
+myMeanAIC <- c(meanDDM5_AIC, meanDDM4_AIC)
+myN <- c(500,500)
+myMeanBIC <- c(meanDDM5_BIC, meanDDM4_BIC)
+table7 <- data.frame(myLabels, myMeanLLE, myK, myMeanAIC, myN, myMeanBIC)
+myTable7 <-
+  table7 %>%
+  gt(rowname_col="myLabels") %>%
+  cols_align(align="center") %>%
+  cols_label(myLabels="Model", myMeanLLE="Mean LLE", myK="k (# parameters)",
+             myMeanAIC="Mean AIC", myN="n (#trials)", myMeanBIC="Mean BIC")
+myTable7
+myTable.filename <- paste(data.pathname, "DDM_review_Table7.rtf", sep="")
+gtsave(myTable7, myTable.filename)   # or copy image from RStudio plot window
+
+
+
+
+###### FIGURE 10: REPORT MODEL PARAMETERS ######
+# for plotting purposes, we'll plot d.s1 as >0
+temp2 <- empirical_ests
+temp2$d.s1 <- -1*temp2$d.s1
+temp2$Group <- c(rep("subjects 1-5", 5), rep("subjects 6-10", 5))
+temp.ad <- melt(temp2, id.vars=c("subjID", "Group"),
+             measure.vars=c("a", "d.s1", "d.s2"),
+             variable.name="Parameter")
+temp.zTer <- melt(temp2, id.vars=c("subjID", "Group"),
+                measure.vars=c("z", "Ter"),
+                variable.name="Parameter")
+
+# Boxplot of all 5 parameter estimates from DDM-5 on our n=10 subjects
+pd<-position_dodge(1)
+g.ad <- ggplot(temp.ad, aes(x=Parameter, y=value, fill=Group)) +
+  geom_boxplot(position=pd, aes(fill=Group)) +
+  scale_fill_manual(values=c("#2171b5","white"))  +
+  xlab("Parameter") +
+  ylab("Median Value") +
+  theme_classic() + theme(legend.position="none")
+
+# Plot z and Ter separately, as they are on different scales than a, d
+g.zTer <- ggplot(temp.zTer, aes(x=Parameter, y=value, fill=Group)) +
+  geom_boxplot(position=pd, aes(fill=Group)) +
+  scale_fill_manual(values=c("#2171b5","white"))  +
+  xlab("Parameter") +
+  ylab("Median Value") +
+  theme_classic() + theme(legend.position=c(0.8,0.8))
+# ... or, plot separately, given that there are different scales
+
+grid.arrange(g.ad, g.zTer, ncol=2, nrow=1)
+
+
+
+
+############################################################################
+####      The end.                                                      ####
+############################################################################
+```

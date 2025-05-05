@@ -4,27 +4,580 @@ output: html_notebook
 ---
 
 ### Import dependencies
+
 ```{r}
-library(emmeans)
+library(car)
+library(mlogit)
+library(glue)
+library(lmtest)
 ```
 
 ### Import the dataframe
+
 ```{r}
 WSLS_csv_location <- "/Volumes/project/3025011.02/pre-processed/behaviour/combined_dataframe_for_r.csv"
 
 WSLS_dataframe <- read.csv(WSLS_csv_location, header = TRUE, sep = ";")
 ```
 
-# Win-stay analysis
-### Run a very simple regression model
-```{r}
-# Run the raw model
-model <- lm(WS ~ subjectively_correct_one_back_int + session, data = WSLS_dataframe)
+### Recode categorical variables as factors
 
-summary(model)
+```{r}
+WSLS_dataframe$response <- as.factor(WSLS_dataframe$response)
+is.factor(WSLS_dataframe$response)
+WSLS_dataframe$WS_subjective <- as.factor(WSLS_dataframe$WS_subjective)
+is.factor(WSLS_dataframe$WS_subjective)
+WSLS_dataframe$LS_subjective <- as.factor(WSLS_dataframe$LS_subjective)
+is.factor(WSLS_dataframe$LS_subjective)
+WSLS_dataframe$WS_objective <- as.factor(WSLS_dataframe$WS_objective)
+is.factor(WSLS_dataframe$WS_objective)
+WSLS_dataframe$LS_objective <- as.factor(WSLS_dataframe$LS_objective)
+is.factor(WSLS_dataframe$LS_objective)
+WSLS_dataframe$choicestickiness <- as.factor(WSLS_dataframe$choicestickiness)
+is.factor(WSLS_dataframe$choicestickiness)
+WSLS_dataframe$volatility <- as.factor(WSLS_dataframe$volatility)
+is.factor(WSLS_dataframe$volatility)
+WSLS_dataframe$subject_id <- as.factor(WSLS_dataframe$subject_id)
+is.factor(WSLS_dataframe$subject_id)
+
+WSLS_dataframe$RT_s <- as.numeric(WSLS_dataframe$RT_s)
+is.numeric(WSLS_dataframe$RT_s)
+WSLS_dataframe$response_bias <- as.numeric(WSLS_dataframe$response_bias)
+is.numeric(WSLS_dataframe$response_bias)
+
+head(WSLS_dataframe)
+```
+
+### Relevel the data
+
+This ensures that the baseline of any factor is set to something like session 1 or no TUS
+
+```{r}
+#WSLS_dataframe$volatility <- relevel(WSLS_dataframe$volatility, 'stable')
+```
+
+# Multinomial logistic regression
+
+### Put data in long format
+
+```{r}
+WS_subjective_dataframe_long <- mlogit.data(WSLS_dataframe, choice = 'WS_subjective', shape = 'wide')
+print(WS_subjective_dataframe_long)
+LS_subjective_dataframe_long <- mlogit.data(WSLS_dataframe, choice = 'LS_subjective', shape = 'wide')
+print(LS_subjective_dataframe_long)
+WS_objective_dataframe_long <- mlogit.data(WSLS_dataframe, choice = 'WS_objective', shape = 'wide')
+print(WS_subjective_dataframe_long)
+LS_objective_dataframe_long <- mlogit.data(WSLS_dataframe, choice = 'LS_objective', shape = 'wide')
+print(LS_subjective_dataframe_long)
+```
+
+# Subjective Win-Stay models
+
+### Multinomial model
+
+```{r}
+multinomail_model_1 <- mlogit(WS_subjective ~ 1, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_2 <- mlogit(WS_subjective ~ 1 | response_bias, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_3 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_4 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_5 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_6 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_7 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility + congruency, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_8 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_9 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility + choicestickiness:congruency, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_10 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility + choicestickiness:congruency + time_since_switch:congruency, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_11 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility + congruency + time_since_switch:volatility, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+```
+
+```{r}
+summary(multinomail_model_1)
+```
+
+```{r}
+summary(multinomail_model_2)
+```
+
+```{r}
+summary(multinomail_model_3)
+```
+
+```{r}
+summary(multinomail_model_4)
+```
+
+```{r}
+summary(multinomail_model_5)
+```
+
+```{r}
+summary(multinomail_model_6)
+```
+
+```{r}
+summary(multinomail_model_7)
+```
+
+```{r}
+summary(multinomail_model_8)
+```
+
+```{r}
+summary(multinomail_model_9)
+```
+
+```{r}
+summary(multinomail_model_10)
+```
+
+```{r}
+summary(multinomail_model_11)
+```
+
+### Look at the coefficients of the model
+
+```{r}
+exp(multinomail_model_3$coefficients)
+```
+
+### Look at the confidence intervals for the coefficients of the model
+
+Crossing 1 is a bad sign
+
+```{r}
+exp(confint(multinomail_model_3))
+```
+
+### Model comparison
+
+```{r}
+AIC(multinomail_model_1, multinomail_model_2, multinomail_model_3, multinomail_model_4, multinomail_model_5, multinomail_model_6, multinomail_model_7, multinomail_model_8, multinomail_model_9, multinomail_model_10, multinomail_model_11)
+
+lrtest(multinomail_model_1, multinomail_model_2)
+
+lrtest(multinomail_model_2, multinomail_model_3)
+
+lrtest(multinomail_model_3, multinomail_model_4)
+
+lrtest(multinomail_model_4, multinomail_model_5)
+```
+
+```{r}
+lrtest(multinomail_model_5, multinomail_model_6)
+
+lrtest(multinomail_model_6, multinomail_model_7)
+
+lrtest(multinomail_model_7, multinomail_model_8)
+
+lrtest(multinomail_model_8, multinomail_model_9)
+```
+
+```{r}
+lrtest(multinomail_model_5, multinomail_model_6)
+
+lrtest(multinomail_model_6, multinomail_model_7)
+
+lrtest(multinomail_model_7, multinomail_model_8)
+
+lrtest(multinomail_model_9, multinomail_model_10)
+
+lrtest(multinomail_model_10, multinomail_model_11)
+```
+
+# Subjective lose-shift
+
+### Multinomial model
+
+```{r}
+multinomail_model_1 <- mlogit(LS_subjective ~ 1, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_2 <- mlogit(LS_subjective ~ 1 | response_bias, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_3 <- mlogit(LS_subjective ~ 1 | response_bias + choicestickiness, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_4 <- mlogit(LS_subjective ~ 1 | response_bias + choicestickiness + volatility, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_5 <- mlogit(LS_subjective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_6 <- mlogit(LS_subjective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_7 <- mlogit(LS_subjective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_8 <- mlogit(LS_subjective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility + time_since_switch, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_9 <- mlogit(LS_subjective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility + time_since_switch + time_since_switch:volatility, data = LS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+AIC(multinomail_model_1, multinomail_model_2, multinomail_model_3, multinomail_model_4, multinomail_model_5, multinomail_model_6, multinomail_model_7, multinomail_model_8, multinomail_model_9)
+```
+
+```{r}
+summary(multinomail_model_1)
+```
+
+```{r}
+summary(multinomail_model_2)
+```
+
+```{r}
+summary(multinomail_model_3)
+```
+
+```{r}
+summary(multinomail_model_4)
+```
+
+```{r}
+summary(multinomail_model_5)
+```
+
+```{r}
+summary(multinomail_model_6)
+```
+
+```{r}
+summary(multinomail_model_7)
+```
+
+```{r}
+summary(multinomail_model_8)
+```
+
+```{r}
+summary(multinomail_model_9)
+```
+
+### Look at the coefficients of the model
+
+```{r}
+exp(multinomail_model_3$coefficients)
+```
+
+### Look at the confidence intervals for the coefficients of the model
+
+Crossing 1 is a bad sign
+
+```{r}
+exp(confint(multinomail_model_3))
+```
+
+### Model comparison
+
+```{r}
+AIC(multinomail_model_1, multinomail_model_2, multinomail_model_3, multinomail_model_4, multinomail_model_5, multinomail_model_6, multinomail_model_7, multinomail_model_8, multinomail_model_9)
+
+lrtest(multinomail_model_1, multinomail_model_2)
+
+lrtest(multinomail_model_2, multinomail_model_3)
+
+lrtest(multinomail_model_3, multinomail_model_4)
+```
+
+```{r}
+lrtest(multinomail_model_4, multinomail_model_5)
+
+lrtest(multinomail_model_5, multinomail_model_6)
+
+lrtest(multinomail_model_6, multinomail_model_7)
+
+lrtest(multinomail_model_7, multinomail_model_8)
+```
+
+# Objective Win-Stay models
+
+### Multinomial model
+
+```{r}
+multinomail_model_1 <- mlogit(WS_objective ~ 1, data = WS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_2 <- mlogit(WS_objective ~ 1 | response_bias, data = WS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_3 <- mlogit(WS_objective ~ 1 | response_bias + choicestickiness, data = WS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_4 <- mlogit(WS_objective ~ 1 | response_bias + choicestickiness + volatility, data = WS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_5 <- mlogit(WS_objective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility, data = WS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_6 <- mlogit(WS_objective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency, data = WS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_7 <- mlogit(WS_objective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency + time_since_switch, data = WS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_8 <- mlogit(WS_objective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency + time_since_switch + time_since_switch:volatility, data = WS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+AIC(multinomail_model_1, multinomail_model_2, multinomail_model_3, multinomail_model_4, multinomail_model_5, multinomail_model_6, multinomail_model_7, multinomail_model_8)
+```
+
+```{r}
+summary(multinomail_model_1)
+```
+
+```{r}
+summary(multinomail_model_2)
+```
+
+```{r}
+summary(multinomail_model_3)
+```
+
+```{r}
+summary(multinomail_model_4)
+```
+
+```{r}
+summary(multinomail_model_5)
+```
+
+```{r}
+summary(multinomail_model_6)
+```
+
+```{r}
+summary(multinomail_model_7)
+```
+
+```{r}
+summary(multinomail_model_8)
+```
+
+### Look at the coefficients of the model
+
+```{r}
+exp(multinomail_model_3$coefficients)
+```
+
+### Look at the confidence intervals for the coefficients of the model
+
+Crossing 1 is a bad sign
+
+```{r}
+exp(confint(multinomail_model_3))
+```
+
+### Model comparison
+
+```{r}
+AIC(multinomail_model_1, multinomail_model_2, multinomail_model_3, multinomail_model_4, multinomail_model_5, multinomail_model_6, multinomail_model_7, multinomail_model_8)
+
+lrtest(multinomail_model_1, multinomail_model_2)
+
+lrtest(multinomail_model_2, multinomail_model_3)
+
+lrtest(multinomail_model_3, multinomail_model_4)
+```
+
+```{r}
+lrtest(multinomail_model_4, multinomail_model_5)
+
+lrtest(multinomail_model_5, multinomail_model_6)
+
+lrtest(multinomail_model_6, multinomail_model_7)
+
+lrtest(multinomail_model_7, multinomail_model_8)
+```
+
+# Objective Lose-Shift models
+
+### Multinomial model
+
+```{r}
+multinomail_model_1 <- mlogit(LS_objective ~ 1, data = LS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_2 <- mlogit(LS_objective ~ 1 | response_bias, data = LS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_3 <- mlogit(LS_objective ~ 1 | response_bias + choicestickiness, data = LS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_4 <- mlogit(LS_objective ~ 1 | response_bias + choicestickiness + volatility, data = LS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_5 <- mlogit(LS_objective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility, data = LS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_6 <- mlogit(LS_objective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency, data = LS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_7 <- mlogit(LS_objective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility, data = LS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+multinomail_model_8 <- mlogit(LS_objective ~ 1 | response_bias + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility + choicestickiness:congruency, data = LS_objective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+AIC(multinomail_model_1, multinomail_model_2, multinomail_model_3, multinomail_model_4, multinomail_model_5, multinomail_model_6, multinomail_model_7, multinomail_model_8)
+```
+
+```{r}
+summary(multinomail_model_1)
+```
+
+```{r}
+summary(multinomail_model_2)
+```
+
+```{r}
+summary(multinomail_model_3)
+```
+
+```{r}
+summary(multinomail_model_4)
+```
+
+```{r}
+summary(multinomail_model_5)
+```
+
+```{r}
+summary(multinomail_model_6)
+```
+
+```{r}
+summary(multinomail_model_7)
+```
+
+```{r}
+summary(multinomail_model_8)
+```
+
+### Look at the coefficients of the model
+
+```{r}
+exp(multinomail_model_3$coefficients)
+```
+
+### Look at the confidence intervals for the coefficients of the model
+
+Crossing 1 is a bad sign
+
+```{r}
+exp(confint(multinomail_model_3))
+```
+
+### Model comparison
+
+```{r}
+AIC(multinomail_model_1, multinomail_model_2, multinomail_model_3, multinomail_model_4, multinomail_model_5, multinomail_model_6, multinomail_model_7, multinomail_model_8)
+
+lrtest(multinomail_model_1, multinomail_model_2)
+
+lrtest(multinomail_model_2, multinomail_model_3)
+
+lrtest(multinomail_model_3, multinomail_model_4)
+```
+
+```{r}
+lrtest(multinomail_model_4, multinomail_model_5)
+
+lrtest(multinomail_model_5, multinomail_model_6)
+
+lrtest(multinomail_model_6, multinomail_model_7)
+
+lrtest(multinomail_model_7, multinomail_model_8)
+```
+
+# Regular logistic regression
+
+### Filter out other columns in WS data
+
+```{r}
+WS_subjective_dataframe <- subset(WSLS_dataframe, WS_subjective != 0)
+WS_subjective_dataframe$WS_subjective[WS_subjective_dataframe$WS_subjective == -1] <- 0
+```
+
+# Win-stay analysis
+
+### Run a very simple regression model
+
+```{r}
+model1 <- glm(WS_subjective ~ choicestickiness, data = WS_subjective_dataframe, family = binomial())
+
+summary(model1)
+```
+
+### Add the training as the factor 'session
+
+```{r}
+model2 <- glm(WS_subjective ~ choicestickiness + volatility, data = WS_subjective_dataframe, family = binomial())
+
+summary(model2)
+```
+
+### Compare factors
+
+```{r}
+model_chisquare <- model1$null.deviance - model1$deviance
+model_df <- model1$df.null - model1$df.residual
+model_chisquare_p <- 1 - pchisq(model_chisquare, model_df)
+glue('Model Chi-square test: x^2({model_df}) = {model_chisquare}, p = {model_chisquare_p}')
+```
+
+### Calculate different R\^2's
+
+```{r}
+model_R1HL <- model_chisquare / model1$null.deviance
+model_R1CS <- 1 - exp( -(model1$null.deviance - model1$deviance) / length(model1$fitted.values))
+model_R1N <- model_R1CS / (1 -(exp(-(model1$null.deviance / length(model1$fitted.values)))))
+glue('Hosmer and Lemeshows pseudo-R^2 = {model_R1HL}')
+glue('Cox and Snells pseudo-R^2 = {model_R1CS}')
+glue('Nagelkerke pseudo-R^2 = {model_R1N}')
+```
+
+## Odd-ratio
+
+Change in odds
+
+```{r}
+glue('If values are greater than 1, there is a positive correlation between the predictor and outcome')
+glue('If lower than 1, there is a negative correlation between the predictor and the outcome')
+glue('Odds ratio for factors is:')
+exp(model1$coefficients)
+glue('People who stick with their choice when going from n-2 to n-1 are 1.83 times as likely to stick with their choice again')
+exp(confint(model1))
+```
+
+### Check assumptions
+
+```{r}
+WS_subjective_dataframe$predicted.probabilities <- fitted(model1)
+WS_subjective_dataframe$standardized.residuals <- rstandard(model1)
+WS_subjective_dataframe$studentized.residuals <- rstudent(model1)
+WS_subjective_dataframe$dfbeta <- dfbeta(model1)
+WS_subjective_dataframe$dffit <- dffits(model1)
+WS_subjective_dataframe$leverage <- hatvalues(model1)
+
+WS_subjective_dataframe[, c('WS_subjective', 'choicestickiness', 'volatility', 'predicted.probabilities')]
+```
+
+```{r}
+WS_subjective_dataframe[, c('leverage', 'studentized.residuals', 'dfbeta')]
+```
+
+### Testing collinearity assumption
+
+```{r}
+print('VIF values:')
+print('VIF over 10 is a sign of collinearity')
+vif(model2)
+print('Tolerance')
+1/vif(model2)
+```
+
+### Testing log linnearity assumption
+
+```{r}
+print('Check the linearity to the log of the outcome variable for every factor:')
+WS_subjective_dataframe$logchoicestickiness <- log(WS_subjective_dataframe$choicestickiness)*WS_subjective_dataframe$choicestickiness
+WS_subjective_dataframe$logvolatility <- log(WS_subjective_dataframe$volatility)*WS_subjective_dataframe$volatility
+head(WS_subjective_dataframe)
+
+print('Then create a model with both he normal factors and the log of those factors')
+print('If any of the log factors are significant, that means that the assumption has been violated')
+model_log_linnearity <- glm(WS_subjective ~ choicestickiness + volatility + logchoicestickiness + logvolatility, data = WS_subjective_dataframe, family = binomial())
+summary(model_log_linnearity)
 ```
 
 ### Now code dummy variables
+
 ```{r}
 # Code dummy variables for the stimulation conditions (now sessions)
 WSLS_dataframe$session <- factor(WSLS_dataframe$session, levels = c(2, 3, 4))
@@ -40,36 +593,4 @@ session_3 <- c(0, 1, 0)
 session_4 <- c(0, 0, 1)
 
 contrasts(WSLS_dataframe$session) <- cbind(session_2, session_3, session_2)
-```
-
-### Now run the model with the dummy variables
-This might require logistic regression instead
-```{r}
-model <- lm(WS ~ subjectively_correct_one_back_int + session, data = WSLS_dataframe)
-summary(model)
-```
-
-### You can also do a pairwise comparison instead of contrasts
-```{r}
-session_emm <- emmeans(model, ~ session, type = "response")
-pairwise_comp <- pairs(session_emm)
-print(pairwise_comp)
-```
-
-#### Make different models that also test the influence of volatility or congruency
-```{r}
-model <- lm(WS ~ congruency + session, data = WSLS_dataframe)
-summary(model)
-```
-```{r}
-model <- lm(WS ~ congruency + volatility + session, data = WSLS_dataframe)
-summary(model)
-```
-
-# Lose-shift analysis
-### Run a very simple regression model
-```{r}
-model <- lm(LS ~ subjectively_correct_one_back_int + same_choice_as_one_back, data = WSLS_dataframe)
-
-summary(model)
 ```

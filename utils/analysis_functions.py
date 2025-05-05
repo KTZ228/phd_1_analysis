@@ -5,7 +5,8 @@ import pandas as pd
 import numpy as np
 
 
-def unique_subject_ids_and_sessions(file_path: str) ->\
+def unique_subject_ids_and_sessions(file_path: str,
+                                    pattern: str) ->\
         (list, list):
     """Extracts the subject ID's and sessions from the filenames in subdirectories.
 
@@ -21,7 +22,6 @@ def unique_subject_ids_and_sessions(file_path: str) ->\
     unique_sessions : list
         Unique sessions.
     """
-    pattern = r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
     unique_subject_ids = []
     unique_sessions = []
 
@@ -42,7 +42,8 @@ def unique_subject_ids_and_sessions(file_path: str) ->\
 
 def list_files_with_date_and_subject_id(file_path: str,
                                         unique_subject_ids: list = [],
-                                        unique_sessions: list = []) -> list:
+                                        unique_sessions: list = [],
+                                        selected_pattern: str = 'behavioural_output') -> list:
     """This will create a list of the most recent files of every subject and every session.
 
     Parameters
@@ -59,18 +60,29 @@ def list_files_with_date_and_subject_id(file_path: str,
     recent_files : list
         A list of the most recent files of every subject and every session.
     """
+    # Chose the files to look for
+    if selected_pattern == 'joystick_output':
+        pattern = r'joystick_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
+    else:
+        pattern = r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
+
     # If no subject IDs or sessions were provided, extract them using the helper function.
     if not unique_subject_ids and not unique_sessions:
-        unique_subject_ids, unique_sessions = unique_subject_ids_and_sessions(file_path)
+        unique_subject_ids, unique_sessions = unique_subject_ids_and_sessions(file_path, pattern)
 
     recent_files = []
     # Iterate through each subject and session combination.
     for subject_id in unique_subject_ids:
         for session_number in unique_sessions:
             # Build a recursive search pattern that looks in all subfolders.
-            file_structure_filtered = os.path.join(
-                file_path, '**', f'behavioural_output_sub-{subject_id:03}_session-{session_number:02}*.csv'
-            )
+            if selected_pattern == 'joystick_output':
+                file_structure_filtered = os.path.join(
+                    file_path, '**', f'joystick_output_sub-{subject_id:03}_session-{session_number:02}*.csv'
+                )
+            else:
+                file_structure_filtered = os.path.join(
+                    file_path, '**', f'behavioural_output_sub-{subject_id:03}_session-{session_number:02}*.csv'
+                )
             list_files_filtered = glob.glob(file_structure_filtered, recursive=True)
             try:
                 # Choose the most recent file (assuming lexicographical order corresponds to recency).
@@ -110,6 +122,59 @@ def combine_result_files(recent_results: list) -> pd.DataFrame:
         combined_results_dataframe = pd.concat([combined_results_dataframe, result_dataframe], ignore_index=True)
 
     return combined_results_dataframe
+
+
+def combine_joystick_with_results(dataframe: pd.DataFrame,
+                                  joystick_filenames: list) -> (
+        pd.DataFrame):
+    """ This function takes a dataframe containing the results and a dataframe containing the joystick data and combines them.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        A dataframe containing the results of the experiment.
+    joystick_filenames : list
+        A list of file locations of the joystick data.
+
+    Returns
+    -------
+    joystick_dataframe : pd.DataFrame
+        A dataframe containing the results of all files listed in recent_results.
+    """
+    # First, combine the joystick data into one big dataframe
+    try:
+        if not isinstance(joystick_filenames, list) or not all(isinstance(item, str) for item in joystick_filenames):
+            raise ValueError('Input must be a list of strings')
+    except ValueError as error:
+        print(f'error: {error}')
+
+    joystick_dataframe_combined = pd.DataFrame()
+    for list_number, value in enumerate(joystick_filenames):
+        joystick_dataframe_single = pd.read_csv(joystick_filenames[list_number], sep=';')
+        joystick_dataframe_single['joystick_location_difference'] = joystick_dataframe_single['location_y'].diff()
+        joystick_dataframe_single['joystick_time_difference'] = joystick_dataframe_single['timepoint'].diff()
+        joystick_dataframe_single['joystick_acceleration'] = joystick_dataframe_single['location_y'].diff() / joystick_dataframe_single['timepoint'].diff()
+        recent_result_basename = os.path.basename(joystick_filenames[list_number])
+        joystick_dataframe_single['subject_id'] = recent_result_basename.split('_')[2]
+        joystick_dataframe_single['session'] = recent_result_basename.split('_')[3]
+        joystick_dataframe_combined = pd.concat([joystick_dataframe_combined, joystick_dataframe_single], ignore_index=True)
+
+    # Remove the first row of every trial since the acceleration can be very large
+    joystick_dataframe_combined = joystick_dataframe_combined[joystick_dataframe_combined['trial'] == joystick_dataframe_combined['trial'].shift(1)]
+
+    # Rename some columns in the joystick dataframe
+    joystick_dataframe_combined = joystick_dataframe_combined.rename(columns={'datapoint': 'joystick_datapoint', 'location_y': 'joystick_location', 'timepoint': 'joystick_timepoint'})
+    print(joystick_dataframe_combined.head(100))
+
+    # Then, combine it with the results dataframe
+    dataframe_with_joystick_data = pd.merge(
+        dataframe,
+        joystick_dataframe_combined,
+        on=['subject_id', 'session', 'trial'],
+        how='left'
+    )
+
+    return dataframe_with_joystick_data
 
 
 def replace_strings_with_integers(dataframe: pd.DataFrame,
@@ -304,6 +369,43 @@ def check_volatility(dataframe: pd.DataFrame,
     dataframe = dataframe.reset_index(drop=True)
 
     return dataframe
+
+
+def check_stimulation_condition(row,
+                  binary_output: bool = False):
+    """ Functions that reads a row and notes the stimulation condition.
+
+    Parameters
+    ----------
+    row : pd.DataFrame.row
+
+    Returns
+    -------
+    stimulation_condition : str
+        A string containing the stimulation condition for the given row.
+    """
+    if row['session'] == 'session-02':
+        if binary_output is True:
+            stimulation_condition = 1
+        else:
+            stimulation_condition = 'amygdala'
+    elif row['stimuli_type'] == 'session-03':
+        if binary_output is True:
+            stimulation_condition = 2
+        else:
+            stimulation_condition = 'dacc'
+    elif row['stimuli_type'] == 'session-04':
+        if binary_output is True:
+            stimulation_condition = 3
+        else:
+            stimulation_condition = 'sham'
+    else:
+        if binary_output is True:
+            stimulation_condition = 0
+        else:
+            stimulation_condition = 'no_stimulation'
+
+    return stimulation_condition
 
 
 def separate_reversals(dataframe: pd.DataFrame) -> (
@@ -511,9 +613,20 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
                         'congruency': row['congruency'],
                         'stimuli_type': row['stimuli_type'],
                         'transition': transition,
-                        'emotional_valence': emotional_valence
+                        'emotional_valence': emotional_valence,
+                        'emotional_valence_and_transition': emotional_valence + '_' + transition
                     })
             case 'volatility':
+                # Determine emotional valence string, this is needed because valence decides the starting point
+                stimuli_type = trial_window['stimuli_type'].iloc[0]
+
+                if stimuli_type == 1:
+                    emotional_valence = 'angry'
+                elif stimuli_type == 2:
+                    emotional_valence = 'happy'
+                else:
+                    emotional_valence = 'no_emotion'
+
                 # Determine emotional valence string
                 volatility = trial_window['volatility'].iloc[0]
 
@@ -534,7 +647,9 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
                         'congruency': row['congruency'],
                         'stimuli_type': row['stimuli_type'],
                         'transition': transition,
-                        'volatility': volatility
+                        'volatility': volatility,
+                        'emotional_valence': emotional_valence,
+                        'emotional_valence_and_transition': emotional_valence + '_' + transition
                     })
 
     # Create a new DataFrame from the collected rows
@@ -554,7 +669,7 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
 
     # Make a list of the range of the bin
     if bin_range is None:
-        bin_range = [0, 10]
+        bin_range = [0, 6]
     bin_list = list(range(bin_range[0], bin_range[1]))
 
     # Add column that notes if a switch occurred recently
@@ -623,134 +738,6 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
     output_dataframe = pd.DataFrame(nested_list_for_dataframe)
     output_dataframe.columns = output_dataframe.iloc[0]
     output_dataframe = output_dataframe[1:]
-
-    '''
-    switches_all_stimuli_types = pd.DataFrame()
-    
-    if first_grouping_factor == 'False':
-        for index_stimuli in unique_stimuli_types:
-            for index_subject_id in unique_subject_ids:
-                dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
-                                                         (input_dataframe['subject_id'] == index_subject_id)]
-
-                # Add column that notes if a switch occurred recently
-                dataframe_single_group['switch'] = dataframe_single_group['probability_condition'].diff().ne(0)
-                # Filter out trials with 50% reward probability
-                dataframe_for_switches = dataframe_single_group  #.reset_index()
-                dataframe_for_switches = dataframe_for_switches.drop(dataframe_for_switches
-                                                                     [(
-                                                                              dataframe_for_switches.probability_condition == 50) |
-                                                                      (
-                                                                              dataframe_for_switches.objectively_correct == 'Late')].index,
-                                                                     inplace=False)
-
-                # Add switches to a list
-                switches_per_stimuli_type = dataframe_for_switches.index[
-                    dataframe_for_switches['switch'] == True].tolist()
-
-                # Add list to dataframe
-                switches_per_stimuli_type = [index_stimuli, index_subject_id] + switches_per_stimuli_type
-                switches_per_stimuli_type = pd.DataFrame([switches_per_stimuli_type])
-                switches_all_stimuli_types = pd.concat([switches_all_stimuli_types, switches_per_stimuli_type])
-        switches_all_stimuli_types.rename(mapping, axis=1, inplace=True)
-
-    else:
-        try:
-            input_dataframe[first_grouping_factor]
-        except KeyError as error:
-            print(f'error: {error}')
-
-        if second_grouping_factor != 'False':
-            try:
-                input_dataframe[second_grouping_factor]
-            except KeyError as error:
-                print(f'error: {error}')
-            for index_stimuli in unique_stimuli_types:
-                for index_subject_id in unique_subject_ids:
-                    dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
-                                                             (input_dataframe['subject_id'] == index_subject_id)]
-
-                    # Add column that notes if a switch occurred recently
-                    dataframe_single_group['switch'] = dataframe_single_group['probability_condition'].diff().ne(0)
-
-                    # Filter out trials with 50% reward probability
-                    dataframe_for_switches = dataframe_single_group
-                    dataframe_for_switches = dataframe_for_switches.drop(dataframe_for_switches
-                                                                         [(
-                                                                                  dataframe_for_switches.probability_condition == 50) |
-                                                                          (
-                                                                                  dataframe_for_switches.objectively_correct == 'Late')].index,
-                                                                         inplace=False)
-
-                    unique_groups = dataframe_for_switches[first_grouping_factor].unique()
-                    unique_congruency_groups = dataframe_for_switches[second_grouping_factor].unique()
-
-                    for index_congruency in unique_congruency_groups:
-                        for index_grouping_factor in unique_groups:
-                            dataframe_grouping_factor = dataframe_for_switches[
-                                (dataframe_for_switches[first_grouping_factor] == index_grouping_factor) |
-                                (dataframe_for_switches[second_grouping_factor] == index_congruency)]
-                            dataframe_grouping_factor = dataframe_grouping_factor.reset_index(drop=True)
-
-                            # Add switches to a list
-                            switches_per_group = dataframe_grouping_factor.index[
-                                dataframe_grouping_factor['switch'] == True].tolist()
-
-                            for index_switches, values in enumerate(switches_per_group):
-                                switches_dataframe = dataframe_grouping_factor.iloc[
-                                                     values + min(bin_range):values + max(bin_range) + 1]
-                                bin_around_switch = [index_subject_id, index_stimuli, index_congruency, index_grouping_factor]
-                                bin_around_switch.extend(switches_dataframe['objectively_correct_boolean'].tolist())
-                                bin_around_switch_dataframe = pd.DataFrame([bin_around_switch])
-                                switches_all_stimuli_types = pd.concat(
-                                    [switches_all_stimuli_types, bin_around_switch_dataframe])
-
-            switches_all_stimuli_types.rename(mapping, axis=1, inplace=True)
-
-        else:
-            for index_stimuli in unique_stimuli_types:
-                for index_subject_id in unique_subject_ids:
-                    dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
-                                                             (input_dataframe['subject_id'] == index_subject_id)]
-
-                    # Add column that notes if a switch occurred recently
-                    dataframe_single_group['switch'] = dataframe_single_group['probability_condition'].diff().ne(0)
-                    dataframe_single_group['switch'].iloc[0] = 'False'
-                    #print(dataframe_single_group[['subject_id', 'trial', 'probability_condition', 'switch', 'stimuli_type', first_grouping_factor]])
-
-                    # Filter out trials with 50% reward probability
-                    dataframe_for_switches = dataframe_single_group
-                    dataframe_for_switches = dataframe_for_switches.drop(dataframe_for_switches
-                                                                         [(
-                                                                                  dataframe_for_switches.probability_condition == 50) |
-                                                                          (
-                                                                                  dataframe_for_switches.objectively_correct == 'Late')].index,
-                                                                         inplace=False)
-
-                    unique_groups = dataframe_for_switches[first_grouping_factor].unique()
-
-                    for index_grouping_factor in unique_groups:
-                        dataframe_grouping_factor = dataframe_for_switches[
-                            (dataframe_for_switches[first_grouping_factor] == index_grouping_factor)]
-                        dataframe_grouping_factor = dataframe_grouping_factor.reset_index(drop=True)
-
-                        # Add switches to a list
-                        switches_per_group = dataframe_grouping_factor.index[
-                            dataframe_grouping_factor['switch'] == True].tolist()
-
-                        for index_switches, values in enumerate(switches_per_group):
-                            switches_dataframe = dataframe_grouping_factor.iloc[
-                                                 values + min(bin_range):values + max(bin_range) + 1]
-                            bin_around_switch = [index_subject_id, index_stimuli, index_grouping_factor]
-                            bin_around_switch.extend(switches_dataframe['objectively_correct_boolean'].tolist())
-                            bin_around_switch_dataframe = pd.DataFrame([bin_around_switch])
-                            switches_all_stimuli_types = pd.concat(
-                                [switches_all_stimuli_types, bin_around_switch_dataframe])
-
-            switches_all_stimuli_types.rename(mapping, axis=1, inplace=True)
-
-    switches_all_stimuli_types = switches_all_stimuli_types.reset_index(drop=True)
-    '''
 
     return output_dataframe
 
