@@ -389,12 +389,12 @@ def check_stimulation_condition(row,
             stimulation_condition = 1
         else:
             stimulation_condition = 'amygdala'
-    elif row['stimuli_type'] == 'session-03':
+    elif row['session'] == 'session-03':
         if binary_output is True:
             stimulation_condition = 2
         else:
             stimulation_condition = 'dacc'
-    elif row['stimuli_type'] == 'session-04':
+    elif row['session'] == 'session-04':
         if binary_output is True:
             stimulation_condition = 3
         else:
