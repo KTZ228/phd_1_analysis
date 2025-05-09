@@ -829,26 +829,61 @@ def calculate_IES(dataframe,
 
     # Calculate average RT for correct answers only
     dataframe_RT = (
-        dataframe[dataframe['objectively_correct_boolean'] == 1]
-        .groupby(grouping_columns, as_index=False)['RT_s']
+        dataframe[dataframe['objectively_incorrect_boolean'] == 0]
+        .groupby(grouping_columns, as_index=False)['RT_ms']
         .mean()
     )
 
     # Calculate overall accuracy
     dataframe_PE = (
         dataframe
-        .groupby(grouping_columns, as_index=False)['objectively_correct_boolean']
+        .groupby(grouping_columns, as_index=False)['objectively_incorrect_boolean']
         .mean()
     )
 
     # Combine the two
     dataframe = pd.merge(dataframe_RT, dataframe_PE, on=grouping_columns, how='outer')
 
-    # Invert score
-    dataframe['objectively_incorrect_boolean'] = 1 - dataframe['objectively_correct_boolean']
-
     # Create Inverse Efficiency Score
-    dataframe['IES'] = dataframe['RT_s'] / (1 - dataframe['objectively_incorrect_boolean'])
+    dataframe['IES'] = dataframe['RT_ms'] / (1 - dataframe['objectively_incorrect_boolean'])
+    print(dataframe)
+
+    return dataframe
+
+
+def calculate_LISAS(dataframe,
+                    extra_grouping_columns=None):
+    """
+    Function that calculates the Linear Integrated Speed-Accuracy Score (LISAS) for each subject and session.
+    Parameters
+    ----------
+    dataframe: pd.DataFrame
+    extra_grouping_columns: list
+
+    Returns
+    -------
+    dataframe: pd.DataFrame
+    """
+    # Add extra grouping columns if provided
+    grouping_columns = ['subject_id', 'session']
+    if extra_grouping_columns:
+        grouping_columns += extra_grouping_columns
+
+    # Single-pass aggregation & reshape
+    dataframe = (
+        dataframe
+        .groupby(grouping_columns)
+        .agg({
+            'RT_ms': ['mean', 'std'],
+            'objectively_incorrect_boolean': ['mean', 'std']
+        })
+    )
+    # Flatten multi-level columns
+    dataframe.columns = ['_'.join(col) for col in dataframe.columns]
+
+    # Create LISAS score
+    dataframe['LISAS'] = (dataframe['RT_ms_mean'] + dataframe['RT_ms_std'] /
+                          dataframe['objectively_incorrect_boolean_std'] * dataframe['objectively_incorrect_boolean_mean'])
     print(dataframe)
 
     return dataframe
