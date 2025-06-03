@@ -12,7 +12,7 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-which_sims = 'target_1';
+which_sims = 'target_3';
 test_pipeline = 0;
 localite_coordinates = 0;
 
@@ -22,14 +22,14 @@ heatrise_optimised = 0;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [16];
+subject_list = [5, 10, 11, 14, 15, 16, 20, 22];
 session_number = 1;
  
-% Set config files and export location
+% Set config files and export location]
 if strcmp(which_sims, 'target_1')
-    config_sequential = 'config_kenneth_phd_1_amygdala_5_PCD15287_01001_90mm.yaml';
+    config_sequential = 'config_kenneth_phd_1_amygdala_1_PCD15287_01001_90mm.yaml';
 elseif strcmp(which_sims, 'target_2')
-    config_sequential = 'config_kenneth_phd_1_dACC_6_PCD15287_01001_45mm.yaml';
+    config_sequential = 'config_kenneth_phd_1_dACC_1_PCD15287_01001_45mm.yaml';
 elseif strcmp(which_sims, 'target_3')
     config_sequential = 'config_kenneth_phd_1_defocussed_1_PCD15287_01001.yaml';
 elseif strcmp(which_sims, 'target_4')
@@ -106,7 +106,7 @@ for subject_id = subject_list
         if localite_coordinates == 1
             %% Change output folder to post-hoc
             parameters.output_location = strrep(parameters.t1_path_template, 'planning', 'post-hoc');
-            parameters.temp_output_dir = strrep(parameters.t2_path_template, 'planning', 'post-hoc');
+            parameters.sim_path = strrep(parameters.t2_path_template, 'planning', 'post-hoc');
 
             %% Load coordinates from Localite
             % First check if any of the instrument_markers are named incorrectly
@@ -255,9 +255,9 @@ for subject_id = subject_list
                     subject_id, 'heating', first_parameters.results_filename_affix));
             else
                 if isfield(sequential_configs.(previous_config_field_name),'subject_subfolder') && sequential_configs.(previous_config_field_name).subject_subfolder == 1
-                    sequential_configs.(previous_config_field_name).output_dir = fullfile(sequential_configs.(previous_config_field_name).temp_output_dir, sprintf('sub-%03d', subject_id));
+                    sequential_configs.(previous_config_field_name).output_dir = fullfile(sequential_configs.(previous_config_field_name).sim_path, sprintf('sub-%03d', subject_id));
                 else 
-                    sequential_configs.(previous_config_field_name).output_dir = sequential_configs.(previous_config_field_name).temp_output_dir;
+                    sequential_configs.(previous_config_field_name).output_dir = sequential_configs.(previous_config_field_name).sim_path;
                 end
                 sequential_configs.(config_field_name).adopted_heatmap = fullfile(sequential_configs.(previous_config_field_name).output_dir, sprintf('sub-%03d_final_%s_orig_coord%s',...
                     subject_id, 'heating', sequential_configs.(previous_config_field_name).results_filename_affix));
@@ -273,7 +273,7 @@ for subject_id = subject_list
         if strcmp(interactive_or_slurm, 'interactive')
             single_subject_pipeline(subject_id, parameters, 'sequential_configs', sequential_configs);
         else
-            single_subject_pipeline_with_slurm(subject_id, first_parameters, timelimit, memorylimit, 'sequential_configs', sequential_configs);
+            single_subject_pipeline_with_slurm(subject_id, first_parameters, false, timelimit, memorylimit, 'sequential_configs', sequential_configs);
         end
     end
 end
