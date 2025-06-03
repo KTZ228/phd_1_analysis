@@ -339,30 +339,23 @@ def check_volatility(dataframe: pd.DataFrame,
                 dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type'] or
                 dataframe.loc[index, 'session'] != dataframe.loc[start_index, 'session']):
                 dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
+            ## Ensures that the first block for every participant is labelled as 'starting_label'
             elif (dataframe.loc[index, 'subject_id'] != dataframe.loc[max(start_index - 1, 0), 'subject_id'] or
                 dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max(start_index - 1, 0), 'stimuli_type'] or
                 dataframe.loc[index, 'session'] != dataframe.loc[max(start_index -1, 0), 'session']):
-                #dataframe.loc[start_index:index - 1, 'volatility'] = label
-                dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = starting_label
-                dataframe.loc[start_index+6:index - 1, 'volatility'] = label
-            ## This is here to ensure that a transition from volatile to stable or vice versa leads to the first set of trails being labelled as the previous condition
+                dataframe.loc[start_index:start_index+10 - 1, 'volatility'] = starting_label
+                dataframe.loc[start_index+10:index - 1, 'volatility'] = label
+            ## Ensures that the first 10 trials or block of a new volatile and stable period are labelled as the previous block
             elif label == 'stable' and previous_label == 'volatile' or label == 0 and previous_label == 1:
-                dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = previous_label
-                dataframe.loc[start_index+6:index - 1, 'volatility'] = label
+                dataframe.loc[start_index:start_index+10 - 1, 'volatility'] = previous_label
+                dataframe.loc[start_index+10:index - 1, 'volatility'] = label
             else:
+            ## Ensures that the blocks after the first 10 trials are labelled as the previous block
                 dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
 
             # Update the current_value and start_index for the next streak
             previous_label = label
             start_index = index
-
-    # Handle the last streak
-    #streak_length = len(dataframe) - start_index
-    #if binary_output:
-    #    label = 1 if streak_length < stable_cutoff else 0
-    #else:
-    #    label = 'volatile' if streak_length < stable_cutoff else 'stable'
-    #dataframe.loc[start_index:, 'volatility'] = label
 
     # Reset the original order of the dataframe
     dataframe = dataframe.sort_values(by=['subject_id','session','trial'], ascending=[True, True, True])
@@ -674,6 +667,7 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
 
     # Add column that notes if a switch occurred recently
     input_dataframe = input_dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
+    input_dataframe.reset_index(drop=True, inplace=True)
     input_dataframe['switch'] = input_dataframe['probability_condition'].diff().ne(0)
 
     # Remove 50% rows and rows without responses
@@ -688,23 +682,19 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
                    (input_dataframe['stimuli_type'] != input_dataframe['stimuli_type'].shift()))
     input_dataframe.loc[change_mask, 'switch'] = 'False'
 
-    if second_grouping_factor == 'False' and first_grouping_factor == 'False':
-        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch']])
-    elif second_grouping_factor == 'False':
-        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch', first_grouping_factor]])
-    else:
-        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch', first_grouping_factor, second_grouping_factor]])
-
     # Add switches to a list
     switches_per_group = input_dataframe.index[input_dataframe['switch'] == True].tolist()
 
     # Make column names
-    if second_grouping_factor != 'False' and first_grouping_factor != 'False':
-        nested_list_for_dataframe = [['subject_id', 'stimuli_type', first_grouping_factor, second_grouping_factor] + bin_list]
-    elif first_grouping_factor !=False and second_grouping_factor == 'False':
+    if second_grouping_factor == 'False' and first_grouping_factor == 'False':
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch']])
+        nested_list_for_dataframe = [['subject_id', 'stimuli_type'] + bin_list]
+    elif second_grouping_factor == 'False':
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch', first_grouping_factor]])
         nested_list_for_dataframe = [['subject_id', 'stimuli_type', first_grouping_factor] + bin_list]
     else:
-        nested_list_for_dataframe = [['subject_id', 'stimuli_type'] + bin_list]
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch', first_grouping_factor, second_grouping_factor]])
+        nested_list_for_dataframe = [['subject_id', 'stimuli_type', first_grouping_factor, second_grouping_factor] + bin_list]
 
     for index, index_in_dataframe in enumerate(switches_per_group):
         current_subject_id = input_dataframe.loc[index_in_dataframe, 'subject_id']
@@ -864,26 +854,38 @@ def calculate_LISAS(dataframe,
     -------
     dataframe: pd.DataFrame
     """
-    # Add extra grouping columns if provided
+    # Original grouping columns
     grouping_columns = ['subject_id', 'session']
+
+    # Calculate the means of overall performance and RT
+    means = (
+        dataframe
+        .groupby(grouping_columns, as_index=False)
+        .agg(
+            RT_ms_mean=('RT_ms', 'mean'),
+            error_rate_mean=('objectively_incorrect_boolean', 'mean')
+        )
+    )
+
+    # Add extra grouping columns if provided
     if extra_grouping_columns:
         grouping_columns += extra_grouping_columns
 
-    # Single-pass aggregation & reshape
-    dataframe = (
+    # Calculate the standard deviations of overall performance and RT
+    standard_deviations = (
         dataframe
-        .groupby(grouping_columns)
-        .agg({
-            'RT_ms': ['mean', 'std'],
-            'objectively_incorrect_boolean': ['mean', 'std']
-        })
+        .groupby(grouping_columns, as_index=False)
+        .agg(
+            RT_ms_sd=('RT_ms', 'std'),
+            error_rate_sd=('objectively_incorrect_boolean', 'std')
+        )
     )
-    # Flatten multi-level columns
-    dataframe.columns = ['_'.join(col) for col in dataframe.columns]
+
+    # Merge means and standard deviations
+    dataframe = means.merge(standard_deviations, on=['subject_id', 'session'], how='left')
 
     # Create LISAS score
-    dataframe['LISAS'] = (dataframe['RT_ms_mean'] + dataframe['RT_ms_std'] /
-                          dataframe['objectively_incorrect_boolean_std'] * dataframe['objectively_incorrect_boolean_mean'])
-    print(dataframe)
+    dataframe['LISAS'] = (dataframe['RT_ms_mean'] + dataframe['RT_ms_sd'] /
+                          dataframe['error_rate_sd'] * dataframe['error_rate_mean'])
 
     return dataframe

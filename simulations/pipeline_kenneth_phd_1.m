@@ -6,13 +6,13 @@ cd /home/affneu/kenvdzee/.conda/envs/
 addpath(genpath('simnibs_env'))
 
 % Add PRESTUS to the path
-cd /home/affneu/kenvdzee/Documents/PRESTUS_old/
+cd /home/affneu/kenvdzee/Documents/PRESTUS/
 addpath('functions')
 addpath(genpath('toolboxes')) 
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-which_sims = 'target_3';
+which_sims = 'target_1';
 test_pipeline = 0;
 localite_coordinates = 0;
 
@@ -22,14 +22,14 @@ heatrise_optimised = 0;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [14];
+subject_list = [16];
 session_number = 1;
  
 % Set config files and export location
 if strcmp(which_sims, 'target_1')
-    config_sequential = 'config_kenneth_phd_1_amygdala_1_PCD15287_01001_90mm.yaml';
+    config_sequential = 'config_kenneth_phd_1_amygdala_5_PCD15287_01001_90mm.yaml';
 elseif strcmp(which_sims, 'target_2')
-    config_sequential = 'config_kenneth_phd_1_dACC_1_PCD15287_01001_45mm.yaml';
+    config_sequential = 'config_kenneth_phd_1_dACC_6_PCD15287_01001_45mm.yaml';
 elseif strcmp(which_sims, 'target_3')
     config_sequential = 'config_kenneth_phd_1_defocussed_1_PCD15287_01001.yaml';
 elseif strcmp(which_sims, 'target_4')
@@ -55,7 +55,7 @@ for subject_id = subject_list
     %% for consecutive simulations, you create multiple configs within one structure
     parameters = load_parameters(config_sequential, config_location);
 
-    if isfield(parameters, 'subsequent_heating_config') && test_pipeline == 1
+    if isfield(parameters, 'subsequent_heating_config') && test_pipeline == 1 && ~strcmp(which_sims, 'target_2')
         n_consecutive_simulations = 2;
         heating_config_list = parameters.subsequent_heating_config;
     elseif isfield(parameters, 'subsequent_heating_config')
@@ -247,9 +247,9 @@ for subject_id = subject_list
             sequential_configs.(config_field_name) = parameters;
             if consecutive_simulation_number == 2
                 if isfield(first_parameters,'subject_subfolder') && first_parameters.subject_subfolder == 1
-                    first_parameters.output_dir = fullfile(first_parameters.temp_output_dir, sprintf('sub-%03d', subject_id));
+                    first_parameters.output_dir = fullfile(first_parameters.sim_path, sprintf('sub-%03d', subject_id));
                 else 
-                    first_parameters.output_dir = first_parameters.temp_output_dir;
+                    first_parameters.output_dir = first_parameters.sim_path;
                 end
                 sequential_configs.(config_field_name).adopted_heatmap = fullfile(first_parameters.output_dir, sprintf('sub-%03d_final_%s_orig_coord%s',...
                     subject_id, 'heating', first_parameters.results_filename_affix));

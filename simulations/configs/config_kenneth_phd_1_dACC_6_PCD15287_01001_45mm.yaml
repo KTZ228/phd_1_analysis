@@ -2,11 +2,16 @@
 data_path: /project/3025011.02/bids/
 seg_path: /project/3025011.02/TUS_simulations/segmentation_data/
 simnibs_bin_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/bin/
+ld_library_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/lib/python3.9/site-packages/simnibs/mesh_tools/cgal/../../external/lib/linux
 subject_subfolder: 1
 output_location: /project/3025011.02/TUS_simulations/planning/target_2_6/
 stimulation_target: target_2_6
 
 overwrite_simnibs: 0
+
+# Picks a specific GPU that always works for thermal simulations
+hcp_gpu: "gpu:1"
+hcp_partition: gpu40g
 
 # Structure of subfolders containing T1 and T1 images
 ## It is easier to store the subject data of each participant in an individual subfolder

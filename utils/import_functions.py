@@ -368,30 +368,23 @@ def check_volatility(dataframe: pd.DataFrame,
                 dataframe.loc[index, 'stimuli_type'] != dataframe.loc[start_index, 'stimuli_type'] or
                 dataframe.loc[index, 'session'] != dataframe.loc[start_index, 'session']):
                 dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
+            ## Ensures that the first block for every participant is labelled as 'starting_label'
             elif (dataframe.loc[index, 'subject_id'] != dataframe.loc[max(start_index - 1, 0), 'subject_id'] or
                 dataframe.loc[index, 'stimuli_type'] != dataframe.loc[max(start_index - 1, 0), 'stimuli_type'] or
                 dataframe.loc[index, 'session'] != dataframe.loc[max(start_index -1, 0), 'session']):
-                #dataframe.loc[start_index:index - 1, 'volatility'] = label
-                dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = starting_label
-                dataframe.loc[start_index+6:index - 1, 'volatility'] = label
-            ## This is here to ensure that a transition from volatile to stable or vice versa leads to the first set of trails being labelled as the previous condition
+                dataframe.loc[start_index:start_index+10 - 1, 'volatility'] = starting_label
+                dataframe.loc[start_index+10:index - 1, 'volatility'] = label
+            ## Ensures that the first 10 trials or block of a new volatile and stable period are labelled as the previous block
             elif label == 'stable' and previous_label == 'volatile' or label == 0 and previous_label == 1:
-                dataframe.loc[start_index:start_index+6 - 1, 'volatility'] = previous_label
-                dataframe.loc[start_index+6:index - 1, 'volatility'] = label
+                dataframe.loc[start_index:start_index+10 - 1, 'volatility'] = previous_label
+                dataframe.loc[start_index+10:index - 1, 'volatility'] = label
             else:
+            ## Ensures that the blocks after the first 10 trials are labelled as the previous block
                 dataframe.loc[start_index:index - 1, 'volatility'] = previous_label
 
             # Update the current_value and start_index for the next streak
             previous_label = label
             start_index = index
-
-    # Handle the last streak
-    #streak_length = len(dataframe) - start_index
-    #if binary_output:
-    #    label = 1 if streak_length < stable_cutoff else 0
-    #else:
-    #    label = 'volatile' if streak_length < stable_cutoff else 'stable'
-    #dataframe.loc[start_index:, 'volatility'] = label
 
     # Reset the original order of the dataframe
     dataframe = dataframe.sort_values(by=['subject_id','session','trial'], ascending=[True, True, True])
@@ -440,7 +433,7 @@ def check_stimulation_condition(row,
 def main(raw_output_path,
          unique_subject_ids,
          unique_sessions,
-         pilot_analysis,
+         pilot_analysis=False,
          binary_output=False):
     """ Main function that runs the import functions.
 

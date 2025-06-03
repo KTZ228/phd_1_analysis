@@ -5,7 +5,7 @@ cd /home/affneu/kenvdzee/.conda/envs/
 rmpath(genpath('simnibs_env'))
 
 %% Set subject id
-subject_id = 14;
+subject_id = 16;
 
 %% Load csv with all PRESTUS coordinates
 all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
