@@ -403,7 +403,7 @@ def check_stimulation_condition(row,
 
 def separate_reversals(dataframe: pd.DataFrame) -> (
     pd.DataFrame):
-    """ Function that first detects the switches and then divides them up into reversals and non-reversals
+    """ Function that first detects the reversals and then divides them up into reversals and non-reversals
 
     Parameters
     ----------
@@ -413,21 +413,21 @@ def separate_reversals(dataframe: pd.DataFrame) -> (
     Returns
     -------
     dataframe : pd.DataFrame
-        A dataframe that contains the new columns all_switches and all_reversals
+        A dataframe that contains the new columns all_reversals and all_reversals
     """
 
     # Orders the dataframe on the four following columns so that we can compare trials of the same stimuli condition
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
     dataframe = dataframe.reset_index(drop=True)
 
-    dataframe['all_switches'] = dataframe['probability_condition'].diff().ne(0)
+    dataframe['all_reversals'] = dataframe['probability_condition'].diff().ne(0)
 
     # Filter out trials with 50% reward probability or a late response
     dataframe_without_unpredictive_blocks = dataframe.drop(dataframe[(dataframe.probability_condition == 50) |
                                                                      (dataframe.objectively_correct == 'Late')].index,inplace=False)
 
     dataframe_without_unpredictive_blocks['reversals'] = dataframe_without_unpredictive_blocks['probability_condition'].diff().ne(0)
-    dataframe_without_unpredictive_blocks['non-reversals'] = dataframe_without_unpredictive_blocks['all_switches'] != dataframe_without_unpredictive_blocks['reversals']
+    dataframe_without_unpredictive_blocks['non-reversals'] = dataframe_without_unpredictive_blocks['all_reversals'] != dataframe_without_unpredictive_blocks['reversals']
     dataframe_without_unpredictive_blocks = dataframe_without_unpredictive_blocks.reset_index(drop=True)
 
     # Conditions and choices for the new column
@@ -457,9 +457,9 @@ def separate_reversals(dataframe: pd.DataFrame) -> (
 def trials_before_stabilisation(dataframe: pd.DataFrame,
                                 stability_level: int,
                                 bin_range: list,
-                                switch_value: float) -> (
+                                reversal_value: float) -> (
         pd.DataFrame):
-    """This function makes a new dataframe that lists all switches and how long it took to reach a stable level of responses.
+    """This function makes a new dataframe that lists all reversals and how long it took to reach a stable level of responses.
 
     Parameters
     ----------
@@ -468,14 +468,14 @@ def trials_before_stabilisation(dataframe: pd.DataFrame,
     stability_level : int
         An integer that represents a percentage of objectively correct responses that should be reached before counting as a stable level.
     bin_range : list
-        A list of the minimum and maximum value around the switch that I want to analyse.
-    switch_value : float
+        A list of the minimum and maximum value around the reversal that I want to analyse.
+    reversal_value : float
         The column value indicating whether we want to look at reversals or non-reversals.
 
     Returns
     -------
     dataframe : pd.DataFrame
-        A dataframe with just the participant, session and switch numbers plus the time it took since the switch.
+        A dataframe with just the participant, session and reversal numbers plus the time it took since the reversal.
     """
     # In case you haven't run the separate_reversals function
     if 'all_reversals' not in dataframe.columns:
@@ -483,13 +483,13 @@ def trials_before_stabilisation(dataframe: pd.DataFrame,
 
     # Create an emtpy list to fill with results instead of appending to the dataframe for performance reasons
     results = []
-    # Order by all four of these so that the trials around a switch can be subtracted
+    # Order by all four of these so that the trials around a reversal can be subtracted
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
     dataframe = dataframe.reset_index(drop=True)
     # Create an object containing the indexes of all reversals
-    switches = dataframe[dataframe['all_reversals'] == switch_value].index
+    reversals = dataframe[dataframe['all_reversals'] == reversal_value].index
 
-    for index in switches:
+    for index in reversals:
         subject_id = dataframe.loc[index, 'subject_id']
         session = dataframe.loc[index, 'session']
         stimuli_type = dataframe.loc[index, 'stimuli_type']
@@ -546,7 +546,7 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
     if 'all_reversals' not in dataframe.columns:
         dataframe = separate_reversals(dataframe)
 
-    # Order by all four of these so that the trials around a switch can be subtracted
+    # Order by all four of these so that the trials around a reversal can be subtracted
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
     dataframe = dataframe.reset_index(drop=True)
 
@@ -555,22 +555,22 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
     after = max(bin_range)
 
     # Make a list out of the indexes
-    switch_indices = dataframe.index[dataframe['all_reversals'] == 1.0].tolist()
-    print(switch_indices)
+    reversal_indices = dataframe.index[dataframe['all_reversals'] == 1.0].tolist()
+    print(reversal_indices)
 
     # Initialize an empty list to collect the new rows
     new_rows = []
 
-    # Process each switch index
-    for switch_index in switch_indices:
-        start_index = max(switch_index + before, 0)
-        end_index = min(switch_index + after + 1, len(dataframe))
+    # Process each reversal index
+    for reversal_index in reversal_indices:
+        start_index = max(reversal_index + before, 0)
+        end_index = min(reversal_index + after + 1, len(dataframe))
         trial_window = dataframe.iloc[start_index:end_index]
 
-        # Reset the index to create 'trials_around_switch'
+        # Reset the index to create 'trials_around_reversal'
         trial_window = trial_window.reset_index(drop=True)
-        trial_window.index -= (switch_index - start_index)
-        trial_window['trials_around_switch'] = trial_window.index
+        trial_window.index -= (reversal_index - start_index)
+        trial_window['trials_around_reversal'] = trial_window.index
 
         # Get the first and last values of the 'congruency' column
         first_congruency = trial_window['congruency'].iloc[0]
@@ -599,7 +599,7 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
                 # Collect the necessary columns
                 for i, row in trial_window.iterrows():
                     new_rows.append({
-                        'trials_around_switch': row['trials_around_switch'],
+                        'trials_around_reversal': row['trials_around_reversal'],
                         'response_int': row['response_int'],
                         'subject_id': row['subject_id'],
                         'session': row['session'],
@@ -633,7 +633,7 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
                 # Collect the necessary columns
                 for i, row in trial_window.iterrows():
                     new_rows.append({
-                        'trials_around_switch': row['trials_around_switch'],
+                        'trials_around_reversal': row['trials_around_reversal'],
                         'response_int': row['response_int'],
                         'subject_id': row['subject_id'],
                         'session': row['session'],
@@ -651,7 +651,7 @@ def bin_responses_for_congruency(dataframe: pd.DataFrame,
     return result_df
 
 
-def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
+def find_reversals_in_dataframe(input_dataframe: pd.DataFrame,
                                unique_subject_ids: list,
                                unique_stimuli_types: list,
                                first_grouping_factor: str = 'False',
@@ -665,38 +665,38 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
         bin_range = [0, 6]
     bin_list = list(range(bin_range[0], bin_range[1]))
 
-    # Add column that notes if a switch occurred recently
+    # Add column that notes if a reversal occurred recently
     input_dataframe = input_dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
     input_dataframe.reset_index(drop=True, inplace=True)
-    input_dataframe['switch'] = input_dataframe['probability_condition'].diff().ne(0)
+    input_dataframe['reversal'] = input_dataframe['probability_condition'].diff().ne(0)
 
     # Remove 50% rows and rows without responses
     input_dataframe = input_dataframe.drop(input_dataframe[(input_dataframe.probability_condition == 50)].index, inplace=False)# |
                                                           #(input_dataframe.objectively_correct == 'Late')].index, inplace=False)
 
-    # First switch for each participant should be removed
+    # First reversal for each participant should be removed
     ## First do so for the very first row
-    input_dataframe['switch'].iloc[0] = 'False'
+    input_dataframe['reversal'].iloc[0] = 'False'
     ## And then for all other points where the subject_id or stimuli_type changes
     change_mask = ((input_dataframe['subject_id'] != input_dataframe['subject_id'].shift()) |
                    (input_dataframe['stimuli_type'] != input_dataframe['stimuli_type'].shift()))
-    input_dataframe.loc[change_mask, 'switch'] = 'False'
+    input_dataframe.loc[change_mask, 'reversal'] = 'False'
 
-    # Add switches to a list
-    switches_per_group = input_dataframe.index[input_dataframe['switch'] == True].tolist()
+    # Add reversals to a list
+    reversals_per_group = input_dataframe.index[input_dataframe['reversal'] == True].tolist()
 
     # Make column names
     if second_grouping_factor == 'False' and first_grouping_factor == 'False':
-        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch']])
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'reversal']])
         nested_list_for_dataframe = [['subject_id', 'stimuli_type'] + bin_list]
     elif second_grouping_factor == 'False':
-        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch', first_grouping_factor]])
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'reversal', first_grouping_factor]])
         nested_list_for_dataframe = [['subject_id', 'stimuli_type', first_grouping_factor] + bin_list]
     else:
-        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'switch', first_grouping_factor, second_grouping_factor]])
+        print(input_dataframe[['subject_id', 'trial', 'stimuli_type', 'probability_condition', 'reversal', first_grouping_factor, second_grouping_factor]])
         nested_list_for_dataframe = [['subject_id', 'stimuli_type', first_grouping_factor, second_grouping_factor] + bin_list]
 
-    for index, index_in_dataframe in enumerate(switches_per_group):
+    for index, index_in_dataframe in enumerate(reversals_per_group):
         current_subject_id = input_dataframe.loc[index_in_dataframe, 'subject_id']
         current_stimuli_type = input_dataframe.loc[index_in_dataframe, 'stimuli_type']
 
@@ -732,7 +732,7 @@ def find_switches_in_dataframe(input_dataframe: pd.DataFrame,
     return output_dataframe
 
 
-def find_switches_in_dataframe_separate_reversals(input_dataframe: pd.DataFrame,
+def find_reversals_in_dataframe_separate_reversals(input_dataframe: pd.DataFrame,
                                                   unique_subject_ids: list,
                                                   unique_stimuli_types: list,
                                                   bin_range: list = None,
@@ -741,34 +741,34 @@ def find_switches_in_dataframe_separate_reversals(input_dataframe: pd.DataFrame,
     if bin_range is None:
         bin_range = [0, 12]
 
-    switches_all_stimuli_types = pd.DataFrame()
+    reversals_all_stimuli_types = pd.DataFrame()
 
     for index_stimuli in unique_stimuli_types:
         for index_subject_id in unique_subject_ids:
             dataframe_single_group = input_dataframe[(input_dataframe['stimuli_type'] == index_stimuli) &
                                                      (input_dataframe['subject_id'] == index_subject_id)]
 
-            # Add column that notes if a switch occurred recently
-            dataframe_single_group['all_switches'] = dataframe_single_group['probability_condition'].diff().ne(0)
+            # Add column that notes if a reversal occurred recently
+            dataframe_single_group['all_reversals'] = dataframe_single_group['probability_condition'].diff().ne(0)
 
             # Filter out trials with 50% reward probability
-            dataframe_for_switches = dataframe_single_group
-            dataframe_for_switches = dataframe_for_switches.drop(dataframe_for_switches
-                                                                 [(dataframe_for_switches.probability_condition == 50) |
+            dataframe_for_reversals = dataframe_single_group
+            dataframe_for_reversals = dataframe_for_reversals.drop(dataframe_for_reversals
+                                                                 [(dataframe_for_reversals.probability_condition == 50) |
                                                                   (
-                                                                              dataframe_for_switches.objectively_correct == 'Late')].index,
+                                                                              dataframe_for_reversals.objectively_correct == 'Late')].index,
                                                                  inplace=False)
 
-            dataframe_for_switches['reversals'] = dataframe_for_switches['probability_condition'].diff().ne(0)
-            dataframe_for_switches['non-reversals'] = dataframe_for_switches['all_switches'] != dataframe_for_switches[
+            dataframe_for_reversals['reversals'] = dataframe_for_reversals['probability_condition'].diff().ne(0)
+            dataframe_for_reversals['non-reversals'] = dataframe_for_reversals['all_reversals'] != dataframe_for_reversals[
                 'reversals']
-            dataframe_for_switches = dataframe_for_switches.reset_index(drop=True)
+            dataframe_for_reversals = dataframe_for_reversals.reset_index(drop=True)
 
             # Conditions and choices for the new column
             conditions = [
-                (dataframe_for_switches['reversals'] & ~dataframe_for_switches['non-reversals']),
-                (~dataframe_for_switches['reversals'] & dataframe_for_switches['non-reversals']),
-                (~dataframe_for_switches['reversals'] & ~dataframe_for_switches['non-reversals'])
+                (dataframe_for_reversals['reversals'] & ~dataframe_for_reversals['non-reversals']),
+                (~dataframe_for_reversals['reversals'] & dataframe_for_reversals['non-reversals']),
+                (~dataframe_for_reversals['reversals'] & ~dataframe_for_reversals['non-reversals'])
             ]
             choices = [
                 1,  # 'reversals' is True
@@ -777,26 +777,26 @@ def find_switches_in_dataframe_separate_reversals(input_dataframe: pd.DataFrame,
             ]
 
             # Create the third column using numpy.select
-            dataframe_for_switches['all_reversals'] = np.select(conditions, choices, default=np.nan)
+            dataframe_for_reversals['all_reversals'] = np.select(conditions, choices, default=np.nan)
 
-            # Add switches to a list
-            reversals_list = dataframe_for_switches.index[(dataframe_for_switches['all_reversals'] == 1) |
-                                                          (dataframe_for_switches['all_reversals'] == 2)].tolist()
+            # Add reversals to a list
+            reversals_list = dataframe_for_reversals.index[(dataframe_for_reversals['all_reversals'] == 1) |
+                                                          (dataframe_for_reversals['all_reversals'] == 2)].tolist()
 
             for index_reversals, values in enumerate(reversals_list):
-                switches_dataframe = dataframe_for_switches.iloc[
+                reversals_dataframe = dataframe_for_reversals.iloc[
                                      values + min(bin_range):values + max(bin_range) + 1]
-                reversal_condition = dataframe_for_switches.iloc[values]
-                bin_around_switch = [index_subject_id, index_stimuli, reversal_condition['all_reversals']]
-                bin_around_switch.extend(switches_dataframe['objectively_correct_boolean'].tolist())
-                bin_around_switch_dataframe = pd.DataFrame([bin_around_switch])
-                switches_all_stimuli_types = pd.concat(
-                    [switches_all_stimuli_types, bin_around_switch_dataframe])
+                reversal_condition = dataframe_for_reversals.iloc[values]
+                bin_around_reversal = [index_subject_id, index_stimuli, reversal_condition['all_reversals']]
+                bin_around_reversal.extend(reversals_dataframe['objectively_correct_boolean'].tolist())
+                bin_around_reversal_dataframe = pd.DataFrame([bin_around_reversal])
+                reversals_all_stimuli_types = pd.concat(
+                    [reversals_all_stimuli_types, bin_around_reversal_dataframe])
 
-    switches_all_stimuli_types.rename(mapping, axis=1, inplace=True)
+    reversals_all_stimuli_types.rename(mapping, axis=1, inplace=True)
 
-    switches_all_stimuli_types = switches_all_stimuli_types.reset_index(drop=True)
-    return switches_all_stimuli_types
+    reversals_all_stimuli_types = reversals_all_stimuli_types.reset_index(drop=True)
+    return reversals_all_stimuli_types
 
 
 def calculate_IES(dataframe,
