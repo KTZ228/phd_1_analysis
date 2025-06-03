@@ -1,11 +1,15 @@
 clc; clear; close all;
 
-%% Ensure Simnibs paths are removed to resolve repelem.m issues
-cd /home/affneu/kenvdzee/.conda/envs/
-rmpath(genpath('simnibs_env'))
+%% Remove simnibs from the path to resolve repelem.m conflicts
+simnibs_path = '/home/affneu/kenvdzee/.conda/envs/simnibs_env';
+matlab_paths = strsplit(path, pathsep);
+simnibs_on_path = any(strcmp(matlab_paths, simnibs_path));
+if simnibs_on_path
+	rmpath(genpath(simnibs_path))
+end
 
 %% Set subject id
-subject_id = 16;
+subject_id = 15;
 
 %% Load csv with all PRESTUS coordinates
 all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
