@@ -9,6 +9,7 @@ import multiprocessing
 import helpers
 
 # Run with sbatch hpc_model_fit_array.sh
+# sbatch Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/hpc_model_fit_array.sh
 
 # go three directories up from here:
 root = os.path.abspath(
@@ -22,8 +23,8 @@ from pathlib import Path
 BASE_DIR = r'/project/3025011.02/raw/' # r'\\fileserver.dccn.nl\project\3025011.01\data' UPDATE this to the full local or mounted path
 SAVE_DIR = r'/project/3025011.02/pre-processed/modelling' # r'\\fileserver.dccn.nl\project\3025011.01\derivatives\rlt\analysis'
 
-SUBJECTS = [5, 10, 11, 14]  # or use os.listdir(BASE_DIR) to grab all or ["01", "02", ...] for specific subjects
-unique_sessions = [1]
+SUBJECTS = [5, 10, 11, 14, 15, 16, 20, 22, 23]  # or use os.listdir(BASE_DIR) to grab all or ["01", "02", ...] for specific subjects
+unique_sessions = [2, 3, 4]
 
 
 N_REPEATS = 1000  # For the LH optimization, how many times to repeat the fitting process for each subject
@@ -34,12 +35,12 @@ N_JOBS = min(16, multiprocessing.cpu_count())
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # -------- FITTING FUNCTIONS --------
-def load_subject_data(sub_id):
-    sub_dir = f"sub-{sub_id:003}"
+def load_subject_data(subject_id, session=1):
+    sub_dir = f"sub-{subject_id:003}"
     experiment_output_path = os.path.join(BASE_DIR, sub_dir)
-    print(sub_id, unique_sessions)
+    print(subject_id, unique_sessions)
     df = utils.import_functions.main(
-        BASE_DIR, [sub_id], unique_sessions
+        BASE_DIR, [subject_id], [session]
     )
     #df = utils.analysis_functions.combine_result_files(recent_results)
     #df = df[~((df.index % 452 < 8)) & (df['objectively_correct'] != "Late")].copy()
@@ -50,7 +51,7 @@ def load_subject_data(sub_id):
     })
     df['action_code'] = df['response'].map({'down': 1, 'up': 2})
     df['stim_code'] = df['stimuli_type'].map({2: 0, 1: 1}) # happy = 0, angry = 1
-    # print(f"Loaded data for subject {sub_id} with {len(df)} trials.")
+    # print(f"Loaded data for subject {subject_id} with {len(df)} trials.")
     #df = utils.analysis_functions.check_volatility(df)
     return df
 
@@ -222,21 +223,25 @@ def fit_model_4(data):
 
 # -------- MAIN EXECUTION --------
 if __name__ == '__main__':
-    sub_id = sys.argv[1].zfill(3)  # from SLURM array
+    subject_id = sys.argv[1].zfill(3)  # from SLURM array
+    session = sys.argv[2].zfill(2)
+    print(f'Trying to locate data for sub-{subject_id:03}_ses-{session:02}')
 
     try:
-        df = load_subject_data(sub_id)
+        df = load_subject_data(subject_id, session)
         data = format_data(df)
 
-        print(f"⏳ Fitting subject {sub_id}")
+        print(f"⏳ Fitting subject {subject_id}")
         params0, ll0 = fit_model_null(data)
         params1, ll1 = fit_model_1(data)
         params2, ll2 = fit_model_2(data)
         params3, ll3 = fit_model_3(data)
         params4, ll4 = fit_model_4(data)
-        print(f"✅ Finished subject {sub_id}")
+        print(f"✅ Finished subject {subject_id}")
         result = {
-            'subject': sub_id,
+            'subject': subject_id,
+            'session': session,
+            'n_trials': data['trial'].nunique(),
             'model0_ll': ll0,
             'model0_q_happy_pull': params0[0],  # q00
             'model0_q_happy_push': params0[1],  # q01
@@ -268,12 +273,12 @@ if __name__ == '__main__':
             'model4_bias': params4[3],
         }
 
-        out_file = f'{SAVE_DIR}/fit_subject_{sub_id}.csv'
+        out_file = f'{SAVE_DIR}/model_fit_sub-{subject_id:03}_ses-{session:02}.csv'
         pd.DataFrame([result]).to_csv(out_file, index=False)
-        print(f"✅ Finished subject {sub_id} and saved to {out_file}")
+        print(f"✅ Finished subject {subject_id:03} and saved to {out_file}")
 
     except Exception as e:
-        print(f"❌ Error processing subject {sub_id}: {e}")
-        with open(f'{SAVE_DIR}/fit_subject_{sub_id}_error.txt', 'w') as f:
+        print(f"❌ Error processing sub-{subject_id} ses-{session:02}: {e}")
+        with open(f'{SAVE_DIR}/error_model_fit_sub-{subject_id:03}_ses-{session:02}.txt', 'w') as f:
             f.write(str(e))
             

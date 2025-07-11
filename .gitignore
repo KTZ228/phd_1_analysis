@@ -10,7 +10,7 @@
 
 plots/
 pre-processed/
-analysis_behavioural/modelling/martin_modelling/slurm_output/
+analyses_behavioural/modelling/martin_modelling/slurm_output/
 
 
 #------------Python related ignores-----------#
