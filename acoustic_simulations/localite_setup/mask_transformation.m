@@ -46,10 +46,16 @@ function mask_transformation(subject_name)
     output_location_subject_tmp = sprintf('%s/%s', output_location_subject_tmp, subject_name)
     system(sprintf('mri_binarize --i %s/mri/lh.hippoAmygLabels.mgz --match 7001 7003 --o %s/amygdala_left.mgz', output_location_subject_tmp, output_location_subject_tmp))
     system(sprintf('mri_binarize --i %s/mri/rh.hippoAmygLabels.mgz --match 7001 7003 --o %s/amygdala_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
+
+    system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 1002 --o %s/dacc_left.mgz', output_location_subject_tmp, output_location_subject_tmp))
+    system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 2002 --o %s/dacc_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
+    
     
     %% Convert these masks to nifti's
     system(sprintf('mri_convert %s/amygdala_left.mgz %s/%s_amygdala_left.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
     system(sprintf('mri_convert %s/amygdala_right.mgz %s/%s_amygdala_right.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
+    system(sprintf('mri_convert %s/dacc_left.mgz %s/%s_dacc_left.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
+    system(sprintf('mri_convert %s/dacc_right.mgz %s/%s_dacc_right.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
 
     %% Translate Payam's dACC mask
     left_dacc = ('payam_left_dacc_mask.nii.gz');

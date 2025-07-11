@@ -22,7 +22,7 @@ heatrise_optimised = 0;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [5, 10, 11, 14, 15, 16, 20, 22];
+subject_list = [29];%[5, 10, 11, 14, 15, 16, 20, 22];
 session_number = 1;
  
 % Set config files and export location]

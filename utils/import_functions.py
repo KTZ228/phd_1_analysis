@@ -60,7 +60,7 @@ def list_files_with_date_and_subject_id(file_path: str,
     recent_files : list
         A list of the most recent files of every subject and every session.
     """
-    # Chose the files to look for
+    # Choose the files to look for
     if selected_pattern == 'joystick_output':
         pattern = r'joystick_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
     else:
@@ -182,7 +182,8 @@ def combine_joystick_with_results(dataframe: pd.DataFrame,
     return dataframe_with_joystick_data
 
 
-def remove_invalid_files(recent_files: list):
+def remove_invalid_files(recent_files: list,
+                         raw_output_path: str):
     """ This function removes the invalid files from the list of recent files.
     Parameters
     ----------
@@ -194,7 +195,7 @@ def remove_invalid_files(recent_files: list):
         A list of strings containing the most recent files of every subject and every session, excluding the invalid files.
     """
     # Read the CSV file to determine what has to be filtered out
-    invalid_data = pd.read_csv('/Volumes/project/3025011.02/raw/../incomplete_data.csv', delimiter=';')
+    invalid_data = pd.read_csv(f'{raw_output_path}/../incomplete_data.csv', delimiter=';')
     combinations = {
         f"sub-{row['subject-id']:03}_session-{row['session-number']:02}"
         for _, row in invalid_data[invalid_data['datatype'] == 'beh'].iterrows()
@@ -460,7 +461,7 @@ def main(raw_output_path,
     recent_files = list_files_with_date_and_subject_id(raw_output_path, unique_subject_ids, unique_sessions)
 
     # Remove the invalid files
-    recent_files = remove_invalid_files(recent_files)
+    recent_files = remove_invalid_files(recent_files, raw_output_path)
 
     # Then, import all behavioural datasets and combine them into 1
     dataframe = combine_result_files(recent_files)
@@ -498,6 +499,9 @@ def main(raw_output_path,
 
     # Remove trials where RT < 50ms
     dataframe = dataframe[dataframe['RT_s'] >= 0.05]
+
+    # Remove late trials
+    dataframe = dataframe[dataframe['objectively_correct'] != 'Late']
 
     # Reset order of dataframe
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'trial'], ascending=[True, True, True])

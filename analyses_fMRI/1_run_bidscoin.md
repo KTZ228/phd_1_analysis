@@ -4,7 +4,6 @@
 
 ### Activate environment
 `module add bidscoin/4.5.0`
-`source activate /opt/bidscoin`
 
 ### Separate dicoms into folders
 `dicomsort raw -i sub- -j ses-`
