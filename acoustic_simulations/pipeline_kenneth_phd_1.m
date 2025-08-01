@@ -22,7 +22,7 @@ heatrise_optimised = 0;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [29];%[5, 10, 11, 14, 15, 16, 20, 22];
+subject_list = [37];%[5, 10, 11, 14, 15, 16, 20, 22];
 session_number = 1;
  
 % Set config files and export location]
@@ -37,7 +37,7 @@ elseif strcmp(which_sims, 'target_4')
 end
 
 % Config location
-config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/simulations/configs/';
+config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
 localite_location = '/project/3025011.02/localite/sub-x%03d/ses-%02d/InstrumentMarkers/';
 
 % Sets overwrite parameters and reference to transducer distance

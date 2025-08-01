@@ -9,7 +9,7 @@ if simnibs_on_path
 end
 
 %% Set subject id
-subject_id = 29;
+subject_id = 37;
 
 %% Load csv with all PRESTUS coordinates
 all_simulation_coordinates = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');

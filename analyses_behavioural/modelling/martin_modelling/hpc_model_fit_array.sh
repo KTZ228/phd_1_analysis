@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=fit_model_sub
 #SBATCH --partition=batch
-#SBATCH --array=1-27
+#SBATCH --array=1-100
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=16G
@@ -18,8 +18,8 @@ conda activate speakup_hpc
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-subject_ids=(5 10 11 14 15 16 20 22 23)
-sessions=(2 3 4)
+subject_ids=(5 10 13 14 15 16 20 22 23 25 27 28 29 30 32 37)
+sessions=(1 2 3 4)
 
 n_sessions=${#sessions[@]}
 

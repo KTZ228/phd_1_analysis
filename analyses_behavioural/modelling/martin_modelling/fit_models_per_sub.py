@@ -23,12 +23,7 @@ from pathlib import Path
 BASE_DIR = r'/project/3025011.02/raw/' # r'\\fileserver.dccn.nl\project\3025011.01\data' UPDATE this to the full local or mounted path
 SAVE_DIR = r'/project/3025011.02/pre-processed/modelling' # r'\\fileserver.dccn.nl\project\3025011.01\derivatives\rlt\analysis'
 
-SUBJECTS = [5, 10, 11, 14, 15, 16, 20, 22, 23]  # or use os.listdir(BASE_DIR) to grab all or ["01", "02", ...] for specific subjects
-unique_sessions = [2, 3, 4]
-
-
 N_REPEATS = 1000  # For the LH optimization, how many times to repeat the fitting process for each subject
-UNIQUE_SUBJECT_IDS = SUBJECTS
 N_JOBS = min(16, multiprocessing.cpu_count())
 
 # Create output directory
@@ -38,7 +33,6 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 def load_subject_data(subject_id, session=1):
     sub_dir = f"sub-{subject_id:003}"
     experiment_output_path = os.path.join(BASE_DIR, sub_dir)
-    print(subject_id, unique_sessions)
     df = utils.import_functions.main(
         BASE_DIR, [subject_id], [session]
     )
@@ -66,7 +60,7 @@ def format_data(df):
         actions[t, c] = int(row['action_code'])
         outcomes[t, c] = float(row['reward'])
         volatilities[t] = str(row['volatility'])
-    return {'choice': actions, 'outcome': outcomes, 'volatility': volatilities}
+    return {'choice': actions, 'outcome': outcomes, 'volatility': volatilities}, n_trials
 
 def fit_model_null(data):
     def neg_log_likelihood(params):
@@ -225,23 +219,24 @@ def fit_model_4(data):
 if __name__ == '__main__':
     subject_id = sys.argv[1].zfill(3)  # from SLURM array
     session = sys.argv[2].zfill(2)
-    print(f'Trying to locate data for sub-{subject_id:03}_ses-{session:02}')
+    print(f'Trying to locate data for sub-{subject_id:03} ses-{session:02}')
 
     try:
         df = load_subject_data(subject_id, session)
-        data = format_data(df)
+        data, n_trials = format_data(df)
 
-        print(f"⏳ Fitting subject {subject_id}")
+        print(f"⏳ Fitting sub-{subject_id:03} ses-{session:02}")
         params0, ll0 = fit_model_null(data)
         params1, ll1 = fit_model_1(data)
         params2, ll2 = fit_model_2(data)
         params3, ll3 = fit_model_3(data)
         params4, ll4 = fit_model_4(data)
-        print(f"✅ Finished subject {subject_id}")
+        print(f"✅ Finished sub-{subject_id:03} ses-{session:02}")
+        print(data)
         result = {
             'subject': subject_id,
             'session': session,
-            'n_trials': data['trial'].nunique(),
+            'trials': n_trials,
             'model0_ll': ll0,
             'model0_q_happy_pull': params0[0],  # q00
             'model0_q_happy_push': params0[1],  # q01
@@ -275,7 +270,7 @@ if __name__ == '__main__':
 
         out_file = f'{SAVE_DIR}/model_fit_sub-{subject_id:03}_ses-{session:02}.csv'
         pd.DataFrame([result]).to_csv(out_file, index=False)
-        print(f"✅ Finished subject {subject_id:03} and saved to {out_file}")
+        print(f"✅ Finished sub-{subject_id:03} ses-{session:02} and saved to {out_file}")
 
     except Exception as e:
         print(f"❌ Error processing sub-{subject_id} ses-{session:02}: {e}")

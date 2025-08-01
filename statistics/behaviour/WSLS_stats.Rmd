@@ -10,6 +10,7 @@ library(car)
 library(mlogit)
 library(glue)
 library(lmtest)
+library(lme4)
 ```
 
 ### Import the dataframe
@@ -97,6 +98,8 @@ multinomail_model_9 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_swi
 multinomail_model_10 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility + congruency + congruency:volatility + choicestickiness:congruency + time_since_switch:congruency, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
 
 multinomail_model_11 <- mlogit(WS_subjective ~ 1 | response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility + congruency + time_since_switch:volatility, data = WS_subjective_dataframe_long, reflevel = '1', method = 'nr', print.level = 0)
+
+glmer_model <- glmer(WS_subjective ~ response_bias + time_since_switch + choicestickiness + volatility + choicestickiness:volatility + congruency + time_since_switch:volatility + (1 | subject_id), data = WSLS_dataframe, family = binomial) # use this instead, included random intercept
 ```
 
 ```{r}

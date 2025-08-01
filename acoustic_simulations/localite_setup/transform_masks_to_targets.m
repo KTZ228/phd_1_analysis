@@ -4,7 +4,7 @@ clc; clear; close all;
 %% Script to translate the masks in MNI space to coordinates in subject space
 % First the masks need to be translated to subject space before a coordinate can be selected
 
-subject_id = 6;
+subject_id = 32;
 
 masks_folder = '/project/3025011.02/localite/masks/';
 anatomical_folder = sprintf('/project/3025011.02/bids/sub-%03d/ses-mri01/anat', subject_id);
