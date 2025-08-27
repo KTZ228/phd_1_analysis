@@ -215,23 +215,71 @@ def fit_model_4(data):
     return best_result.x, -best_result.fun
 
 
+def fit_model_vkf(data):
+    """
+    Fit the Variable Kalman Filter model with free hyperparameters (6 parameters version).
+
+    This is the model as described in Piray & Daw (2021).
+    It has more flexibility but also more risk of overfitting.
+    """
+
+    def neg_log_likelihood(params):
+        try:
+            # Call the VKF model
+            ll, *_ = helpers.model_vkf_speakup(params, data)
+            if not np.isfinite(ll):
+                return np.inf
+            return -ll
+        except Exception as e:
+            print(f"⚠️ Optimization error: {e}")
+            return np.inf
+
+    bounds = [
+        (-5, 4.6),  # log(softmax_temperature)
+        (-3, 1),  # volatility_log_initial
+        (-3, 1),  # stochasticity_log_initial
+        (-6, 6),  # volatility_learning_rate
+        (-6, 6),  # stochasticity_learning_rate
+        (-100, 100)  # bias
+    ]
+
+    def run_single_fit():
+        # Random initialization within bounds
+        init = np.random.uniform(low=[-5, -3, -3, -6, -6, -1], high=[4.6, 1, 1, 6, 6, 1])
+        result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
+        return result
+
+    # Multiple fits in parallel to avoid local minima
+    results = Parallel(n_jobs=N_JOBS)(
+        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    )
+
+    # Select the best result based on the lowest negative log-likelihood
+    best_result = min(results, key=lambda r: r.fun if r.success and np.isfinite(r.fun) else np.inf)
+
+    return best_result.x, -best_result.fun
+
+
 # -------- MAIN EXECUTION --------
 if __name__ == '__main__':
-    subject_id = sys.argv[1].zfill(3)  # from SLURM array
-    session = sys.argv[2].zfill(2)
-    print(f'Trying to locate data for sub-{subject_id:03} ses-{session:02}')
+    subject_id = int(sys.argv[1].zfill(3))  # from SLURM array
+    session = int(sys.argv[2].zfill(2))
+    print(subject_id, session)
+    print(type(subject_id), type(session))
+    print(f'Trying to locate data for sub-{subject_id:03d} ses-{session:02d}')
 
     try:
         df = load_subject_data(subject_id, session)
         data, n_trials = format_data(df)
 
-        print(f"⏳ Fitting sub-{subject_id:03} ses-{session:02}")
+        print(f"⏳ Fitting sub-{subject_id:03d} ses-{session:02d}")
         params0, ll0 = fit_model_null(data)
         params1, ll1 = fit_model_1(data)
         params2, ll2 = fit_model_2(data)
         params3, ll3 = fit_model_3(data)
         params4, ll4 = fit_model_4(data)
-        print(f"✅ Finished sub-{subject_id:03} ses-{session:02}")
+        params_vkf, ll_vkf = fit_model_vkf(data)
+        print(f"✅ Finished sub-{subject_id:03d} ses-{session:02d}")
         print(data)
         result = {
             'subject': subject_id,
@@ -266,14 +314,19 @@ if __name__ == '__main__':
             'model4_kappa1': expit(params4[1]), # sigmoid to convert kappa to learning rate
             'model4_kappa2': expit(params4[2]),
             'model4_bias': params4[3],
+            'model5_ll': ll_vkf,
+            'model5_beta': np.exp(params_vkf[0]),
+            'model5_v0': params_vkf[1],  # initial log volatility
+            'model5_omega0': params_vkf[2],  # initial log stochasticity
+            'model5_bias': params_vkf[3]
         }
 
-        out_file = f'{SAVE_DIR}/model_fit_sub-{subject_id:03}_ses-{session:02}.csv'
+        out_file = f'{SAVE_DIR}/model_fit_sub-{subject_id:03d}_ses-{session:02d}.csv'
         pd.DataFrame([result]).to_csv(out_file, index=False)
-        print(f"✅ Finished sub-{subject_id:03} ses-{session:02} and saved to {out_file}")
+        print(f"✅ Finished sub-{subject_id:03d} ses-{session:02d} and saved to {out_file}")
 
     except Exception as e:
-        print(f"❌ Error processing sub-{subject_id} ses-{session:02}: {e}")
-        with open(f'{SAVE_DIR}/error_model_fit_sub-{subject_id:03}_ses-{session:02}.txt', 'w') as f:
+        print(f"❌ Error processing sub-{subject_id:03d} ses-{session:02d}: {e}")
+        with open(f'{SAVE_DIR}/error_model_fit_sub-{subject_id:03d}_ses-{session:02d}.txt', 'w') as f:
             f.write(str(e))
             

@@ -1,13 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=fit_model_sub
 #SBATCH --partition=batch
-#SBATCH --array=1-100
+#SBATCH --array=1-64
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=16G
 #SBATCH --time=24:00:00
 #SBATCH --output=/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/slurm_output/fit_model_job-%A_subjob-%a.log
 #SBATCH --error=/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/slurm_output/fit_model_job-%A_subjob-%a_error.txt
+
+# Make output directory if it doesn't exist
+mkdir -p /home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/slurm_output
 
 source /etc/profile.d/modules.sh
 source /home/affneu/kenvdzee/.bashrc

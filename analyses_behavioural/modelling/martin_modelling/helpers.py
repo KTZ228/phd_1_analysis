@@ -518,6 +518,59 @@ def model_m4_speakup(params, data):
     loglik, _ = response_speakup(X, choice, beta, bb)
     return loglik
 
+
+def model_vkf_speakup(params, data):
+    """
+    Variable Kalman Filter model with free hyperparameters.
+
+    Args:
+        params: array of shape (6,) - [beta, v0, omega0, k_volatility, k_omega, bias]
+                beta = log softmax inverse temperature for choice randomness (higher is more deterministic)
+                volatility_log_initial: initial log volatility
+                stochasticity_log_initial: initial log stochasticity
+                volatility_learning_rate: volatility learning rate
+                stochasticity_learning_rate: stochasticity learning rate
+                bias = bias parameter
+        data: dict with 'choice' and 'outcome' (both arrays)
+
+    Returns:
+        loglik: log-likelihood of choices
+        learning_rates: learning rates per trial
+        prediction_errors: prediction errors per trial
+        CV: choice values
+    """
+    actions = data['choice']
+    outcomes = data['outcome']
+
+    # Prevent numerical overflow by clipping before exponentiating
+    def safe_exp(x):
+        return np.exp(np.clip(x, -10, 10))
+
+    # Sigmoid transformation to bound parameters between 0 and 1
+    def safe_expit(x):
+        return expit(np.clip(x, -10, 10))
+
+    # Extract parameters
+    softmax_temperature = safe_exp(params[0])  # softmax temperature: higher = more deterministic choices
+    volatility_log_initial = params[1]  # initial log volatility
+    stochasticity_log_initial = params[2]  # initial log stochasticity
+    volatility_learning_rate = safe_expit(params[3])  # volatility learning rate (sigmoid to [0,1])
+    stochasticity_learning_rate = safe_expit(params[4])  # stochasticity learning rate (sigmoid to [0,1])
+    bias = params[5]  # bias
+
+    # Bias vector
+    bias_vector = np.array([bias, -bias])
+
+    # Run VKF model with free hyperparameters
+    reward_rate_means, learning_rates, prediction_errors, volatility_estimates, stochasticity_estimates = vkf_update(actions, outcomes, volatility_log_initial, stochasticity_log_initial, volatility_learning_rate, stochasticity_learning_rate)
+
+    # Compute log-likelihood
+    X = reward_rate_means[:len(actions), :]
+    loglik, CV = response_speakup(X, actions, softmax_temperature, bias_vector)
+
+    return loglik, learning_rates, prediction_errors, CV
+
+
 def response_speakup(X, choice, beta, bb):
     """
     Compute log-likelihood of observed choices using logistic function.
@@ -831,3 +884,159 @@ def model_hybrid_speakup_volatility(kappa, actions, outcome, volatility):
             xQ[t + 1, c_rest] = xQ[t, c_rest]
 
     return xQ, xalpha, xdelta
+
+
+def vkf_update(actions, outcomes, volatility_log_initial, stochasticity_log_initial, volatility_learning_rate, stochasticity_learning_rate):
+    """
+    Variable Kalman Filter update with free hyperparameters.
+
+    At each trial, the model:
+    1. Makes a prediction based on current Q-values
+    2. Observes the outcomes and computes prediction error
+    3. Updates beliefs about the reward rate by adjusting both the mean and variance with adaptive learning rate (Kalman gain)
+    4. Updates beliefs about volatility and stochasticity
+    5. Adjusts uncertainty for next trial
+
+    Args:
+        actions: (n_trials, nq) array of actions
+        outcomes: (n_trials, nq) array of outcomes
+        volatility_log_initial: initial log volatility
+        stochasticity_log_initial: initial log stochasticity
+        volatility_learning_rate: volatility learning rate
+        stochasticity_learning_rate: stochasticity learning rate
+
+    Returns:
+        reward_rate_means: Beliefs about the reward rate (combined into the diffence between the two options, which is why only one value has to be stored)
+            (positive > action 1 preferred, negative > action 2 preferred) (also called Mean or Mt in the paper)
+        learning_rates: all learning rates (Kalman gains)
+        prediction_errors: all prediction errors
+        volatility_estimates: volatility estimates over time
+        stochasticity_estimates: stochasticity estimates over time
+    """
+
+    # Ensure that both actions and outcomes (reward/punishment) are arrays
+    actions = np.array(actions)
+    outcomes = np.array(outcomes)
+
+    # Number of trials and cues
+    n_trials, n_cues = outcomes.shape
+    if n_cues % 2 != 0:
+        raise ValueError("Number of cues must be even for pairing")
+
+    # Create empty arrays to store the models internal states for all trials
+    learning_rates = np.full((n_trials, n_cues), np.nan) # Learning rates (Kalman gains)
+    prediction_errors = np.full((n_trials, n_cues), np.nan) # Prediction errors
+    reward_rate_means = np.full((n_trials + 1, n_cues), np.nan) # Mean reward rate differences (action 1 - action 2)
+    volatility_estimates = np.full((n_trials + 1, n_cues), np.nan) # log volatility estimates
+    stochasticity_estimates = np.full((n_trials + 1, n_cues), np.nan) # log stochasticity estimates
+    reward_rate_mean = np.zeros((n_cues, 2)) # Q-values for each cue and action
+
+    # Set initial values
+    reward_rate_means[0, :] = 0.0 # No preference between actions
+    reward_rate_variance = np.ones(n_cues) * 0.5 # Initial uncertainty (reward_rate_variance) for each cue (higher is more uncertainty)
+    volatility_estimates[0, :] = volatility_log_initial # Initial log volatility
+    stochasticity_estimates[0, :] = stochasticity_log_initial # Initial log stochasticity
+
+    # Learning loop
+    for trial in range(n_trials):
+        # Current trial data
+        action_row = actions[trial, :]
+        outcome_row = outcomes[trial, :]
+        stimuli_type_t = action_row > 0 # Determines in which of the two cue columns one must look for the action and outcome
+
+        if np.sum(stimuli_type_t) != 1:
+            raise ValueError(f"Expected exactly one stimuli_type_t at trial {trial}")
+
+        # Identify stimuli_type_t cue and action
+        cue = np.where(stimuli_type_t)[0][0] # cue index on trial t
+        action = action_row[cue] - 1 # set action codes to 0 and 1 instead of 1 and 2
+        outcome = outcome_row[cue] # observed outcome on trial t
+
+        # Convert from log space to actual values
+        volatility_estimate = np.exp(volatility_estimates[trial, cue]) # volatility
+        stochasticity_estimate = np.exp(stochasticity_estimates[trial, cue]) # stochasticity
+
+        # Compute prediction error
+        prediction_error = outcome - reward_rate_mean[cue, action]
+        prediction_error = np.clip(prediction_error, -2.0, 2.0) # Avoid clipping
+
+        # Compute Kalman gain (learning rate)
+        # K = uncertainty_about_cue + volatility / (uncertainty_about_cue + volatility + stochasticity)
+        # Increase in reward_rate_variance (uncertainty) > K closer to 1, learn faster
+        # High stochasticity_estimate > K closer to 0, learn slower
+        learning_rate = (reward_rate_variance[cue] + volatility_estimate) / (reward_rate_variance[cue] + volatility_estimate + stochasticity_estimate)
+        learning_rate = np.clip(learning_rate, 0, 1) # Avoid clipping
+
+        # Update reward rate mean for chosen cue with opposing action update
+        reward_rate_mean[cue, action] += learning_rate * prediction_error # Chosen action gets a higher expected mean reward rate
+        # Opposing update for the non-chosen action
+        reward_rate_mean[cue, 1 - action] -= learning_rate * prediction_error # Unchosen action gets a lower expected mean reward rate
+        reward_rate_mean[cue] = np.clip(reward_rate_mean[cue], -1.0, 1.0) # Avoid clipping
+
+        # Update reward rate variance after observing outcome
+        # After our observation, we become more certain (reduce reward_rate_variance)
+        reward_rate_variance[cue] = (1 - learning_rate) * (reward_rate_variance[cue] + volatility_estimate)
+
+        # Sum all sources of prediction variance into one term
+        prediction_variance = reward_rate_variance[cue] + volatility_estimate + stochasticity_estimate
+
+        # Update log volatility estimate
+        volatility_update = volatility_learning_rate * (prediction_error ** 2 / prediction_variance - 1)
+        volatility_estimates[trial + 1, cue] = volatility_estimates[trial, cue] + volatility_update
+        volatility_estimates[trial + 1, cue] = np.clip(volatility_estimates[trial + 1, cue], -5, 2) # Avoid clipping
+
+        # Update log stochasticity estimate
+        stochasticity_update = stochasticity_learning_rate * (prediction_error ** 2 / prediction_variance - 1)
+        stochasticity_estimates[trial + 1, cue] = stochasticity_estimates[trial, cue] + stochasticity_update
+        stochasticity_estimates[trial + 1, cue] = np.clip(stochasticity_estimates[trial + 1, cue], -5, 2) # Avoid clipping
+
+        # Save values for analyses
+        reward_rate_means[trial + 1, cue] = reward_rate_mean[cue, 0] - reward_rate_mean[cue, 1]
+        learning_rates[trial, cue] = learning_rate
+        prediction_errors[trial, cue] = prediction_error
+
+        # Now update the paired (opponent) cue with inverse contingencies
+        cue_opposite = cue ^ 1 # Flip bit to get paired cue index
+        if 0 <= cue_opposite < n_cues:
+            # Convert from log space to actual values
+            volatility_estimate_opposite = np.exp(volatility_estimates[trial, cue_opposite])
+            stochasticity_estimate_opposite = np.exp(stochasticity_estimates[trial, cue_opposite])
+
+            # Compute Kalman gain (learning rate)
+            learning_rate_opposite = (reward_rate_variance[cue_opposite] + volatility_estimate_opposite) / (reward_rate_variance[cue_opposite] + volatility_estimate_opposite + stochasticity_estimate_opposite)
+            learning_rate_opposite = np.clip(learning_rate_opposite, 0, 1) # Avoid clipping
+
+            # Update reward rate mean for chosen cue with opposing action update
+            reward_rate_mean[cue_opposite, action] -= learning_rate_opposite * prediction_error # Chosen action gets a lower expected mean reward rate
+            # Opposing update for the non-chosen action
+            reward_rate_mean[cue_opposite, 1 - action] += learning_rate_opposite * prediction_error # Unchosen action gets a higher expected mean reward rate
+            reward_rate_mean[cue_opposite] = np.clip(reward_rate_mean[cue_opposite], -1.0, 1.0) # Avoid clipping
+
+            # Update reward rate variance after observing outcome
+            reward_rate_variance[cue_opposite] = (1 - learning_rate_opposite) * (reward_rate_variance[cue_opposite] + volatility_estimate_opposite)
+
+            # Sum all sources of prediction variance into one term
+            prediction_variance_opposite = reward_rate_variance[cue_opposite] + volatility_estimate_opposite + stochasticity_estimate_opposite
+
+            # Update log volatility estimate
+            volatility_update_opp = volatility_learning_rate * (prediction_error ** 2 / prediction_variance_opposite - 1)
+            volatility_estimates[trial + 1, cue_opposite] = volatility_estimates[trial, cue_opposite] + volatility_update_opp
+            volatility_estimates[trial + 1, cue_opposite] = np.clip(volatility_estimates[trial + 1, cue_opposite], -5, 2) # Avoid clipping
+
+            # Update log stochasticity estimate
+            stochasticity_update_opp = stochasticity_learning_rate * (prediction_error ** 2 / prediction_variance_opposite - 1)
+            stochasticity_estimates[trial + 1, cue_opposite] = stochasticity_estimates[trial, cue_opposite] + stochasticity_update_opp
+            stochasticity_estimates[trial + 1, cue_opposite] = np.clip(stochasticity_estimates[trial + 1, cue_opposite], -5, 2) # Avoid clipping
+
+            # Save values for analyses
+            reward_rate_means[trial + 1, cue_opposite] = reward_rate_mean[cue_opposite, 0] - reward_rate_mean[cue_opposite, 1]
+            learning_rates[trial, cue_opposite] = learning_rate_opposite
+            prediction_errors[trial, cue_opposite] = -prediction_error
+
+        # Carry forward values for inactive cues
+        for cues_remaining in np.setdiff1d(np.arange(n_cues), [cue, cue_opposite]):
+            reward_rate_means[trial + 1, cues_remaining] = reward_rate_means[trial, cues_remaining]
+            volatility_estimates[trial + 1, cues_remaining] = volatility_estimates[trial, cues_remaining]
+            stochasticity_estimates[trial + 1, cues_remaining] = stochasticity_estimates[trial, cues_remaining]
+
+    return reward_rate_means, learning_rates, prediction_errors, volatility_estimates, stochasticity_estimates

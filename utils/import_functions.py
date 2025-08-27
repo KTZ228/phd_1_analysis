@@ -40,7 +40,7 @@ def unique_subject_ids_and_sessions(file_path: str,
     return unique_subject_ids, unique_sessions
 
 
-def list_files_with_date_and_subject_id(file_path: str,
+def list_files_with_date_and_subject_id_old(file_path: str,
                                         unique_subject_ids: list = [],
                                         unique_sessions: list = [],
                                         selected_pattern: str = 'behavioural_output') -> list:
@@ -90,6 +90,84 @@ def list_files_with_date_and_subject_id(file_path: str,
                 recent_files.append(recent_file)
             except ValueError:
                 print(f'sub-{subject_id:03} did not complete session-{session_number:02}')
+
+    if not recent_files:
+        raise Exception('No files found')
+    print(recent_files)
+
+    return recent_files
+
+# This function uses the walk function instead. It was made using Claude so needs to be checked.
+from collections import defaultdict
+
+
+def list_files_with_date_and_subject_id(file_path: str,
+                                        unique_subject_ids: list = [],
+                                        unique_sessions: list = [],
+                                        selected_pattern: str = 'behavioural_output') -> list:
+    """This will create a list of the most recent files of every subject and every session.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the experiment output folder.
+    unique_subject_ids : list(int)
+        A list containing all subject IDs found in the folder.
+    unique_sessions : list(int)
+        A list containing all sessions found in the folder.
+    selected_pattern : str
+        Either 'joystick_output' or 'behavioural_output'.
+
+    Returns
+    -------
+    recent_files : list
+        A list of the most recent files of every subject and every session.
+    """
+    # Choose the pattern to look for
+    if selected_pattern == 'joystick_output':
+        pattern = re.compile(r'joystick_output_sub-(\d{3})_session-(\d{2})_.*\.csv$')
+    else:
+        pattern = re.compile(r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$')
+
+    # Single walk through the directory tree
+    file_dict = defaultdict(list)
+
+    for root, dirs, files in os.walk(file_path):
+        # Filter files that start with the right selected_pattern first (quick string check)
+        for file in files:
+            if file.startswith(selected_pattern) and file.endswith('.csv'):
+                match = pattern.match(file)
+                if match:
+                    subject_id = int(match.group(1))
+                    session_num = int(match.group(2))
+
+                    # If specific subjects/sessions are requested, filter here
+                    if unique_subject_ids and subject_id not in unique_subject_ids:
+                        continue
+                    if unique_sessions and session_num not in unique_sessions:
+                        continue
+
+                    full_path = os.path.join(root, file)
+                    file_dict[(subject_id, session_num)].append(full_path)
+
+    # If no specific subjects/sessions were provided, use all found
+    if not unique_subject_ids and not unique_sessions:
+        if not file_dict:
+            raise Exception('No files found')
+        unique_subject_ids = sorted(set(key[0] for key in file_dict.keys()))
+        unique_sessions = sorted(set(key[1] for key in file_dict.keys()))
+
+    # Build the result list with the most recent file for each combination
+    recent_files = []
+    for subject_id in unique_subject_ids:
+        for session_number in unique_sessions:
+            files = file_dict.get((subject_id, session_number), [])
+            if files:
+                # Get the most recent file (lexicographically last)
+                recent_file = max(files)
+                recent_files.append(recent_file)
+            else:
+                print(f'sub-{subject_id:03d} did not complete session-{session_number:02d}')
 
     if not recent_files:
         raise Exception('No files found')
