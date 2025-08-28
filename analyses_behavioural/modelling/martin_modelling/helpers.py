@@ -537,7 +537,9 @@ def model_vkf_speakup(params, data):
         loglik: log-likelihood of choices
         learning_rates: learning rates per trial
         prediction_errors: prediction errors per trial
-        CV: choice values
+        choice_values: choice values
+        volatility_estimates: estimated volatility per trial
+        stochasticity_estimates: estimated stochasticity per trial
     """
     actions = data['choice']
     outcomes = data['outcome']
@@ -564,11 +566,17 @@ def model_vkf_speakup(params, data):
     # Run VKF model with free hyperparameters
     reward_rate_means, learning_rates, prediction_errors, volatility_estimates, stochasticity_estimates = vkf_update(actions, outcomes, volatility_log_initial, stochasticity_log_initial, volatility_learning_rate, stochasticity_learning_rate)
 
+    # Debug: Check dimensions and values
+    print(f"Reward rate means shape: {reward_rate_means.shape}")
+    print(f"Actions shape: {actions.shape}")
+    print(f"Any NaN in reward_rate_means: {np.any(np.isnan(reward_rate_means))}")
+    # The function returns reward_rate_means which represents Q-value differences (action 1 - action 2), but the response_speakup function expects this format per cue in an (n_trials, n_cues) array. However, the VKF model is computing these differences correctly in vkf_update
+
     # Compute log-likelihood
     X = reward_rate_means[:len(actions), :]
-    loglik, CV = response_speakup(X, actions, softmax_temperature, bias_vector)
+    loglik, choice_values = response_speakup(X, actions, softmax_temperature, bias_vector)
 
-    return loglik, learning_rates, prediction_errors, CV
+    return loglik, learning_rates, prediction_errors, choice_values, volatility_estimates, stochasticity_estimates
 
 
 def response_speakup(X, choice, beta, bb):
@@ -591,6 +599,11 @@ def response_speakup(X, choice, beta, bb):
 
     z = X * beta + bias_vector
     f = 1 / (1 + np.exp(-z))
+
+    # Check for valid actions
+    valid_trials = np.any(choice > 0, axis=1)
+    if not np.all(valid_trials):
+        print(f"Warning: {np.sum(~valid_trials)} trials with no valid action")
 
     # Extract active cue and action
     active_cue_idx = np.argmax(choice > 0, axis=1)

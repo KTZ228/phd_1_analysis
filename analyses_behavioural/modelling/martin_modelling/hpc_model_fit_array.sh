@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=16G
 #SBATCH --time=24:00:00
-#SBATCH --output=/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/slurm_output/fit_model_job-%A_subjob-%a.log
-#SBATCH --error=/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/slurm_output/fit_model_job-%A_subjob-%a_error.txt
+#SBATCH --output=/project/3025011.02/pre-processed/modelling/slurm_output/fit_model_job-%A_subjob-%a.log
+#SBATCH --error=/project/3025011.02/pre-processed/modelling/slurm_output/fit_model_job-%A_subjob-%a_error.txt
 
 # Make output directory if it doesn't exist
 mkdir -p /home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/slurm_output

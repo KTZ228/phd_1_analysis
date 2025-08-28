@@ -20,8 +20,8 @@ import utils
 from pathlib import Path
 
 # -------- CONFIGURATION --------
-BASE_DIR = r'/project/3025011.02/raw/' # r'\\fileserver.dccn.nl\project\3025011.01\data' UPDATE this to the full local or mounted path
-SAVE_DIR = r'/project/3025011.02/pre-processed/modelling' # r'\\fileserver.dccn.nl\project\3025011.01\derivatives\rlt\analysis'
+BASE_DIR = r'/project/3025011.02/raw/'
+SAVE_DIR = r'/project/3025011.02/pre-processed/modelling'
 
 N_REPEATS = 1000  # For the LH optimization, how many times to repeat the fitting process for each subject
 N_JOBS = min(16, multiprocessing.cpu_count())
@@ -256,8 +256,13 @@ def fit_model_vkf(data):
 
     # Select the best result based on the lowest negative log-likelihood
     best_result = min(results, key=lambda r: r.fun if r.success and np.isfinite(r.fun) else np.inf)
+    # best_result.x contains the input for the vkf_update function for the best fit
+    # -best_result.fun is the log-likelihood of the best fit
 
-    return best_result.x, -best_result.fun
+    # Now run the model once more with best_result parameters to get trial-by-trial data
+    loglik, learning_rates, prediction_errors, choice_values, volatility_estimates, stochasticity_estimates = helpers.model_vkf_speakup(best_result.x, data)
+
+    return (best_result.x, -best_result.fun, learning_rates, volatility_estimates, stochasticity_estimates, prediction_errors)
 
 
 # -------- MAIN EXECUTION --------
@@ -266,20 +271,20 @@ if __name__ == '__main__':
     session = int(sys.argv[2].zfill(2))
     print(subject_id, session)
     print(type(subject_id), type(session))
-    print(f'Trying to locate data for sub-{subject_id:03d} ses-{session:02d}')
+    print(f'Trying to locate data for sub-{subject_id:03d} session-{session:02d}')
 
     try:
         df = load_subject_data(subject_id, session)
         data, n_trials = format_data(df)
 
-        print(f"⏳ Fitting sub-{subject_id:03d} ses-{session:02d}")
+        print(f"⏳ Fitting sub-{subject_id:03d} session-{session:02d}")
         params0, ll0 = fit_model_null(data)
         params1, ll1 = fit_model_1(data)
         params2, ll2 = fit_model_2(data)
         params3, ll3 = fit_model_3(data)
         params4, ll4 = fit_model_4(data)
-        params_vkf, ll_vkf = fit_model_vkf(data)
-        print(f"✅ Finished sub-{subject_id:03d} ses-{session:02d}")
+        params_vkf, ll_vkf, lr_vkf, vol_vkf, stoch_vkf, pe_vkf = fit_model_vkf(data)
+        print(f"✅ Finished sub-{subject_id:03d} session-{session:02d}")
         print(data)
         result = {
             'subject': subject_id,
@@ -316,17 +321,40 @@ if __name__ == '__main__':
             'model4_bias': params4[3],
             'model5_ll': ll_vkf,
             'model5_beta': np.exp(params_vkf[0]),
-            'model5_v0': params_vkf[1],  # initial log volatility
-            'model5_omega0': params_vkf[2],  # initial log stochasticity
-            'model5_bias': params_vkf[3]
+            'model5_volatility_initial': np.exp(params_vkf[1]),
+            'model5_stochasticity_initial': np.exp(params_vkf[2]),
+            'model5_volatility_learning_rate': expit(params_vkf[3]),
+            'model5_stochasticity_learning_rate': expit(params_vkf[4]),
+            'model5_bias': params_vkf[5]
         }
 
-        out_file = f'{SAVE_DIR}/model_fit_sub-{subject_id:03d}_ses-{session:02d}.csv'
-        pd.DataFrame([result]).to_csv(out_file, index=False)
-        print(f"✅ Finished sub-{subject_id:03d} ses-{session:02d} and saved to {out_file}")
+        out_file = f'{SAVE_DIR}/model_fit/model_fit_sub-{subject_id:03d}_session-{session:02d}.csv'
+        pd.DataFrame([result]).to_csv(out_file, index=False, sep=';')
+        print(f"✅ Finished sub-{subject_id:03d} session-{session:02d} and saved to {out_file}")
+
+        # Now save the trial-by-trial estimates for the VKF model
+        vkf_trial_data = []
+        for trial in range(n_trials):
+            # Identify which cue was active
+            active_cue = np.where(data['choice'][trial] > 0)[0][0]
+            # Save the trial data
+            vkf_trial_data.append({
+                'subject_id': subject_id,
+                'session_number': session,
+                'trial': trial,
+                'stimuli_type': active_cue + 1,
+                'learning_rate': lr_vkf[trial, active_cue] if not np.isnan(lr_vkf[trial, active_cue]) else None,
+                'volatility_estimate': np.exp(vol_vkf[trial + 1, active_cue]) if not np.isnan(vol_vkf[trial + 1, active_cue]) else None, # Both of these include the initial value at t=0
+                'stochasticity_estimate': np.exp(stoch_vkf[trial + 1, active_cue]) if not np.isnan(stoch_vkf[trial + 1, active_cue]) else None, # That is why we access t+1
+                'prediction_error': pe_vkf[trial, active_cue] if not np.isnan(pe_vkf[trial, active_cue]) else None
+            })
+
+        vkf_trial_df = pd.DataFrame(vkf_trial_data)
+        vkf_trial_file = f'{SAVE_DIR}/trial_estimates/trial_estimates_vkf_sub-{subject_id:03d}_session-{session:02d}.csv'
+        vkf_trial_df.to_csv(vkf_trial_file, index=False, sep=';')
 
     except Exception as e:
-        print(f"❌ Error processing sub-{subject_id:03d} ses-{session:02d}: {e}")
-        with open(f'{SAVE_DIR}/error_model_fit_sub-{subject_id:03d}_ses-{session:02d}.txt', 'w') as f:
+        print(f"❌ Error processing sub-{subject_id:03d} session-{session:02d}: {e}")
+        with open(f'{SAVE_DIR}/fitting_errors/model_fit_sub-{subject_id:03d}_session-{session:02d}_error.txt', 'w') as f:
             f.write(str(e))
             
