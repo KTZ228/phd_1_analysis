@@ -9,7 +9,7 @@ import multiprocessing
 import helpers
 
 # Run with sbatch hpc_model_fit_array.sh
-# sbatch Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/hpc_model_fit_array.sh
+# sbatch Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/vkf_model_fitting_hpc.sh
 
 # go three directories up from here:
 root = os.path.abspath(
@@ -269,8 +269,6 @@ def fit_model_vkf(data):
 if __name__ == '__main__':
     subject_id = int(sys.argv[1].zfill(3))  # from SLURM array
     session = int(sys.argv[2].zfill(2))
-    print(subject_id, session)
-    print(type(subject_id), type(session))
     print(f'Trying to locate data for sub-{subject_id:03d} session-{session:02d}')
 
     try:
@@ -328,9 +326,12 @@ if __name__ == '__main__':
             'model5_bias': params_vkf[5]
         }
 
-        out_file = f'{SAVE_DIR}/model_fit/model_fit_sub-{subject_id:03d}_session-{session:02d}.csv'
-        pd.DataFrame([result]).to_csv(out_file, index=False, sep=';')
-        print(f"✅ Finished sub-{subject_id:03d} session-{session:02d} and saved to {out_file}")
+        # Save model summaries to CSV
+        filename_and_path = os.path.join(SAVE_DIR, 'model_fit', f'model_fit_sub-{subject_id:03d}_session-{session:02d}.csv')
+        if not os.path.exists(os.path.dirname(filename_and_path)):
+            os.makedirs(os.path.dirname(filename_and_path))
+        pd.DataFrame([result]).to_csv(filename_and_path, index=False, sep=';')
+        print(f"✅ Finished sub-{subject_id:03d} session-{session:02d} and saved to {filename_and_path}")
 
         # Now save the trial-by-trial estimates for the VKF model
         vkf_trial_data = []
@@ -349,12 +350,19 @@ if __name__ == '__main__':
                 'prediction_error': pe_vkf[trial, active_cue] if not np.isnan(pe_vkf[trial, active_cue]) else None
             })
 
+        # Save trial data to CSV
         vkf_trial_df = pd.DataFrame(vkf_trial_data)
-        vkf_trial_file = f'{SAVE_DIR}/trial_estimates/trial_estimates_vkf_sub-{subject_id:03d}_session-{session:02d}.csv'
-        vkf_trial_df.to_csv(vkf_trial_file, index=False, sep=';')
+        filename_and_path = os.path.join(SAVE_DIR, 'trial_estimates', f'trial_estimates_vkf_sub-{subject_id:03d}_session-{session:02d}.csv')
+        if not os.path.exists(os.path.dirname(filename_and_path)):
+            os.makedirs(os.path.dirname(filename_and_path))
+        vkf_trial_df.to_csv(filename_and_path, index=False, sep=';')
 
+    # Catch any errors during processing and log them
     except Exception as e:
         print(f"❌ Error processing sub-{subject_id:03d} session-{session:02d}: {e}")
-        with open(f'{SAVE_DIR}/fitting_errors/model_fit_sub-{subject_id:03d}_session-{session:02d}_error.txt', 'w') as f:
+        filename_and_path = os.path.join(SAVE_DIR, 'fitting_errors', f'model_fit_sub-{subject_id:03d}_session-{session:02d}_error.txt')
+        if not os.path.exists(os.path.dirname(filename_and_path)):
+            os.makedirs(os.path.dirname(filename_and_path))
+        with open(filename_and_path, 'w') as f:
             f.write(str(e))
             

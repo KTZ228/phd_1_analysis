@@ -567,9 +567,9 @@ def model_vkf_speakup(params, data):
     reward_rate_means, learning_rates, prediction_errors, volatility_estimates, stochasticity_estimates = vkf_update(actions, outcomes, volatility_log_initial, stochasticity_log_initial, volatility_learning_rate, stochasticity_learning_rate)
 
     # Debug: Check dimensions and values
-    print(f"Reward rate means shape: {reward_rate_means.shape}")
-    print(f"Actions shape: {actions.shape}")
-    print(f"Any NaN in reward_rate_means: {np.any(np.isnan(reward_rate_means))}")
+    #print(f"Reward rate means shape: {reward_rate_means.shape}")
+    #print(f"Actions shape: {actions.shape}")
+    #print(f"Any NaN in reward_rate_means: {np.any(np.isnan(reward_rate_means))}")
     # The function returns reward_rate_means which represents Q-value differences (action 1 - action 2), but the response_speakup function expects this format per cue in an (n_trials, n_cues) array. However, the VKF model is computing these differences correctly in vkf_update
 
     # Compute log-likelihood

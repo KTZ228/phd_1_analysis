@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=fit_model_sub
+#SBATCH --job-name=vkf_model_fitting
 #SBATCH --partition=batch
 #SBATCH --array=1-64
 #SBATCH --ntasks=1
@@ -9,8 +9,7 @@
 #SBATCH --output=/project/3025011.02/pre-processed/modelling/slurm_output/fit_model_job-%A_subjob-%a.log
 #SBATCH --error=/project/3025011.02/pre-processed/modelling/slurm_output/fit_model_job-%A_subjob-%a_error.txt
 
-# Make output directory if it doesn't exist
-mkdir -p /home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/slurm_output
+# Manually make output directory if it doesn't exist
 
 source /etc/profile.d/modules.sh
 source /home/affneu/kenvdzee/.bashrc
@@ -33,5 +32,5 @@ index=$(( SLURM_ARRAY_TASK_ID - 1 ))
 subject_id=${subject_ids[$(( index / n_sessions ))]}
 session=${sessions[$(( index % n_sessions ))]}
 
-echo "Fitting model for subject ID: $subject_id and session $session"
+echo "Starting python model fitting code for sub-$subject_id and session-$session"
 python /home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/fit_models_per_sub.py "$subject_id" "$session"
