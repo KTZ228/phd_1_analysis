@@ -513,7 +513,8 @@ def main(raw_output_path,
          unique_subject_ids,
          unique_sessions,
          pilot_analysis=False,
-         binary_output=False):
+         binary_output=False,
+         remove_reversals=False) -> pd.DataFrame:
     """ Main function that runs the import functions.
 
     Parameters
@@ -575,11 +576,21 @@ def main(raw_output_path,
     dataframe['stimulation_condition'] = dataframe.apply(check_stimulation_condition, args=(binary_output,), axis=1)
     print(dataframe[['subject_id', 'session', 'stimulation_condition']])
 
-    # Remove trials where RT < 50ms
+    # Remove trials where RT < 50ms, please not that this number is arbitrary and can be changed
     dataframe = dataframe[dataframe['RT_s'] >= 0.05]
 
     # Remove late trials
     dataframe = dataframe[dataframe['objectively_correct'] != 'Late']
+
+    # Add a column that indicates how many trials ago the last reversal occurred
+    dataframe['time_since_reversal'] = (
+        dataframe.groupby((dataframe['probability_condition'] != dataframe['probability_condition'].shift()).cumsum())
+        .cumcount()
+    )
+
+    # Only remove the trials where the reversal occurred if the flag is set to True
+    if remove_reversals:
+        dataframe = dataframe[dataframe['time_since_reversal'] != 0]
 
     # Reset order of dataframe
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'trial'], ascending=[True, True, True])

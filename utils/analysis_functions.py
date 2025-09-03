@@ -676,11 +676,12 @@ def find_reversals_in_dataframe(input_dataframe: pd.DataFrame,
 
     # First reversal for each participant should be removed
     ## First do so for the very first row
-    input_dataframe['reversal'].iloc[0] = 'False'
+    if len(input_dataframe) > 0:
+        input_dataframe.loc[input_dataframe.index[0], 'reversal'] = False
     ## And then for all other points where the subject_id or stimuli_type changes
     change_mask = ((input_dataframe['subject_id'] != input_dataframe['subject_id'].shift()) |
                    (input_dataframe['stimuli_type'] != input_dataframe['stimuli_type'].shift()))
-    input_dataframe.loc[change_mask, 'reversal'] = 'False'
+    input_dataframe.loc[change_mask, 'reversal'] = False
 
     # Add reversals to a list
     reversals_per_group = input_dataframe.index[input_dataframe['reversal'] == True].tolist()
