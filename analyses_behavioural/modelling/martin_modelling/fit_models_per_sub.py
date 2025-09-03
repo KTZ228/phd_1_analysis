@@ -262,7 +262,7 @@ def fit_model_vkf(data):
     # Now run the model once more with best_result parameters to get trial-by-trial data
     loglik, learning_rates, prediction_errors, choice_values, volatility_estimates, stochasticity_estimates = helpers.model_vkf_speakup(best_result.x, data)
 
-    return (best_result.x, -best_result.fun, learning_rates, volatility_estimates, stochasticity_estimates, prediction_errors)
+    return best_result.x, -best_result.fun, learning_rates, volatility_estimates, stochasticity_estimates, prediction_errors
 
 
 # -------- MAIN EXECUTION --------
