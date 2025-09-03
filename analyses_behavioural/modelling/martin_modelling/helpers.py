@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+import math
 import matplotlib.pyplot as plt
 from scipy.special import expit  # sigmoid function
 
@@ -544,16 +545,12 @@ def model_vkf_speakup(params, data):
     actions = data['choice']
     outcomes = data['outcome']
 
-    # Prevent numerical overflow by clipping before exponentiating
-    def safe_exp(x):
-        return np.exp(np.clip(x, -10, 10))
-
-    # Sigmoid transformation to bound parameters between 0 and 1
+    # Avoids exact 0 or 1
     def safe_expit(x):
         return expit(np.clip(x, -10, 10))
 
     # Extract parameters
-    softmax_temperature = safe_exp(params[0])  # softmax temperature: higher = more deterministic choices
+    softmax_temperature = safe_expit(params[0])  # softmax temperature: higher = more deterministic choices
     volatility_log_initial = params[1]  # initial log volatility
     stochasticity_log_initial = params[2]  # initial log stochasticity
     volatility_learning_rate = safe_expit(params[3])  # volatility learning rate (sigmoid to [0,1])
@@ -577,6 +574,54 @@ def model_vkf_speakup(params, data):
     loglik, choice_values = response_speakup(X, actions, softmax_temperature, bias_vector)
 
     return loglik, learning_rates, prediction_errors, choice_values, volatility_estimates, stochasticity_estimates
+
+
+def model_vkf_binary(params, data):
+    """
+    Volatile Kalman Filter model according to Piray 2020 build for binary outcomes.
+
+    Args:
+        params: array of shape (4,) - [actions, outcomes, m_initial, w_initial, v_initial, Lambda]
+            m_initial: initial hidden gaussian state (mean)
+            w_initial: initial posterior variance
+            v_initial: initial volatility estimate
+            Lambda: volatility learning rate?
+        data: dict with 'choice' and 'outcome' (both arrays)
+
+    Returns:
+        loglik: log-likelihood of choices
+        k_array: Kalman gain per trial
+        m_array: mean estimates per trial
+        w_array: posterior variance per trial
+        w_covariance_array: covariance per trial
+        v_array: volatility estimates per trial
+    """
+    # Extract data from dictionary
+    actions = data['choice']
+    outcomes = data['outcome']
+
+    def safe_expit(x):
+        return expit(np.clip(x, -10, 10))  # avoids exact 0 or 1
+
+    # Extract parameters
+    m_initial = params[0]
+    w_initial = params[1]
+    v_initial = params[2]
+    Lambda = params[3]
+    softmax_temperature = safe_expit(params[4])  # softmax temperature
+    bias_vector = params[5]
+
+    # Bias vector
+    #bias_vector = np.array([bias, -bias]) #?
+
+    # Run binary VKF model
+    k_array, m_array, w_array, w_covariance_array, v_array = vkf_binary_update(actions, outcomes, m_initial, w_initial, v_initial, Lambda)
+
+    # Compute log-likelihood
+    X = m_array[:len(actions), :] # Not sure if this is correct
+    loglik, choice_values = response_speakup(X, actions, softmax_temperature, bias_vector)
+
+    return loglik, k_array, m_array, w_array, w_covariance_array, v_array
 
 
 def response_speakup(X, choice, beta, bb):
@@ -901,7 +946,7 @@ def model_hybrid_speakup_volatility(kappa, actions, outcome, volatility):
 
 def vkf_update(actions, outcomes, volatility_log_initial, stochasticity_log_initial, volatility_learning_rate, stochasticity_learning_rate):
     """
-    Variable Kalman Filter update with free hyperparameters.
+    Variable Kalman Filter update with free hyperparameters, completely incorrect but still fits better than the other models haha
 
     At each trial, the model:
     1. Makes a prediction based on current Q-values
@@ -1053,3 +1098,104 @@ def vkf_update(actions, outcomes, volatility_log_initial, stochasticity_log_init
             stochasticity_estimates[trial + 1, cues_remaining] = stochasticity_estimates[trial, cues_remaining]
 
     return reward_rate_means, learning_rates, prediction_errors, volatility_estimates, stochasticity_estimates
+
+
+def vkf_binary_update(actions, outcomes, m_initial, w_initial, v_initial, Lambda):
+    """
+    Binary Volatile Kalman Filter update
+    Args:
+        actions: (n_trials, nq) array of actions
+        outcomes: (n_trials, nq) array of outcomes
+        m_initial: initial hidden gaussian state (mean)
+        w_initial: initial posterior variance
+        v_initial: initial volatility estimate
+        Lambda: volatility learning rate?
+    Returns:
+        k_array: all learning rates (Kalman gains)
+        m_array: all posterior means of the hidden gaussian state
+        w_array: all posterior variances
+        w_covariance_array: all posterior covariances
+        v_array: volatility estimates over time
+    """
+
+    # Ensure that both actions and outcomes (reward/punishment) are arrays
+    actions = np.array(actions)
+    outcomes = np.array(outcomes)
+
+    # Number of trials and cues
+    n_trials, n_cues = outcomes.shape
+    if n_cues % 2 != 0:
+        raise ValueError("Number of cues must be even for pairing")
+
+    # Create empty arrays to store the models internal states for all trials
+    k_array = np.full((n_trials + 1, n_cues), np.nan)
+    m_array = np.full((n_trials + 1, n_cues), np.nan)
+    w_array = np.full((n_trials + 1, n_cues), np.nan)
+    w_covariance_array = np.full((n_trials + 1, n_cues), np.nan)
+    v_array = np.full((n_trials + 1, n_cues), np.nan)
+
+    # Set initial values
+    k_array[0, :] = 0.0 # not used but here to ensure that index of all arrays match
+    m_array[0, :] = m_initial # Hidden gaussian state starts without a bias
+    w_array[0, :] = w_initial # Hidden state starts without uncertainty?
+    w_covariance_array[0, :] = 0.0 # not used but here to ensure that index of all arrays match
+    v_array[0, :] = v_initial # Initial volatility estimate
+
+    # Set a fixed posterior variance (uncertainty) for the binary model?
+    Omega = 1
+
+    # Learning loop
+    for trial in range(n_trials):
+        # Current trial data
+        action_row = actions[trial, :]
+        outcome_row = outcomes[trial, :]
+        stimuli_type_t = action_row > 0 # Determines in which of the two cue columns one must look for the action and outcome
+
+        if np.sum(stimuli_type_t) != 1:
+            raise ValueError(f"Expected exactly one stimuli_type_t at trial {trial}")
+
+        # Identify stimuli_type_t cue and action
+        cue = np.where(stimuli_type_t)[0][0] # cue index on trial t
+        action = action_row[cue] - 1 # set action codes to 0 and 1 instead of 1 and 2
+        outcome = outcome_row[cue] # observed outcome on trial t
+
+        # Compute Kalman gain (learning rate)
+        k_array[trial + 1, cue] = (w_array[trial, cue] + v_array[trial, cue]) / (w_array[trial, cue] + v_array[trial, cue] + Omega)
+
+        # Compute learning rate
+        alpha = math.sqrt(w_array[trial, cue] + v_array[trial, cue])
+
+        # Compute hidden posterior mean gaussian state, implemented with a sigmoid function for binary outcomes
+        m_array[trial + 1, cue] = m_array[trial, cue] + alpha * (outcome -  (1 / (1 + np.exp(m_array[trial, cue]))))
+
+        # Compute hidden posterior variance
+        w_array[trial + 1, cue] = (1 - k_array[trial + 1, cue]) * (w_array[trial, cue] + v_array[trial, cue])
+
+        # Compute hidden posterior covariance
+        w_covariance_array[trial + 1, cue] = (1 - k_array[trial + 1, cue]) * w_array[trial, cue]
+
+        # Update volatility estimate
+        v_array[trial + 1, cue] = v_array[trial, cue] + Lambda * ((m_array[trial + 1, cue] - m_array[trial, cue]) ** 2 + w_array[trial, cue] + w_array[trial + 1, cue] - 2 * w_covariance_array[trial + 1, cue] - v_array[trial, cue])
+
+        # Now update the paired (opponent) cue with inverse contingencies
+        cue_opposite = cue ^ 1  # Flip bit to get paired cue index
+        if 0 <= cue_opposite < n_cues:
+            # Compute Kalman gain (learning rate)
+            k_array[trial + 1, cue_opposite] = (w_array[trial, cue_opposite] + v_array[trial, cue_opposite]) / (w_array[trial, cue_opposite] + v_array[trial, cue_opposite] + Omega)
+
+            # Compute learning rate
+            alpha_opposite = math.sqrt(w_array[trial, cue_opposite] + v_array[trial, cue_opposite])
+
+            # Compute hidden posterior mean gaussian state, implemented with a sigmoid function for binary outcomes
+            m_array[trial + 1, cue_opposite] = m_array[trial, cue_opposite] + alpha_opposite * (outcome -  (1 / (1 + np.exp(m_array[trial, cue_opposite]))))
+
+            # Compute hidden posterior variance
+            w_array[trial + 1, cue_opposite] = (1 - k_array[trial + 1, cue_opposite]) * (w_array[trial, cue_opposite] + v_array[trial, cue_opposite])
+
+            # Compute hidden posterior covariance
+            w_covariance_array[trial + 1, cue_opposite] = (1 - k_array[trial + 1, cue_opposite]) * w_array[trial, cue_opposite]
+
+            # Update volatility estimate
+            v_array[trial + 1, cue_opposite] = v_array[trial, cue_opposite] + Lambda * ((m_array[trial + 1, cue_opposite] - m_array[trial, cue_opposite]) ** 2 + w_array[trial, cue_opposite] + w_array[trial + 1, cue_opposite] - 2 * w_covariance_array[trial + 1, cue_opposite] - v_array[trial, cue_opposite])
+
+    return k_array, m_array, w_array, w_covariance_array, v_array

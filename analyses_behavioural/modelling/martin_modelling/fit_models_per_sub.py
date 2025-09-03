@@ -265,6 +265,55 @@ def fit_model_vkf(data):
     return best_result.x, -best_result.fun, learning_rates, volatility_estimates, stochasticity_estimates, prediction_errors
 
 
+def fit_model_vkf_binary(data):
+    """
+    Fit the Volatile Kalman Filter model.
+
+    This is the model as described in Piray & Daw (2020).
+    """
+
+    def neg_log_likelihood(params):
+        try:
+            # Call the VKF model
+            ll, *_ = helpers.model_vkf_speakup(params, data)
+            if not np.isfinite(ll):
+                return np.inf
+            return -ll
+        except Exception as e:
+            print(f"⚠️ Optimization error: {e}")
+            return np.inf
+
+    bounds = [
+        (-1, 1),  # m_initial (what to set?)
+        (-1, 1),  # w_initial (what to set?)
+        (-1, 1),  # v_initial (what to set?)
+        (0, 0.1),  # Lambda
+        (-5, 4.6),  # log(softmax_temperature)
+        (-100, 100)  # bias
+    ]
+
+    def run_single_fit():
+        # Random initialization within bounds
+        init = np.random.uniform(low=[-1, -1, -1, 0, -5, -1], high=[1, 1, 1, 0.1, 4.6, 1])
+        result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
+        return result
+
+    # Multiple fits in parallel to avoid local minima
+    results = Parallel(n_jobs=N_JOBS)(
+        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    )
+
+    # Select the best result based on the lowest negative log-likelihood
+    best_result = min(results, key=lambda r: r.fun if r.success and np.isfinite(r.fun) else np.inf)
+    # best_result.x contains the input for the vkf_update function for the best fit
+    # -best_result.fun is the log-likelihood of the best fit
+
+    # Now run the model once more with best_result parameters to get trial-by-trial data
+    loglik, k_array, m_array, w_array, w_covariance_array, v_array = helpers.model_vkf_speakup(best_result.x, data)
+
+    return best_result.x, -best_result.fun, k_array, m_array, w_array, w_covariance_array, v_array
+
+
 # -------- MAIN EXECUTION --------
 if __name__ == '__main__':
     subject_id = int(sys.argv[1].zfill(3))  # from SLURM array
@@ -282,6 +331,7 @@ if __name__ == '__main__':
         params3, ll3 = fit_model_3(data)
         params4, ll4 = fit_model_4(data)
         params_vkf, ll_vkf, lr_vkf, vol_vkf, stoch_vkf, pe_vkf = fit_model_vkf(data)
+        params_vkf_binary, ll_vkf_binary, k_array, m_array, w_array, w_covariance_array, v_array = fit_model_vkf_binary(data)
         print(f"✅ Finished sub-{subject_id:03d} session-{session:02d}")
         print(data)
         result = {
@@ -323,7 +373,14 @@ if __name__ == '__main__':
             'model5_stochasticity_initial': np.exp(params_vkf[2]),
             'model5_volatility_learning_rate': expit(params_vkf[3]),
             'model5_stochasticity_learning_rate': expit(params_vkf[4]),
-            'model5_bias': params_vkf[5]
+            'model5_bias': params_vkf[5],
+            'model6_ll': ll_vkf_binary,
+            'model6_k_initial': params_vkf_binary[0],
+            'model6_m_initial': params_vkf_binary[1],
+            'model6_w_initial': params_vkf_binary[2],
+            'model6_lambda': expit(params_vkf_binary[3]),
+            'model6_beta': np.exp(params_vkf_binary[4]),
+            'model6_bias': params_vkf_binary[5]
         }
 
         # Save model summaries to CSV
