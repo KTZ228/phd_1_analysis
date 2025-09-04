@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.special import expit
 import sys
+import math
 from joblib import Parallel, delayed
 import multiprocessing
 import helpers
@@ -23,8 +24,8 @@ from pathlib import Path
 BASE_DIR = r'/project/3025011.02/raw/'
 SAVE_DIR = r'/project/3025011.02/pre-processed/modelling'
 
-N_REPEATS = 1000  # For the LH optimization, how many times to repeat the fitting process for each subject
-N_JOBS = min(16, multiprocessing.cpu_count())
+N_REPEATS = 16000  # For the LH optimization, how many times to repeat the fitting process for each subject
+N_JOBS = min(32, multiprocessing.cpu_count())
 
 # Create output directory
 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -215,12 +216,11 @@ def fit_model_4(data):
     return best_result.x, -best_result.fun
 
 
-def fit_model_vkf(data):
+def fit_model_vkf_binary_lesioned(data):
     """
-    Fit the Variable Kalman Filter model with free hyperparameters (6 parameters version).
+    Fit the Volatile Kalman Filter model, lesioned version.
 
-    This is the model as described in Piray & Daw (2021).
-    It has more flexibility but also more risk of overfitting.
+    This is the model as described in Piray & Daw (2020).
     """
 
     def neg_log_likelihood(params):
@@ -235,17 +235,14 @@ def fit_model_vkf(data):
             return np.inf
 
     bounds = [
+        (0, 10000),  # Omega
         (-5, 4.6),  # log(softmax_temperature)
-        (-3, 1),  # volatility_log_initial
-        (-3, 1),  # stochasticity_log_initial
-        (-6, 6),  # volatility_learning_rate
-        (-6, 6),  # stochasticity_learning_rate
         (-100, 100)  # bias
     ]
 
     def run_single_fit():
         # Random initialization within bounds
-        init = np.random.uniform(low=[-5, -3, -3, -6, -6, -1], high=[4.6, 1, 1, 6, 6, 1])
+        init = np.random.uniform(low=[0, -5, -1], high=[100, 4.6, 1])
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
@@ -260,9 +257,9 @@ def fit_model_vkf(data):
     # -best_result.fun is the log-likelihood of the best fit
 
     # Now run the model once more with best_result parameters to get trial-by-trial data
-    loglik, learning_rates, prediction_errors, choice_values, volatility_estimates, stochasticity_estimates = helpers.model_vkf_speakup(best_result.x, data)
+    loglik, k_array, m_array, w_array, w_covariance_array, v_array = helpers.model_vkf_speakup(best_result.x, data)
 
-    return best_result.x, -best_result.fun, learning_rates, volatility_estimates, stochasticity_estimates, prediction_errors
+    return best_result.x, -best_result.fun, k_array, m_array, w_array, w_covariance_array, v_array
 
 
 def fit_model_vkf_binary(data):
@@ -284,17 +281,16 @@ def fit_model_vkf_binary(data):
             return np.inf
 
     bounds = [
-        (-1, 1),  # m_initial (what to set?)
-        (-1, 1),  # w_initial (what to set?)
-        (-1, 1),  # v_initial (what to set?)
-        (0, 0.1),  # Lambda
+        (1e-6, 10000),  # v_initial
+        (0, 10000),  # Omega
+        (1e-6, 1),  # Lambda
         (-5, 4.6),  # log(softmax_temperature)
         (-100, 100)  # bias
     ]
 
     def run_single_fit():
         # Random initialization within bounds
-        init = np.random.uniform(low=[-1, -1, -1, 0, -5, -1], high=[1, 1, 1, 0.1, 4.6, 1])
+        init = np.random.uniform(low=[1e-6, 0, 1e-6, -5, -1], high=[100, 100, 1, 4.6, 1])
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
@@ -319,6 +315,7 @@ if __name__ == '__main__':
     subject_id = int(sys.argv[1].zfill(3))  # from SLURM array
     session = int(sys.argv[2].zfill(2))
     print(f'Trying to locate data for sub-{subject_id:03d} session-{session:02d}')
+    print(f'You have {multiprocessing.cpu_count()} CPU cores available')
 
     try:
         df = load_subject_data(subject_id, session)
@@ -330,7 +327,7 @@ if __name__ == '__main__':
         params2, ll2 = fit_model_2(data)
         params3, ll3 = fit_model_3(data)
         params4, ll4 = fit_model_4(data)
-        params_vkf, ll_vkf, lr_vkf, vol_vkf, stoch_vkf, pe_vkf = fit_model_vkf(data)
+        params_vkf_lesioned, ll_vkf_lesioned, k_array_lesioned, m_array_lesioned, w_array_lesioned, w_covariance_array_lesioned, v_array_lesioned = fit_model_vkf_binary_lesioned(data)
         params_vkf_binary, ll_vkf_binary, k_array, m_array, w_array, w_covariance_array, v_array = fit_model_vkf_binary(data)
         print(f"✅ Finished sub-{subject_id:03d} session-{session:02d}")
         print(data)
@@ -367,13 +364,13 @@ if __name__ == '__main__':
             'model4_kappa1': expit(params4[1]), # sigmoid to convert kappa to learning rate
             'model4_kappa2': expit(params4[2]),
             'model4_bias': params4[3],
-            'model5_ll': ll_vkf,
-            'model5_beta': np.exp(params_vkf[0]),
-            'model5_volatility_initial': np.exp(params_vkf[1]),
-            'model5_stochasticity_initial': np.exp(params_vkf[2]),
-            'model5_volatility_learning_rate': expit(params_vkf[3]),
-            'model5_stochasticity_learning_rate': expit(params_vkf[4]),
-            'model5_bias': params_vkf[5],
+            'model5_ll': ll_vkf_lesioned,
+            'model5_k_initial': params_vkf_lesioned[0],
+            'model5_m_initial': params_vkf_lesioned[1],
+            'model5_w_initial': params_vkf_lesioned[2],
+            'model5_lambda': expit(params_vkf_lesioned[3]),
+            'model5_beta': np.exp(params_vkf_lesioned[4]),
+            'model5_bias': params_vkf_lesioned[5],
             'model6_ll': ll_vkf_binary,
             'model6_k_initial': params_vkf_binary[0],
             'model6_m_initial': params_vkf_binary[1],
@@ -401,10 +398,9 @@ if __name__ == '__main__':
                 'session_number': session,
                 'trial': trial,
                 'stimuli_type': active_cue + 1,
-                'learning_rate': lr_vkf[trial, active_cue] if not np.isnan(lr_vkf[trial, active_cue]) else None,
-                'volatility_estimate': np.exp(vol_vkf[trial + 1, active_cue]) if not np.isnan(vol_vkf[trial + 1, active_cue]) else None, # Both of these include the initial value at t=0
-                'stochasticity_estimate': np.exp(stoch_vkf[trial + 1, active_cue]) if not np.isnan(stoch_vkf[trial + 1, active_cue]) else None, # That is why we access t+1
-                'prediction_error': pe_vkf[trial, active_cue] if not np.isnan(pe_vkf[trial, active_cue]) else None
+                'learning_rate': k_array[trial + 1, active_cue] if not np.isnan(k_array[trial + 1, active_cue]) else None,
+                'volatility_estimate': np.exp(v_array[trial + 1, active_cue]) if not np.isnan(v_array[trial + 1, active_cue]) else None, # Both of these include the initial value at t=0
+                'q-value': m_array[trial + 1, active_cue] if not np.isnan(m_array[trial + 1, active_cue]) else None
             })
 
         # Save trial data to CSV
