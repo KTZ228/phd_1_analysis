@@ -302,7 +302,7 @@ def getParamEst(lik,fitSettings):
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-def model_null_speakup(params, data):
+def initialise_model_null(params, data):
     """
     Null model: no learning, fixed Q-values per cue-action pair.
 
@@ -340,12 +340,12 @@ def model_null_speakup(params, data):
     xQ = np.tile(q_diff, (nt + 1, 1))  # same prediction for each trial
 
     # Prepare data for softmax
-    Y = (choice == 1).astype(int)  # action 1 == "go" or "down"
+    #Y = (choice == 1).astype(int)  # action 1 == "go" or "down"
 
-    loglik, _ = response_speakup(xQ[:nt, :], choice, beta, bb)
+    loglik, _ = choice_model(xQ[:nt, :], choice, beta, bb)
     return loglik
 
-def model_m1_speakup(params, data):
+def initialise_model_m1(params, data):
     """
     Python version of model_m1 (Rescorla-Wagner with 5 parameters).
     
@@ -393,10 +393,10 @@ def model_m1_speakup(params, data):
     X = xQ[:len(choice), :]
     Y = (choice == 1)
     
-    loglik, _ = response_speakup(X, choice, beta, bb)
+    loglik, _ = choice_model(X, choice, beta, bb)
     return loglik
 
-def model_m2_speakup(params, data):
+def initialise_model_m2(params, data):
     choice = data['choice']
     outcome = data['outcome']
 
@@ -433,14 +433,14 @@ def model_m2_speakup(params, data):
 
     nt = len(choice)
     X = xQ[:nt, :]  # predicted values for each trial
-    Y = (choice == 1).astype(int)  # convert to binary
+    #Y = (choice == 1).astype(int)  # convert to binary
 
-    loglik, CV = response_speakup(X, choice, beta, bb)
+    loglik, CV = choice_model(X, choice, beta, bb)
 
     return loglik, xalf, xdelta, CV
 
 
-def model_m3_speakup(params, data):
+def initialise_model_m3(params, data):
     choice = data['choice']
     outcome = data['outcome']
 
@@ -470,13 +470,13 @@ def model_m3_speakup(params, data):
 
     nt = len(choice)
     X = xQ[:nt, :]
-    Y = (choice == 1).astype(int)
+    #Y = (choice == 1).astype(int)
 
-    loglik, CV = response_speakup(X, choice, beta, bb)
+    loglik, CV = choice_model(X, choice, beta, bb)
 
     return loglik, xalf, xdelta, CV
 
-def model_m4_speakup(params, data):
+def initialise_model_m4(params, data):
     """
     Python version of model_m1 (Rescorla-Wagner with 5 parameters).
     
@@ -516,11 +516,11 @@ def model_m4_speakup(params, data):
     X = xQ[:len(choice), :]
     Y = (choice == 1)
     
-    loglik, _ = response_speakup(X, choice, beta, bb)
+    loglik, _ = choice_model(X, choice, beta, bb)
     return loglik
 
 
-def model_vkf_binary_lesioned(params, data):
+def initialise_model_vkf_lesioned(params, data):
     """
     Volatile Kalman Filter model according to Piray 2020 build for binary outcomes, with lesioned volatility update.
 
@@ -554,16 +554,16 @@ def model_vkf_binary_lesioned(params, data):
     bias_vector = np.array([bias, -bias])
 
     # Run binary VKF model
-    k_array, m_array, w_array, w_covariance_array, v_array = vkf_binary_update(actions, outcomes, v_initial, Omega, Lambda)
+    k_array, m_array, w_array, w_covariance_array, v_array = vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda)
 
     # Compute log-likelihood
     X = m_array[:len(actions), :] # Not sure if this is correct
-    loglik, choice_values = response_speakup(X, actions, softmax_temperature, bias_vector)
+    loglik, choice_values = choice_model(X, actions, softmax_temperature, bias_vector)
 
     return loglik, k_array, m_array, w_array, w_covariance_array, v_array
 
 
-def model_vkf_binary(params, data):
+def initialise_model_vkf(params, data):
     """
     Volatile Kalman Filter model according to Piray 2020 build for binary outcomes.
 
@@ -599,18 +599,18 @@ def model_vkf_binary(params, data):
     bias_vector = np.array([bias, -bias])
 
     # Run binary VKF model
-    k_array, m_array, w_array, w_covariance_array, v_array = vkf_binary_update(actions, outcomes, v_initial, Omega, Lambda)
+    k_array, m_array, w_array, w_covariance_array, v_array = vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda)
 
     # Compute log-likelihood
     X = m_array[:len(actions), :] # Not sure if this is correct
-    loglik, choice_values = response_speakup(X, actions, softmax_temperature, bias_vector)
+    loglik, choice_values = choice_model(X, actions, softmax_temperature, bias_vector)
 
     return loglik, k_array, m_array, w_array, w_covariance_array, v_array
 
 
-def response_speakup(X, choice, beta, bb):
+def choice_model(X, choice, beta, bb):
     """
-    Compute log-likelihood of observed choices using logistic function.
+    Compute log-likelihood of observed choices, given the Q-values produced by the learning model, using a logistic function.
 
     Args:
         X: Q-value differences, shape (n_trials, n_cues)
@@ -837,11 +837,10 @@ def model_hybrid_speakup_volatility(kappa, actions, outcome, volatility):
     - Different LRs for stable vs volatile trials
 
     Args:
-        lambda_ : list or array of length nq (volatility per cue)
-        weight  : list or array of length nq (weight for Kalman gain)
         kappa   : list or array of length nq (static learning rate)
         actions : (nt, nq) array of actions (1 or 2) per trial and cue
         outcome : (nt, nq) array of outcomes per trial and cue
+        volatility : (nt,) array indicating 'stable' or 'volatile' per trial
 
     Returns:
         xQ      : (nt+1, nq) predicted Q differences (action 1 - action 2)
@@ -928,9 +927,9 @@ def model_hybrid_speakup_volatility(kappa, actions, outcome, volatility):
     return xQ, xalpha, xdelta
 
 
-def vkf_binary_update(actions, outcomes, v_initial, Omega, Lambda):
+def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
     """
-    Binary Volatile Kalman Filter update
+    Binary Volatile Kalman Filter learning model according to Piray et al. 2020.
     Args:
         actions: (n_trials, nq) array of actions
         outcomes: (n_trials, nq) array of outcomes

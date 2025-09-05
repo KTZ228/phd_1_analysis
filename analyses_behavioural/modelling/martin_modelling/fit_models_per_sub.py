@@ -24,8 +24,8 @@ from pathlib import Path
 BASE_DIR = r'/project/3025011.02/raw/'
 SAVE_DIR = r'/project/3025011.02/pre-processed/modelling'
 
-N_REPEATS = 16000  # For the LH optimization, how many times to repeat the fitting process for each subject
-N_JOBS = min(32, multiprocessing.cpu_count())
+N_REPEATS = 1000  # For the LH optimization, how many times to repeat the fitting process for each subject
+N_JOBS = min(64, multiprocessing.cpu_count())
 
 # Create output directory
 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -66,7 +66,7 @@ def format_data(df):
 def fit_model_null(data):
     def neg_log_likelihood(params):
         try:
-            ll = helpers.model_null_speakup(params, data)
+            ll = helpers.initialise_model_null(params, data)
             if not np.isfinite(ll):  # catch NaNs or inf
                 return np.inf
             return -ll
@@ -98,7 +98,7 @@ def fit_model_null(data):
 def fit_model_1(data):
     def neg_log_likelihood(params):
         try:
-            ll = helpers.model_m1_speakup(params, data)
+            ll = helpers.initialise_model_m1(params, data)
             if not np.isfinite(ll):  # catch NaNs or inf
                 return np.inf
             return -ll
@@ -128,7 +128,7 @@ def fit_model_1(data):
 def fit_model_2(data):
     def neg_log_likelihood(params):
         try:
-            ll, *_ = helpers.model_m2_speakup(params, data)
+            ll, *_ = helpers.initialise_model_m2(params, data)
             if not np.isfinite(ll):  # catch NaNs or inf
                 return np.inf
             return -ll
@@ -158,7 +158,7 @@ def fit_model_2(data):
 def fit_model_3(data):
     def neg_log_likelihood(params):
         try:
-            ll, *_ = helpers.model_m3_speakup(params, data)
+            ll, *_ = helpers.initialise_model_m3(params, data)
             if not np.isfinite(ll):
                 return np.inf
             return -ll
@@ -190,7 +190,7 @@ def fit_model_3(data):
 def fit_model_4(data):
     def neg_log_likelihood(params):
         try:
-            ll = helpers.model_m4_speakup(params, data)
+            ll = helpers.initialise_model_m4(params, data)
             if not np.isfinite(ll):  # catch NaNs or inf
                 return np.inf
             return -ll
@@ -216,7 +216,7 @@ def fit_model_4(data):
     return best_result.x, -best_result.fun
 
 
-def fit_model_vkf_binary_lesioned(data):
+def fit_model_vkf_lesioned(data):
     """
     Fit the Volatile Kalman Filter model, lesioned version.
 
@@ -226,7 +226,7 @@ def fit_model_vkf_binary_lesioned(data):
     def neg_log_likelihood(params):
         try:
             # Call the VKF model
-            ll, *_ = helpers.model_vkf_speakup(params, data)
+            ll, *_ = helpers.initialise_model_vkf_lesioned(params, data)
             if not np.isfinite(ll):
                 return np.inf
             return -ll
@@ -257,12 +257,12 @@ def fit_model_vkf_binary_lesioned(data):
     # -best_result.fun is the log-likelihood of the best fit
 
     # Now run the model once more with best_result parameters to get trial-by-trial data
-    loglik, k_array, m_array, w_array, w_covariance_array, v_array = helpers.model_vkf_speakup(best_result.x, data)
+    loglik, k_array, m_array, w_array, w_covariance_array, v_array = helpers.initialise_model_vkf_lesioned(best_result.x, data)
 
     return best_result.x, -best_result.fun, k_array, m_array, w_array, w_covariance_array, v_array
 
 
-def fit_model_vkf_binary(data):
+def fit_model_vkf(data):
     """
     Fit the Volatile Kalman Filter model.
 
@@ -272,7 +272,7 @@ def fit_model_vkf_binary(data):
     def neg_log_likelihood(params):
         try:
             # Call the VKF model
-            ll, *_ = helpers.model_vkf_speakup(params, data)
+            ll, *_ = helpers.initialise_model_vkf(params, data)
             if not np.isfinite(ll):
                 return np.inf
             return -ll
@@ -305,7 +305,7 @@ def fit_model_vkf_binary(data):
     # -best_result.fun is the log-likelihood of the best fit
 
     # Now run the model once more with best_result parameters to get trial-by-trial data
-    loglik, k_array, m_array, w_array, w_covariance_array, v_array = helpers.model_vkf_speakup(best_result.x, data)
+    loglik, k_array, m_array, w_array, w_covariance_array, v_array = helpers.initialise_model_vkf(best_result.x, data)
 
     return best_result.x, -best_result.fun, k_array, m_array, w_array, w_covariance_array, v_array
 
@@ -327,8 +327,8 @@ if __name__ == '__main__':
         params2, ll2 = fit_model_2(data)
         params3, ll3 = fit_model_3(data)
         params4, ll4 = fit_model_4(data)
-        params_vkf_lesioned, ll_vkf_lesioned, k_array_lesioned, m_array_lesioned, w_array_lesioned, w_covariance_array_lesioned, v_array_lesioned = fit_model_vkf_binary_lesioned(data)
-        params_vkf_binary, ll_vkf_binary, k_array, m_array, w_array, w_covariance_array, v_array = fit_model_vkf_binary(data)
+        params_vkf_lesioned, ll_vkf_lesioned, k_array_lesioned, m_array_lesioned, w_array_lesioned, w_covariance_array_lesioned, v_array_lesioned = fit_model_vkf_lesioned(data)
+        params_vkf_binary, ll_vkf_binary, k_array, m_array, w_array, w_covariance_array, v_array = fit_model_vkf(data)
         print(f"✅ Finished sub-{subject_id:03d} session-{session:02d}")
         print(data)
         result = {
