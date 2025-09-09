@@ -4,10 +4,11 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.special import expit
 import sys
-import math
+import traceback
 from joblib import Parallel, delayed
 import multiprocessing
 import helpers
+import platform
 
 # Run with sbatch hpc_model_fit_array.sh
 # sbatch Documents/phd_1_analysis/analyses_behavioural/modelling/martin_modelling/vkf_model_fitting_hpc.sh
@@ -21,33 +22,34 @@ import utils
 from pathlib import Path
 
 # -------- CONFIGURATION --------
-BASE_DIR = r'/project/3025011.02/raw/'
-SAVE_DIR = r'/project/3025011.02/pre-processed/modelling'
+if platform.system() == 'Darwin':
+    BASE_DIR = r'/Volumes/project/3025011.02/raw/'
+    SAVE_DIR = r'/Volumes/project/3025011.02/pre-processed/modelling'
+else:
+    BASE_DIR = r'/project/3025011.02/raw/'
+    SAVE_DIR = r'/project/3025011.02/pre-processed/modelling'
 
-N_REPEATS = 1000  # For the LH optimization, how many times to repeat the fitting process for each subject
-N_JOBS = min(64, multiprocessing.cpu_count())
+n_random_starting_combinations = 50  # Number of random starting number combinations that will be tried
+cpu_cores_to_utilise = min(64, multiprocessing.cpu_count())
 
 # Create output directory
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # -------- FITTING FUNCTIONS --------
 def load_subject_data(subject_id, session=1):
-    sub_dir = f"sub-{subject_id:003}"
-    experiment_output_path = os.path.join(BASE_DIR, sub_dir)
+    # Ensure homogeneity in data import by using the import_functions
     df = utils.import_functions.main(
         BASE_DIR, [subject_id], [session]
     )
-    #df = utils.analysis_functions.combine_result_files(recent_results)
-    #df = df[~((df.index % 452 < 8)) & (df['objectively_correct'] != "Late")].copy()
-    #df = df[(df['response'].isin(['down', 'up'])) & df['objectively_correct'].isin(['True', 'False'])].copy()
+
+    # Remap variables
     df['reward'] = df['subjectively_correct'].map({
         True: 1, 'True': 1,
         False: -1, 'False': -1
     })
     df['action_code'] = df['response'].map({'down': 1, 'up': 2})
     df['stim_code'] = df['stimuli_type'].map({2: 0, 1: 1}) # happy = 0, angry = 1
-    # print(f"Loaded data for subject {subject_id} with {len(df)} trials.")
-    #df = utils.analysis_functions.check_volatility(df)
+
     return df
 
 def format_data(df):
@@ -88,8 +90,8 @@ def fit_model_null(data):
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
-    results = Parallel(n_jobs=N_JOBS)(
-        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    results = Parallel(n_jobs=cpu_cores_to_utilise)(
+        delayed(run_single_fit)() for _ in range(n_random_starting_combinations)
     )
     best_result = min(results, key=lambda r: r.fun if r.success and np.isfinite(r.fun) else np.inf)
     
@@ -116,8 +118,8 @@ def fit_model_1(data):
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
-    results = Parallel(n_jobs=N_JOBS)(
-        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    results = Parallel(n_jobs=cpu_cores_to_utilise)(
+        delayed(run_single_fit)() for _ in range(n_random_starting_combinations)
     )
     best_result = min(results, key=lambda r: r.fun if r.success and np.isfinite(r.fun) else np.inf)
     
@@ -148,8 +150,8 @@ def fit_model_2(data):
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
-    results = Parallel(n_jobs=N_JOBS)(
-        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    results = Parallel(n_jobs=cpu_cores_to_utilise)(
+        delayed(run_single_fit)() for _ in range(n_random_starting_combinations)
     )
     best_result = min(results, key=lambda r: r.fun if r.success and np.isfinite(r.fun) else np.inf)
 
@@ -180,8 +182,8 @@ def fit_model_3(data):
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
-    results = Parallel(n_jobs=N_JOBS)(
-        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    results = Parallel(n_jobs=cpu_cores_to_utilise)(
+        delayed(run_single_fit)() for _ in range(n_random_starting_combinations)
     )
     best_result = min(results, key=lambda r: r.fun if r.success and np.isfinite(r.fun) else np.inf)
 
@@ -208,8 +210,8 @@ def fit_model_4(data):
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
-    results = Parallel(n_jobs=N_JOBS)(
-        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    results = Parallel(n_jobs=cpu_cores_to_utilise)(
+        delayed(run_single_fit)() for _ in range(n_random_starting_combinations)
     )
     best_result = min(results, key=lambda r: r.fun if r.success and np.isfinite(r.fun) else np.inf)
 
@@ -235,6 +237,7 @@ def fit_model_vkf_lesioned(data):
             return np.inf
 
     bounds = [
+        (1e-6, 10000),  # v_initial
         (0, 10000),  # Omega
         (-5, 4.6),  # log(softmax_temperature)
         (-100, 100)  # bias
@@ -242,13 +245,13 @@ def fit_model_vkf_lesioned(data):
 
     def run_single_fit():
         # Random initialization within bounds
-        init = np.random.uniform(low=[0, -5, -1], high=[100, 4.6, 1])
+        init = np.random.uniform(low=[1e-6, 0, -5, -1], high=[100, 100, 4.6, 1])
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
     # Multiple fits in parallel to avoid local minima
-    results = Parallel(n_jobs=N_JOBS)(
-        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    results = Parallel(n_jobs=cpu_cores_to_utilise)(
+        delayed(run_single_fit)() for _ in range(n_random_starting_combinations)
     )
 
     # Select the best result based on the lowest negative log-likelihood
@@ -295,8 +298,8 @@ def fit_model_vkf(data):
         return result
 
     # Multiple fits in parallel to avoid local minima
-    results = Parallel(n_jobs=N_JOBS)(
-        delayed(run_single_fit)() for _ in range(N_REPEATS)
+    results = Parallel(n_jobs=cpu_cores_to_utilise)(
+        delayed(run_single_fit)() for _ in range(n_random_starting_combinations)
     )
 
     # Select the best result based on the lowest negative log-likelihood
