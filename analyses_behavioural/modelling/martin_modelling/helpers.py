@@ -360,15 +360,12 @@ def initialise_model_m1(params, data):
     choice = data['choice']
     outcome = data['outcome']
 
-    def safe_expit(x):
-        return expit(np.clip(x, -10, 10))  # avoids exact 0 or 1
-
     # The softmax temperature determines how people noise people's choices are
     # The smaller the beta, the more noisy choices are
     beta = np.exp(np.clip(params[0], -5, 4.6))  # softmax temperature, clipped to avoid extreme values
 
     # Learning rate decay
-    kappa1 = safe_expit(params[1]) # decay rate, sigmoid to [0,1]
+    kappa1 = expit(params[1]) # decay rate, sigmoid to [0,1]
 
     # Bias terms
     be = params[2]
@@ -400,14 +397,11 @@ def initialise_model_m1(params, data):
 def initialise_model_m2(params, data):
     choice = data['choice']
     outcome = data['outcome']
-
-    def safe_expit(x):
-        return expit(np.clip(x, -10, 10))  # avoids exact 0 or 1
     
     beta = np.exp(np.clip(params[0], -5, 4.6))                     # softmax temperature
-    lambda1 = safe_expit(params[1]) # learning rate, sigmoid to [0,1]
-    weight1 = safe_expit(params[2]) # PE weighting, sigmoid to [0,1]
-    kappa1 = safe_expit(params[3]) # decay rate, sigmoid to [0,1]
+    lambda1 = expit(params[1]) # learning rate, sigmoid to [0,1]
+    weight1 = expit(params[2]) # PE weighting, sigmoid to [0,1]
+    kappa1 = expit(params[3]) # decay rate, sigmoid to [0,1]
     
     if np.any(np.isnan([lambda1, weight1, kappa1])):
         return -np.inf, None, None, None
@@ -445,14 +439,11 @@ def initialise_model_m3(params, data):
     choice = data['choice']
     outcome = data['outcome']
 
-    def safe_expit(x):
-        return expit(np.clip(x, -10, 10))  # avoids exact 0 or 1
-
     beta = np.exp(np.clip(params[0], -5, 4.6))  # softmax temperature
-    lambda1 = safe_expit(params[1])            # learning rate
-    weight1 = safe_expit(params[2])            # weight for cue 1
-    weight2 = safe_expit(params[3])            # weight for cue 2
-    kappa1 = safe_expit(params[4])             # decay rate
+    lambda1 = expit(params[1])            # learning rate
+    weight1 = expit(params[2])            # weight for cue 1
+    weight2 = expit(params[3])            # weight for cue 2
+    kappa1 = expit(params[4])             # decay rate
     be = params[5]                             # bias
 
     if np.any(np.isnan([lambda1, weight1, weight2, kappa1])):
@@ -492,14 +483,11 @@ def initialise_model_m4(params, data):
     outcome = data['outcome']
     volatility = data['volatility']
 
-    def safe_expit(x):
-        return expit(np.clip(x, -10, 10))  # avoids exact 0 or 1
-
     beta = np.exp(np.clip(params[0], -5, 4.6))  # softmax temperature, clipped to avoid extreme values
     
-    kappa1 = safe_expit(params[1]) # learning scale for stable condition, sigmoid to [0,1]
+    kappa1 = expit(params[1]) # learning scale for stable condition, sigmoid to [0,1]
     
-    kappa2 = safe_expit(params[2]) # learning scale for volatile condition, sigmoid to [0,1]
+    kappa2 = expit(params[2]) # learning scale for volatile condition, sigmoid to [0,1]
     
     kappa = [kappa1, kappa2]
 
