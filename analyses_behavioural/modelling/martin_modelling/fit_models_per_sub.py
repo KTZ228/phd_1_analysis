@@ -331,9 +331,8 @@ if __name__ == '__main__':
         params3, ll3 = fit_model_3(data)
         params4, ll4 = fit_model_4(data)
         params_vkf_lesioned, ll_vkf_lesioned, k_array_lesioned, m_array_lesioned, w_array_lesioned, w_covariance_array_lesioned, v_array_lesioned = fit_model_vkf_lesioned(data)
-        params_vkf_binary, ll_vkf_binary, k_array, m_array, w_array, w_covariance_array, v_array = fit_model_vkf(data)
-        print(f"✅ Finished sub-{subject_id:03d} session-{session:02d}")
-        print(data)
+        params_vkf, ll_vkf, k_array, m_array, w_array, w_covariance_array, v_array = fit_model_vkf(data)
+
         result = {
             'subject': subject_id,
             'session': session,
@@ -368,19 +367,15 @@ if __name__ == '__main__':
             'model4_kappa2': expit(params4[2]),
             'model4_bias': params4[3],
             'model5_ll': ll_vkf_lesioned,
-            'model5_k_initial': params_vkf_lesioned[0],
-            'model5_m_initial': params_vkf_lesioned[1],
-            'model5_w_initial': params_vkf_lesioned[2],
-            'model5_lambda': expit(params_vkf_lesioned[3]),
-            'model5_beta': np.exp(params_vkf_lesioned[4]),
-            'model5_bias': params_vkf_lesioned[5],
-            'model6_ll': ll_vkf_binary,
-            'model6_k_initial': params_vkf_binary[0],
-            'model6_m_initial': params_vkf_binary[1],
-            'model6_w_initial': params_vkf_binary[2],
-            'model6_lambda': expit(params_vkf_binary[3]),
-            'model6_beta': np.exp(params_vkf_binary[4]),
-            'model6_bias': params_vkf_binary[5]
+            'model5_omega': params_vkf_lesioned[0],
+            'model5_beta': np.exp(params_vkf_lesioned[1]),
+            'model5_bias': params_vkf_lesioned[2],
+            'model6_ll': ll_vkf,
+            'model6_v_initial': params_vkf[0],
+            'model6_omega': params_vkf[1],
+            'model6_lambda': params_vkf[2],
+            'model6_beta': np.exp(params_vkf[3]),
+            'model6_bias': params_vkf[4]
         }
 
         # Save model summaries to CSV
