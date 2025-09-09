@@ -993,7 +993,7 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
         w_covariance_array[trial + 1, cue] = (1 - k_array[trial + 1, cue]) * w_array[trial, cue]
 
         # Update volatility estimate
-        v_array[trial, cue] + Lambda * ((m_array[trial + 1, cue] - m_array[trial, cue]) ** 2 + w_array[trial, cue] + w_array[trial + 1, cue] - 2 * w_covariance_array[trial + 1, cue] - v_array[trial, cue])
+        v_array[trial + 1, cue] = v_array[trial, cue] + Lambda * ((m_array[trial + 1, cue] - m_array[trial, cue]) ** 2 + w_array[trial, cue] + w_array[trial + 1, cue] - 2 * w_covariance_array[trial + 1, cue] - v_array[trial, cue])
 
         # Now update the paired (opponent) cue with inverse contingencies
         cue_opposite = cue ^ 1  # Flip bit to get paired cue index
@@ -1014,7 +1014,7 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
             w_covariance_array[trial + 1, cue_opposite] = (1 - k_array[trial + 1, cue_opposite]) * w_array[trial, cue_opposite]
 
             # Update volatility estimate
-            v_array[trial, cue_opposite] + Lambda * ((m_array[trial + 1, cue_opposite] - m_array[trial, cue_opposite]) ** 2 + w_array[trial, cue_opposite] + w_array[trial + 1, cue_opposite] - 2 * w_covariance_array[trial + 1, cue_opposite] - v_array[trial, cue_opposite])
+            v_array[trial + 1, cue_opposite] = v_array[trial, cue_opposite] + Lambda * ((m_array[trial + 1, cue_opposite] - m_array[trial, cue_opposite]) ** 2 + w_array[trial, cue_opposite] + w_array[trial + 1, cue_opposite] - 2 * w_covariance_array[trial + 1, cue_opposite] - v_array[trial, cue_opposite])
 
     # Remove the first row (initialization)
     k_array = k_array[1:len(actions) + 1, :]
