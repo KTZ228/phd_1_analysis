@@ -628,10 +628,10 @@ def choice_model(X, choice, beta, bb):
     """
     n_trials, n_cues = X.shape
     nrep = n_cues // 2
-    bias_vector = np.tile(bb, nrep)
+    bias_vector = np.tile(bb, nrep) # What is the point of this?
 
     z = X * beta + bias_vector
-    f = 1 / (1 + np.exp(-z))
+    f = expit(-z)
 
     # Check for valid actions
     valid_trials = np.any(choice > 0, axis=1)
@@ -641,19 +641,16 @@ def choice_model(X, choice, beta, bb):
     # Extract active cue and action
     active_cue_idx = np.argmax(choice > 0, axis=1)
     actions = choice[np.arange(n_trials), active_cue_idx]
-    #print(actions)
     f_active = f[np.arange(n_trials), active_cue_idx]
-    #print(f_active)
 
     # Actual choice probability
     p_active = np.where(actions == 1, f_active, 1 - f_active)
-    #print(p_active)
 
+    # Calculate log-likelihood and choice values
     loglik = np.sum(np.log(p_active + 1e-10))
-    CV = np.where(actions == 1, z[np.arange(n_trials), active_cue_idx],
+    choice_values = np.where(actions == 1, z[np.arange(n_trials), active_cue_idx],
                                -z[np.arange(n_trials), active_cue_idx])
-    return loglik, CV
-
+    return loglik, choice_values
 
 
 def model_hybrid_speakup(lambda_, weight, kappa, actions, outcome):
