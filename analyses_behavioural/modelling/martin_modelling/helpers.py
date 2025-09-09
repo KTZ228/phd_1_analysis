@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import math
 import matplotlib.pyplot as plt
+from scipy.stats import gamma
 from scipy.special import expit  # sigmoid function
 
 def process_stimuli_file(base_dir, file_name):
@@ -517,15 +518,20 @@ def initialise_model_m4(params, data):
     Y = (choice == 1)
     
     loglik, _ = choice_model(X, choice, beta, bb)
+
+    # Normalise log-likelihood
+    loglik = loglik + gamma.logpdf(beta, loc=2.5, scale=2.5)
+
     return loglik
 
 
 def initialise_model_vkf_lesioned(params, data):
     """
-    Volatile Kalman Filter model according to Piray 2020 build for binary outcomes, with lesioned volatility update.
+    Volatile Kalman Filter model according to Piray 2020 build for binary outcomes, with lesioned volatility updating.
 
     Args:
         params: array of shape (4,) - [v_initial, Omega, Lambda, softmax_temperature, bias]
+            v_initial: fixed volatility level (since lambda is 0)
             Omega
             softmax_temperature: softmax inverse temperature (log scale)
             bias: bias parameter
