@@ -413,12 +413,38 @@ if __name__ == '__main__':
             os.makedirs(os.path.dirname(filename_and_path))
         vkf_trial_df.to_csv(filename_and_path, index=False, sep=';')
 
-    # Catch any errors during processing and log them
+    # Catch any errors during processing and log them extensively
     except Exception as e:
-        print(f"❌ Error processing sub-{subject_id:03d} session-{session:02d}: {e}")
-        filename_and_path = os.path.join(SAVE_DIR, 'fitting_errors', f'model_fit_sub-{subject_id:03d}_session-{session:02d}_error.txt')
+        # Get and format the full traceback
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        full_traceback = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+
+        # Get just the line number and function where error occurred
+        tb_lines = traceback.format_tb(exc_traceback)
+        error_location = tb_lines[-1].strip() if tb_lines else "Unknown location"
+
+        # Enhanced error message
+        error_msg = f"❌ Error processing sub-{subject_id:03d} session-{session:02d}:\n"
+        error_msg += f"Error Type: {type(e).__name__}\n"
+        error_msg += f"Error Message: {str(e)}\n"
+        error_msg += f"Location: {error_location}\n"
+
+        print(error_msg)
+        print("Full traceback:")
+        print(full_traceback)
+
+        # Save detailed error information to file
+        filename_and_path = os.path.join(SAVE_DIR, 'fitting_errors',f'model_fit_sub-{subject_id:03d}_session-{session:02d}_error.txt')
         if not os.path.exists(os.path.dirname(filename_and_path)):
             os.makedirs(os.path.dirname(filename_and_path))
+
         with open(filename_and_path, 'w') as f:
-            f.write(str(e))
+            f.write(f"Error processing sub-{subject_id:03d} session-{session:02d}\n")
+            f.write(f"Timestamp: {pd.Timestamp.now()}\n")
+            f.write(f"Error Type: {type(e).__name__}\n")
+            f.write(f"Error Message: {str(e)}\n")
+            f.write(f"Location: {error_location}\n\n")
+            f.write("Full Traceback:\n")
+            f.write(full_traceback)
+            f.write(f"Script: {__file__}\n")
             
