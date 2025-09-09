@@ -544,11 +544,11 @@ def initialise_model_vkf_lesioned(params, data):
     outcomes = data['outcome']
 
     # Extract parameters
-    v_initial = 0
-    Omega = params[0]
+    v_initial = params[0]
+    Omega = params[1]
     Lambda = 0
-    softmax_temperature = np.exp(np.clip(params[1], -5, 4.6))
-    bias = params[2]
+    softmax_temperature = np.exp(np.clip(params[2], -5, 4.6))
+    bias = params[3]
 
     # Bias vector
     bias_vector = np.array([bias, -bias])
@@ -556,9 +556,11 @@ def initialise_model_vkf_lesioned(params, data):
     # Run binary VKF model
     k_array, m_array, w_array, w_covariance_array, v_array = vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda)
 
+    # Transform m_array to Q-values
+    q_values = m_array
+
     # Compute log-likelihood
-    X = m_array[:len(actions), :] # Not sure if this is correct
-    loglik, choice_values = choice_model(X, actions, softmax_temperature, bias_vector)
+    loglik, choice_values = choice_model(q_values, actions, softmax_temperature, bias_vector)
 
     return loglik, k_array, m_array, w_array, w_covariance_array, v_array
 
@@ -601,16 +603,18 @@ def initialise_model_vkf(params, data):
     # Run binary VKF model
     k_array, m_array, w_array, w_covariance_array, v_array = vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda)
 
+    # Transform m_array to Q-values
+    q_values = m_array
+
     # Compute log-likelihood
-    X = m_array[:len(actions), :] # Not sure if this is correct
-    loglik, choice_values = choice_model(X, actions, softmax_temperature, bias_vector)
+    loglik, choice_values = choice_model(q_values, actions, softmax_temperature, bias_vector)
 
     return loglik, k_array, m_array, w_array, w_covariance_array, v_array
 
 
 def choice_model(X, choice, beta, bb):
     """
-    Compute log-likelihood of observed choices, given the Q-values produced by the learning model, using a logistic function.
+    Computes the (log-)likelihood of observed choices, given the Q-values produced by the learning model.
 
     Args:
         X: Q-value differences, shape (n_trials, n_cues)
@@ -934,11 +938,11 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
         actions: (n_trials, nq) array of actions
         outcomes: (n_trials, nq) array of outcomes
         v_initial: initial volatility estimate
-        Lambda: volatility learning rate
         Omega: constant for posterior variance
+        Lambda: volatility learning rate
     Returns:
         k_array: all learning rates (Kalman gains)
-        m_array: all posterior means of the hidden gaussian state
+        m_array: all posterior means of the hidden gaussian state, are these the Q-values? if so the indexing should be done with actions instead of cues
         w_array: all posterior variances
         w_covariance_array: all posterior covariances
         v_array: volatility estimates over time
@@ -979,7 +983,7 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
 
         # Identify stimuli_type_t cue and action
         cue = np.where(stimuli_type_t)[0][0] # cue index on trial t
-        action = action_row[cue] - 1 # set action codes to 0 and 1 instead of 1 and 2
+        #action = action_row[cue] - 1 # set action codes to 0 and 1 instead of 1 and 2
         outcome = outcome_row[cue] # observed outcome on trial t
 
         # Compute Kalman gain (learning rate)
@@ -989,7 +993,7 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
         alpha = math.sqrt(w_array[trial, cue] + v_array[trial, cue])
 
         # Compute hidden posterior mean gaussian state, implemented with a sigmoid function for binary outcomes
-        m_array[trial + 1, cue] = m_array[trial, cue] + alpha * (outcome -  (1 / (1 + np.exp(m_array[trial, cue]))))
+        m_array[trial + 1, cue] = m_array[trial, cue] + alpha * (outcome -  expit(m_array[trial, cue]))
 
         # Compute hidden posterior variance
         w_array[trial + 1, cue] = (1 - k_array[trial + 1, cue]) * (w_array[trial, cue] + v_array[trial, cue])
@@ -998,10 +1002,7 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
         w_covariance_array[trial + 1, cue] = (1 - k_array[trial + 1, cue]) * w_array[trial, cue]
 
         # Update volatility estimate
-        if Lambda == 0:
-            v_array[trial + 1, cue] = 0
-        else:
-            v_array[trial + 1, cue] = v_array[trial, cue] + Lambda * ((m_array[trial + 1, cue] - m_array[trial, cue]) ** 2 + w_array[trial, cue] + w_array[trial + 1, cue] - 2 * w_covariance_array[trial + 1, cue] - v_array[trial, cue])
+        v_array[trial, cue] + Lambda * ((m_array[trial + 1, cue] - m_array[trial, cue]) ** 2 + w_array[trial, cue] + w_array[trial + 1, cue] - 2 * w_covariance_array[trial + 1, cue] - v_array[trial, cue])
 
         # Now update the paired (opponent) cue with inverse contingencies
         cue_opposite = cue ^ 1  # Flip bit to get paired cue index
@@ -1012,8 +1013,8 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
             # Compute learning rate
             alpha_opposite = math.sqrt(w_array[trial, cue_opposite] + v_array[trial, cue_opposite])
 
-            # Compute hidden posterior mean gaussian state, implemented with a sigmoid function for binary outcomes
-            m_array[trial + 1, cue_opposite] = m_array[trial, cue_opposite] + alpha_opposite * (outcome -  (1 / (1 + np.exp(m_array[trial, cue_opposite]))))
+            # Compute hidden posterior mean gaussian state, implemented with a sigmoid function for binary outcomes # remove the opposite outcomes!!!!
+            m_array[trial + 1, cue_opposite] = (m_array[trial, cue_opposite] + alpha_opposite * (-outcome -  expit(m_array[trial, cue_opposite])))
 
             # Compute hidden posterior variance
             w_array[trial + 1, cue_opposite] = (1 - k_array[trial + 1, cue_opposite]) * (w_array[trial, cue_opposite] + v_array[trial, cue_opposite])
@@ -1022,9 +1023,32 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
             w_covariance_array[trial + 1, cue_opposite] = (1 - k_array[trial + 1, cue_opposite]) * w_array[trial, cue_opposite]
 
             # Update volatility estimate
-            if Lambda == 0:
-                v_array[trial + 1, cue_opposite] = 0
-            else:
-                v_array[trial + 1, cue_opposite] = v_array[trial, cue_opposite] + Lambda * ((m_array[trial + 1, cue_opposite] - m_array[trial, cue_opposite]) ** 2 + w_array[trial, cue_opposite] + w_array[trial + 1, cue_opposite] - 2 * w_covariance_array[trial + 1, cue_opposite] - v_array[trial, cue_opposite])
+            v_array[trial, cue_opposite] + Lambda * ((m_array[trial + 1, cue_opposite] - m_array[trial, cue_opposite]) ** 2 + w_array[trial, cue_opposite] + w_array[trial + 1, cue_opposite] - 2 * w_covariance_array[trial + 1, cue_opposite] - v_array[trial, cue_opposite])
+
+    # Remove the first row (initialization)
+    k_array = k_array[1:len(actions) + 1, :]
+    m_array = m_array[1:len(actions) + 1, :]
+    w_array = w_array[1:len(actions) + 1, :]
+    w_covariance_array = w_covariance_array[1:len(actions) + 1, :]
+    v_array = v_array[1:len(actions) + 1, :]
 
     return k_array, m_array, w_array, w_covariance_array, v_array
+
+if __name__ == '__main__':
+    # Debugging
+    from fit_models_per_sub import load_subject_data, format_data
+
+    subject_id = 5
+    session = 1
+
+    df = load_subject_data(subject_id, session)
+    data, n_trials = format_data(df)
+
+    #params = np.random.uniform(low=[-5, -6, -6, -1], high=[4.6, 6, 6, 1])
+    #initialise_model_m4(params, data)
+
+    #params = np.random.uniform(low=[0, -5, -1], high=[100, 4.6, 1])
+    #initialise_model_vkf_lesioned(params, data)
+
+    params = np.random.uniform(low=[1e-6, 0, 1e-6, -5, -1], high=[100, 100, 1, 4.6, 1])
+    initialise_model_vkf(params, data)
