@@ -508,7 +508,7 @@ def initialise_model_m4(params, data):
     loglik, _ = choice_model(X, choice, beta, bb)
 
     # Normalise log-likelihood
-    loglik = loglik + gamma.logpdf(beta, loc=2.5, scale=2.5)
+    #loglik = loglik + gamma.logpdf(beta, loc=2.5, scale=2.5)
 
     return loglik
 
@@ -964,17 +964,13 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
 
     # Learning loop
     for trial in range(n_trials):
-        # Current trial data
+        # Identify current trial data for cue and outcome
         action_row = actions[trial, :]
         outcome_row = outcomes[trial, :]
-        stimuli_type_t = action_row > 0 # Determines in which of the two cue columns one must look for the action and outcome
-
+        stimuli_type_t = action_row > 0 # Determines in which of the two cue columns one must look for the cue and outcome
         if np.sum(stimuli_type_t) != 1:
             raise ValueError(f"Expected exactly one stimuli_type_t at trial {trial}")
-
-        # Identify stimuli_type_t cue and action
         cue = np.where(stimuli_type_t)[0][0] # cue index on trial t
-        #action = action_row[cue] - 1 # set action codes to 0 and 1 instead of 1 and 2
         outcome = outcome_row[cue] # observed outcome on trial t
 
         # Compute Kalman gain (learning rate)
@@ -984,7 +980,7 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
         alpha = math.sqrt(w_array[trial, cue] + v_array[trial, cue])
 
         # Compute hidden posterior mean gaussian state, implemented with a sigmoid function for binary outcomes
-        m_array[trial + 1, cue] = m_array[trial, cue] + alpha * (outcome -  expit(m_array[trial, cue]))
+        m_array[trial + 1, cue] = m_array[trial, cue] + alpha * (outcome - expit(m_array[trial, cue]))
 
         # Compute hidden posterior variance
         w_array[trial + 1, cue] = (1 - k_array[trial + 1, cue]) * (w_array[trial, cue] + v_array[trial, cue])
@@ -1005,7 +1001,7 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
             alpha_opposite = math.sqrt(w_array[trial, cue_opposite] + v_array[trial, cue_opposite])
 
             # Compute hidden posterior mean gaussian state, implemented with a sigmoid function for binary outcomes # remove the opposite outcomes!!!!
-            m_array[trial + 1, cue_opposite] = (m_array[trial, cue_opposite] + alpha_opposite * (-outcome -  expit(m_array[trial, cue_opposite])))
+            m_array[trial + 1, cue_opposite] = (m_array[trial, cue_opposite] + alpha_opposite * (-outcome - expit(m_array[trial, cue_opposite])))
 
             # Compute hidden posterior variance
             w_array[trial + 1, cue_opposite] = (1 - k_array[trial + 1, cue_opposite]) * (w_array[trial, cue_opposite] + v_array[trial, cue_opposite])
@@ -1016,7 +1012,7 @@ def vkf_learning_model_binary(actions, outcomes, v_initial, Omega, Lambda):
             # Update volatility estimate
             v_array[trial + 1, cue_opposite] = v_array[trial, cue_opposite] + Lambda * ((m_array[trial + 1, cue_opposite] - m_array[trial, cue_opposite]) ** 2 + w_array[trial, cue_opposite] + w_array[trial + 1, cue_opposite] - 2 * w_covariance_array[trial + 1, cue_opposite] - v_array[trial, cue_opposite])
 
-    # Remove the first row (initialization)
+    # Remove the first row (initialization), so that the output arrays have the same length as the number of trials
     k_array = k_array[1:len(actions) + 1, :]
     m_array = m_array[1:len(actions) + 1, :]
     w_array = w_array[1:len(actions) + 1, :]

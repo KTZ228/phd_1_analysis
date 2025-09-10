@@ -29,7 +29,7 @@ else:
     BASE_DIR = r'/project/3025011.02/raw/'
     SAVE_DIR = r'/project/3025011.02/pre-processed/modelling'
 
-n_random_starting_combinations = 50  # Number of random starting number combinations that will be tried
+n_random_starting_combinations = 48  # Number of random starting number combinations that will be tried
 cpu_cores_to_utilise = min(64, multiprocessing.cpu_count())
 
 # Create output directory
@@ -367,9 +367,10 @@ if __name__ == '__main__':
             'model4_kappa2': expit(params4[2]),
             'model4_bias': params4[3],
             'model5_ll': ll_vkf_lesioned,
-            'model5_omega': params_vkf_lesioned[0],
-            'model5_beta': np.exp(params_vkf_lesioned[1]),
-            'model5_bias': params_vkf_lesioned[2],
+            'model5_v_initial': params_vkf_lesioned[0],
+            'model5_omega': params_vkf_lesioned[1],
+            'model5_beta': np.exp(params_vkf_lesioned[2]),
+            'model5_bias': params_vkf_lesioned[3],
             'model6_ll': ll_vkf,
             'model6_v_initial': params_vkf[0],
             'model6_omega': params_vkf[1],
@@ -395,10 +396,10 @@ if __name__ == '__main__':
                 'subject_id': subject_id,
                 'session_number': session,
                 'trial': trial,
-                'stimuli_type': active_cue + 1,
-                'learning_rate': k_array[trial + 1, active_cue] if not np.isnan(k_array[trial + 1, active_cue]) else None,
-                'volatility_estimate': np.exp(v_array[trial + 1, active_cue]) if not np.isnan(v_array[trial + 1, active_cue]) else None, # Both of these include the initial value at t=0
-                'q-value': m_array[trial + 1, active_cue] if not np.isnan(m_array[trial + 1, active_cue]) else None
+                'stimuli_type': active_cue,  # 0 = happy, 1 = angry
+                'learning_rate': k_array[trial, active_cue] if not np.isnan(k_array[trial, active_cue]) else None,
+                'volatility_estimate': np.exp(v_array[trial, active_cue]) if not np.isnan(v_array[trial, active_cue]) else None,
+                'q-value': m_array[trial, active_cue] if not np.isnan(m_array[trial, active_cue]) else None
             })
 
         # Save trial data to CSV
