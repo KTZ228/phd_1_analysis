@@ -1,0 +1,209 @@
+---
+title: "Approach-Avoidance Reversal-Learning paradigm"
+author: "Kenneth van der Zee"
+date: "`r Sys.Date()`"
+params:
+  render_title: "GLMM for accuracy and reaction time"
+  group: "all"
+  #sum_method: "cue-unspec" # cue-specific ("cue-spec") or cue-unspecific summarisation for miniblocks
+  models2run: 9 # default glmm model to run
+output: html_document
+---
+
+# clear enviroment
+```{r}
+#rm(list=ls())
+```
+
+# Initalize
+## Knit & Setting up directory
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Volumes/project/3025011.02/pre-processed/behaviour/")
+
+```
+
+## Load libraries
+```{r}
+library(renv)           # save package versions
+library(tidyverse)      # data managing
+library(tidyr)          # data handling
+library(dplyr)          # data managing
+library(ggplot2)        # plotting
+library(lme4)           # mixed (logistic) models
+library(emmeans)
+
+renv::snapshot()
+```
+
+## Setting up directory
+```{r}
+# If running on laptop
+datadir.ps <- "/Volumes/project/3025011.02/pre-processed/behaviour/"
+datadir.out <- "/Volumes/project/3025011.02/pre-processed/behaviour/GLMM"
+datadir.wd <- "/Volumes/project/3025011.02/pre-processed/behaviour"
+
+# Set working directory 
+setwd(datadir.wd)
+
+# Create folder extension for figures/save files/prefix for test-retest files
+datadir.figure <- "figures"
+datadir.stats <- "glmm_saves"
+datadir.fn_prefix <- "AARL"
+```
+
+## Load data
+```{r}
+cat("loading data\n")
+
+combined_dataframe_location <- "/Volumes/project/3025011.02/pre-processed/behaviour/combined_dataframe_for_r.csv"
+
+df <- read.csv(combined_dataframe_location, header = TRUE, sep = ";")
+```
+
+# Prep data
+## redefine variables
+```{r}
+cat("prep data\n")
+
+# Set as numeric
+df$trial <- as.numeric(df$trial)
+df$trials_since_reversal <- as.numeric(df$trials_since_reversal)
+
+# Set as factors
+df$subject_id <- as.factor(df$subject_id)
+df$session <- as.factor(df$session)
+#df$stimulation_condition <- as.factor(df$stimulation_condition)
+df$subjectively_correct_boolean <- as.factor(df$subjectively_correct_boolean)
+df$objectively_correct_boolean <- as.factor(df$objectively_correct_boolean)
+df$valence <- as.factor(df$valence)
+df$volatility <- as.factor(df$volatility)
+df$response_boolean <- as.factor(df$response_boolean)
+df$same_response_as_one_back <- as.factor(df$same_response_as_one_back)
+df$correct_response <- as.factor(df$correct_response)
+df$WS_subjective <- as.factor(df$WS_subjective)
+df$LS_subjective <- as.factor(df$LS_subjective)
+
+cat("Setting zero-sum-coding\n")
+# This is why we don't relevel or make contrasts. We use emmeans to analyse the data further
+options(contrasts = c("contr.sum", "contr.poly"))
+
+# NO scientific notation
+options(scipen = 20)
+```
+
+## Centering predictors
+```{r}
+# center the linear numeric predictors
+df$trial_centered <- scale(df$trial, center = TRUE, scale = TRUE)
+df$trial_centered <- df$trial_centered[,1]
+df$trials_since_reversal_centered <- scale(df$trials_since_reversal, center = TRUE, scale = TRUE)
+df$trials_since_reversal_centered <- df$trials_since_reversal_centered[,1]
+```
+
+# Modelling
+## Define Models
+```{r}
+# define models
+
+# Insert model that tests response ~ most_rewarding_response * valence to test whether people learned the task
+## Effect of valence can also be used to check whether people have a bias for one face or another
+# This shows that participants learn the task since the most rewarding response and the given response interact
+# It also shows that valence of the stimuli influences the given responses, which makes sense since participants are more likely to give the affect congruent compared to incongruent response
+# Lastly, they don't interact since these two factors don't interact which means that this bias for the underlying correct response does not differ based on face type.
+
+# WSLS
+# stay coded as 1, shift as -1
+# stay_shift ~ subjective_performance * valence
+# Helps map how people respond to feedback
+# Participants did change their choice in according to feedback they got one trial back
+# There is an interaction between the type of response and whether the participant repeated a response
+# But there is no interaction between the feedback from the previous trial and the given response on whether someone changes their tendency to repeat a response
+
+# WSLS congruency
+# This model tries to capture whether congruency plays a role in whether people stay or shift if this changes
+
+# Consider doing separate models for WS and LS
+
+GLMM_formulas <- c("response_boolean ~ correct_response * valence + (1 |subject_id)",
+                
+                    "same_response_as_one_back ~ subjectively_correct_boolean_one_back * response_boolean + (1 |subject_id)",
+                   
+                   "same_response_as_one_back ~ subjectively_correct_boolean_one_back * valence * response_boolean + (1 |subject_id)",
+                   
+                   "WS_subjective ~ subjectively_correct_boolean_one_back * valence * response_boolean + (1 |subject_id)",
+                   
+                   "LS_subjective ~ subjectively_correct_boolean_one_back * valence * response_boolean + (1 |subject_id)",
+                   
+                   "WS_subjective ~ subjectively_correct_boolean_one_back * valence * response_boolean * volatility + (1 |subject_id)",
+                   
+                   "LS_subjective ~ subjectively_correct_boolean_one_back * valence * response_boolean * volatility + (1 |subject_id)",
+                   
+                   "objectively_correct_boolean ~ valence * response_boolean * volatility + (1 |subject_id)",
+                   
+                   "objectively_correct_boolean ~ valence * correct_response * volatility + (1 |subject_id)"
+)
+
+GLMM_names <- c("Learning check",
+                  
+                 "WSLS",
+                
+                "WSLS congruency",
+                
+                "WS congruency",
+                
+                "LS congruency",
+                
+                "WS congruency volatility",
+                
+                "LS congruency volatility",
+                
+                "accuracy congruency volatility",
+                
+                "accuracy underlying congruency volatility"
+)
+
+```
+
+## Run Models
+```{r glmm-models-keypresses, echo=TRUE, message=TRUE, warning=TRUE}
+
+glmm_models <- list()
+
+for(i in 1:length(GLMM_formulas)) {
+  cat("Running model", i, ":", GLMM_names[i], "\n")
+  
+  glmm_models[[GLMM_names[i]]] = lme4::glmer(GLMM_formulas[i], 
+                        data = df,
+                        family = 'binomial',
+                        control = glmerControl(optimizer = "bobyqa", 
+                         optCtrl = list(maxfun = 2e5))
+                        )
+}
+```
+
+```{r}
+anova(glmm_models[[8]], glmm_models[[9]])
+```
+
+```{r}
+# Get model summary
+i <- 9
+
+summary(glmm_models[[i]])
+
+confint(glmm_models[[i]], method = "Wald")
+
+```
+
+```{r glmm-models-keypresses, echo=TRUE, message=TRUE, warning=TRUE}
+# run pairwise comparisons
+# We obtained p-values from Wald chi-square tests using Type-3 sums-of-squares via the Anova() function from the car package.
+# When wanting to compare 3-way interactions or higher, take a subset of the dataset to see where the 2-way interaction comes from
+emm <- emmeans(glmm_models[[i]], ~ response_boolean * valence * volatility)
+emm
+```
+
+```{r}
+contrast(emm, "pairwise")
+```
