@@ -3,6 +3,7 @@ import glob
 import re
 import pandas as pd
 import numpy as np
+import utils
 
 
 def unique_subject_ids_and_sessions(file_path: str,
@@ -320,7 +321,7 @@ def flip_joystick_data(dataframe: pd.DataFrame) -> pd.DataFrame:
 
 def check_congruency(row,
                      binary_output: bool = False):
-    """ Functions that reads a row and sees whether the conditions are congruent or not.
+    """ Functions that reads a row and sees whether the participant's response was congruent or not.
     So here, we code the movement where you push the joystick away from you for happy faces as incongruent.
 
     Parameters
@@ -332,21 +333,56 @@ def check_congruency(row,
     condition : str
         A string containing the congruency condition for the given row.
     """
+    if (row['response'] == 'up' and row['stimuli_type'] == 1) or (
+            row['response'] == 'down' and row['stimuli_type'] == 2):
+        if binary_output is True:
+            condition = 1
+        else:
+            condition = 'congruent'
+    elif (row['response'] == 'down' and row['stimuli_type'] == 1) or (
+            row['response'] == 'up' and row['stimuli_type'] == 2):
+        if binary_output is True:
+            condition = -1
+        else:
+            condition = 'incongruent'
+    else:
+        if binary_output is True:
+            condition = 0
+        else:
+            condition = 'undefined'
+
+    return condition
+
+
+def check_hidden_congruency(row,
+                     binary_output: bool = False):
+    """ Functions that reads a row and sees whether the conditions are congruent or not.
+    So here, we code the most rewarding movement being where you have to push the joystick away from you for happy faces as incongruent.
+
+    Parameters
+    ----------
+    row : pd.DataFrame.row
+
+    Returns
+    -------
+    condition : str
+        A string containing the congruency condition for the given row.
+    """
     if (row['probability_condition'] > 50 and row['stimuli_type'] == 1) or (
-            row['probability_condition'] < 50 and row['stimuli_type'] == 2):
+                row['probability_condition'] < 50 and row['stimuli_type'] == 2):
         if binary_output is True:
             condition = 1
         else:
             condition = 'congruent'
     elif (row['probability_condition'] < 50 and row['stimuli_type'] == 1) or (
-            row['probability_condition'] > 50 and row['stimuli_type'] == 2):
+                row['probability_condition'] > 50 and row['stimuli_type'] == 2):
         if binary_output is True:
-            condition = 0
+            condition = -1
         else:
             condition = 'incongruent'
     else:
         if binary_output is True:
-            condition = -1
+            condition = 0
         else:
             condition = 'undefined'
 
@@ -368,7 +404,7 @@ def check_valence(row,
     """
     if row['stimuli_type'] == 1:
         if binary_output is True:
-            emotional_valence = 0
+            emotional_valence = -1
         else:
             emotional_valence = 'angry'
     elif row['stimuli_type'] == 2:
@@ -378,11 +414,43 @@ def check_valence(row,
             emotional_valence = 'happy'
     else:
         if binary_output is True:
-            emotional_valence = -1
+            emotional_valence = 0
         else:
             emotional_valence = 'no_emotion'
 
     return emotional_valence
+
+
+def check_correct_response(row,
+                        binary_output: bool = False):
+    """ Functions that reads a row and notes the response that would have resulted in the highest chance of a reward.
+
+    Parameters
+    ----------
+    row : pd.DataFrame.row
+
+    Returns
+    -------
+    condition : str
+        A string containing the valence for the given row.
+    """
+    if row['probability_condition'] == 80:
+        if binary_output is True:
+            correct_response = 1
+        else:
+            correct_response = 'up'
+    elif row['probability_condition'] == 20:
+        if binary_output is True:
+            correct_response = -1
+        else:
+            correct_response = 'down'
+    else:
+        if binary_output is True:
+            correct_response = 0
+        else:
+            correct_response = 'no_correct_response'
+
+    return correct_response
 
 
 def check_volatility(dataframe: pd.DataFrame,
@@ -407,7 +475,7 @@ def check_volatility(dataframe: pd.DataFrame,
     # Initialize the new column with empty strings
     dataframe['volatility'] = ''
     if binary_output:
-        previous_label = 0
+        previous_label = -1
     else:
         previous_label = 'volatile'
 
@@ -433,7 +501,7 @@ def check_volatility(dataframe: pd.DataFrame,
 
             # Determine if the streak is 'short' or 'long'
             if binary_output:
-                label = 1 if streak_length < stable_cutoff else 0
+                label = 1 if streak_length < stable_cutoff else -1
                 starting_label = 1
             else:
                 label = 'volatile' if streak_length < stable_cutoff else 'stable'
@@ -454,7 +522,7 @@ def check_volatility(dataframe: pd.DataFrame,
                 dataframe.loc[start_index:start_index+10 - 1, 'volatility'] = starting_label
                 dataframe.loc[start_index+10:index - 1, 'volatility'] = label
             ## Ensures that the first 10 trials or block of a new volatile and stable period are labelled as the previous block
-            elif label == 'stable' and previous_label == 'volatile' or label == 0 and previous_label == 1:
+            elif label == 'stable' and previous_label == 'volatile' or label == -1 and previous_label == 1:
                 dataframe.loc[start_index:start_index+10 - 1, 'volatility'] = previous_label
                 dataframe.loc[start_index+10:index - 1, 'volatility'] = label
             else:
@@ -514,7 +582,8 @@ def main(raw_output_path,
          unique_sessions,
          pilot_analysis=False,
          binary_output=False,
-         remove_reversals=False) -> pd.DataFrame:
+         remove_reversals=False,
+         remove_invalid_trials=True) -> pd.DataFrame:
     """ Main function that runs the import functions.
 
     Parameters
@@ -553,18 +622,32 @@ def main(raw_output_path,
     # Checks if and compensates for when the joystick was flipped for any of the sessions
     dataframe = flip_joystick_data(dataframe)
 
-    # Turns the objective values into boolean ones
+    # Turns the performance values into boolean ones
     mapping = {'True': 1, 'False': 0, 'Even': 0, 'Late': 0}
     dataframe['objectively_correct_boolean'] = dataframe['objectively_correct'].replace(mapping)
     dataframe['objectively_correct_boolean'] = dataframe['objectively_correct_boolean'].astype('int')
+    dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct'].replace(mapping)
+    dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct_boolean'].astype('int')
+    dataframe['subjectively_correct_boolean_one_back'] = dataframe['subjectively_correct_boolean'].shift(1)
 
-    # Make congruency column
+    # Convert performance to errors
+    dataframe['objective_errors'] = 1 - dataframe['objectively_correct_boolean']
+    dataframe['subjective_errors'] = 1 - dataframe['subjectively_correct_boolean']
+
+    # Make congruency and hidden congruency columns
     dataframe['congruency'] = dataframe.apply(check_congruency, args=(binary_output,), axis=1)
     print(dataframe[['stimuli_type', 'probability_condition', 'congruency']])
+    dataframe['hidden_congruency'] = dataframe.apply(check_hidden_congruency, args=(binary_output,), axis=1)
 
     # Make valence column
     dataframe['valence'] = dataframe.apply(check_valence, args=(binary_output,), axis=1)
     print(dataframe[['stimuli_type', 'valence']])
+
+    # Add WSLS column before removing trials
+    dataframe = utils.learning_models.add_WSLS_column(dataframe)
+    mapping = {1: 1, -1: 0}
+    dataframe['stay_shift'] = dataframe['same_response_as_one_back'].replace(mapping)
+    dataframe['stay_shift'] = dataframe['stay_shift'].astype('int')
 
     # Make volatility column
     dataframe = dataframe[dataframe['probability_condition'] != 50]
@@ -576,11 +659,12 @@ def main(raw_output_path,
     dataframe['stimulation_condition'] = dataframe.apply(check_stimulation_condition, args=(binary_output,), axis=1)
     print(dataframe[['subject_id', 'session', 'stimulation_condition']])
 
-    # Remove trials where RT < 50ms, please not that this number is arbitrary and can be changed
-    dataframe = dataframe[dataframe['RT_s'] >= 0.05]
-
-    # Remove late trials
-    dataframe = dataframe[dataframe['objectively_correct'] != 'Late']
+    # Add a column for the most rewarding response
+    dataframe['correct_response'] = dataframe.apply(check_correct_response, args=(binary_output,), axis=1)
+    # Make binary response column
+    mapping = {'up': 1, 'down': -1}
+    dataframe['response_boolean'] = dataframe['response'].replace(mapping)
+    dataframe['correct_response_boolean'] = dataframe['correct_response'].replace(mapping)
 
     # Add a column that indicates how many trials ago the last reversal occurred
     dataframe['trials_since_reversal'] = (
@@ -592,8 +676,20 @@ def main(raw_output_path,
     if remove_reversals:
         dataframe = dataframe[dataframe['trials_since_reversal'] != 0]
 
+    if remove_invalid_trials:
+        # Remove trials where RT < 50ms, please note that this number is arbitrary and can be changed
+        dataframe = dataframe[dataframe['RT_s'] >= 0.05]
+
+        # Remove late trials
+        dataframe = dataframe[dataframe['objectively_correct'] != 'Late']
+
     # Reset order of dataframe
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'trial'], ascending=[True, True, True])
+
+    # Add columns containing integers for the subject_id and session number
+    if binary_output:
+        dataframe['subject_id'] = dataframe['subject_id'].str.replace('sub-', '').astype(int)
+        dataframe['session'] = dataframe['session'].str.replace('session-', '').astype(int)
 
     return dataframe
 

@@ -41,7 +41,7 @@ function mask_transformation(subject_name)
     %% Segment subregions using freesurfer
     system(sprintf('segment_subregions hippo-amygdala --cross %s', subject_name))
     
-    %% Extract the amygdala's
+    %% Extract the amygdala's and dACC's from the freesurfer output
     % First, make sure it can reach the subject subfolders
     output_location_subject_tmp = sprintf('%s/%s', output_location_subject_tmp, subject_name)
     system(sprintf('mri_binarize --i %s/mri/lh.hippoAmygLabels.mgz --match 7001 7003 --o %s/amygdala_left.mgz', output_location_subject_tmp, output_location_subject_tmp))
@@ -51,7 +51,7 @@ function mask_transformation(subject_name)
     system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 2002 --o %s/dacc_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
     
     
-    %% Convert these masks to nifti's
+    %% Convert the freesurfer masks to nifti's
     system(sprintf('mri_convert %s/amygdala_left.mgz %s/%s_amygdala_left.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
     system(sprintf('mri_convert %s/amygdala_right.mgz %s/%s_amygdala_right.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
     system(sprintf('mri_convert %s/dacc_left.mgz %s/%s_dacc_left.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
@@ -73,9 +73,10 @@ function mask_transformation(subject_name)
     system(sprintf('bet %s %s -R -f 0.5', input_t1_name_and_location, input_t1_skullstriped))
 
     %% Linear affine registration (T1 > MNI)
-    system(sprintf('flirt -in %s -ref $FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz -omat subj2MNI_aff.mat -dof 12', input_t1_skullstriped));
+    system(sprintf('flirt -in %s -ref $FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz -omat subj2MNI_lin_aff.mat -dof 12', input_t1_skullstriped));
 
-    system(sprintf('convert_xfm -omat MNI2subj.mat -inverse subj2MNI_aff.mat'))
+    %% Flip the affine transformation matrix from (T1 > MNI) to (MNI > T1)
+    system(sprintf('convert_xfm -omat MNI2subj.mat -inverse subj2MNI_lin_aff.mat'))
 
     system(sprintf('flirt -in %s -ref %s -applyxfm -init MNI2subj.mat -out %s/%s_payam_left_dacc_mask.nii.gz -interp nearestneighbour', left_dacc_location, input_t1_skullstriped, output_location_subject, subject_name))
     system(sprintf('flirt -in %s -ref %s -applyxfm -init MNI2subj.mat -out %s/%s_payam_right_dacc_mask.nii.gz -interp nearestneighbour', right_dacc_location, input_t1_skullstriped, output_location_subject, subject_name))
