@@ -7,7 +7,7 @@
 
 ### Submit batch jobs to slurm for quality control
 #### Subject level
-`mriqc_sub /project/3025011.02/bids`
+`mriqc_sub /project/3025011.02/bids -a " --no-sub"`
 
 #### Group level
-`mriqc_group /project/3025011.02/bids(/sub)?`
+`mriqc_group /project/3025011.02/bids -a " --no-sub"`

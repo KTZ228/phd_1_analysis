@@ -56,7 +56,7 @@ function mask_transformation(subject_name)
     system(sprintf('mri_convert %s/amygdala_right.mgz %s/%s_amygdala_right.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
     system(sprintf('mri_convert %s/dacc_left.mgz %s/%s_dacc_left.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
     system(sprintf('mri_convert %s/dacc_right.mgz %s/%s_dacc_right.nii.gz', output_location_subject_tmp, output_location_subject, subject_name))
-
+    
     %% Translate Payam's dACC mask
     left_dacc = ('payam_left_dacc_mask.nii.gz');
     left_dacc_location = fullfile(masks_folder, left_dacc)
@@ -67,19 +67,26 @@ function mask_transformation(subject_name)
     cd (output_location_subject_tmp)
 
     input_t1_skullstriped = sprintf('%s_T1w_bet.nii.gz', subject_name)
-    input_aff_transformation = sprintf('%s_affine_transformation_matrix.mat', subject_name)
+    transformation_matrix_linear = 'subj2MNI_lin_aff.mat'
+    transformation_matrix_nonlinear = 'subj2MNI_nonlin_aff'
+    transformation_matrix_nonlinear_inverted = 'MNI2subj_nonlin_aff'
 
     % Strip skull from subject T1
     system(sprintf('bet %s %s -R -f 0.5', input_t1_name_and_location, input_t1_skullstriped))
 
-    %% Linear affine registration (T1 > MNI)
-    system(sprintf('flirt -in %s -ref $FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz -omat subj2MNI_lin_aff.mat -dof 12', input_t1_skullstriped));
+    %% Create a linear affine transformation matrix as a starting point for the non-linear transformation (T1 > MNI)
+    % Only fnirt needs a skullstriped brain, flirt does not
+    system(sprintf('flirt -in %s -ref $FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz -omat %s -dof 12', input_t1_skullstriped, transformation_matrix_linear));
 
-    %% Flip the affine transformation matrix from (T1 > MNI) to (MNI > T1)
-    system(sprintf('convert_xfm -omat MNI2subj.mat -inverse subj2MNI_lin_aff.mat'))
+    %% Create a non-linear affine transformation matrix with the linear transformation matrix as a starting point (T1 > MNI)
+    system(sprintf('fnirt --ref=$FSLDIR/data/standard/MNI152_T1_2mm.nii.gz --in=%s --aff=%s --cout=%s --config=T1_2_MNI152_2mm', input_t1_name_and_location, transformation_matrix_linear, transformation_matrix_nonlinear));
 
-    system(sprintf('flirt -in %s -ref %s -applyxfm -init MNI2subj.mat -out %s/%s_payam_left_dacc_mask.nii.gz -interp nearestneighbour', left_dacc_location, input_t1_skullstriped, output_location_subject, subject_name))
-    system(sprintf('flirt -in %s -ref %s -applyxfm -init MNI2subj.mat -out %s/%s_payam_right_dacc_mask.nii.gz -interp nearestneighbour', right_dacc_location, input_t1_skullstriped, output_location_subject, subject_name))
+    %% Invert the affine transformation matrix from (T1 > MNI) to (MNI > T1)
+    system(sprintf('invwarp --ref=%s --warp=%s.nii.gz --out=%s', input_t1_name_and_location, transformation_matrix_nonlinear, transformation_matrix_nonlinear_inverted));
+
+    %% Apply the inverted affine transformation matrix to Payam's dACC masks
+    system(sprintf('/opt/fsl/6.0.3/bin/applywarp --ref=%s --in=%s --warp=%s.nii.gz --out=%s/%s_payam_left_dacc_mask.nii.gz --interp=nn', input_t1_name_and_location, left_dacc_location, transformation_matrix_nonlinear_inverted, output_location_subject, subject_name));
+    system(sprintf('/opt/fsl/6.0.3/bin/applywarp --ref=%s --in=%s --warp=%s.nii.gz --out=%s/%s_payam_right_dacc_mask.nii.gz --interp=nn', input_t1_name_and_location, right_dacc_location, transformation_matrix_nonlinear_inverted, output_location_subject, subject_name));
 
     %% Delete tmp folder
     system(sprintf('rm -rf %s', output_location_subject_tmp))
