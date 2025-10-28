@@ -12,9 +12,11 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-which_sims = 'target_3';
+which_sims = 'target_2';
 test_pipeline = 0;
 localite_coordinates = 0;
+include_mask = 0;
+% Should include which t1 and t2 to use based on cut-off
 
 heating_sims = 1;
 heatrise_optimised = 0;
@@ -22,9 +24,9 @@ heatrise_optimised = 0;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [37];%[5, 10, 11, 14, 15, 16, 20, 22];
-session_number = 1;
- 
+subject_list = [43];
+session_number = 2;
+
 % Set config files and export location]
 if strcmp(which_sims, 'target_1')
     config_sequential = 'config_kenneth_phd_1_amygdala_1_PCD15287_01001_90mm.yaml';
@@ -38,7 +40,7 @@ end
 
 % Config location
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
-localite_location = '/project/3025011.02/localite/sub-x%03d/ses-%02d/InstrumentMarkers/';
+localite_location = '/project/3025011.02/raw/sub-%03d/ses-mri%02d/localite/';
 
 % Sets overwrite parameters and reference to transducer distance
 overwrite_option = 'always';
@@ -86,7 +88,6 @@ for subject_id = subject_list
         else
             parameters = load_parameters(heating_config_list(consecutive_simulation_number), config_location);
         end
-
         
         % Load the stimulation target and replace the 4 with a 3 since the
         % defocussed and focussed have the same coordinates
@@ -101,6 +102,11 @@ for subject_id = subject_list
         filename_t1 = dir(sprintf(fullfile(parameters.data_path, parameters.t1_path_template), subject_id));
         t1_header = niftiinfo(fullfile(filename_t1.folder, filename_t1.name));
         t1_image = niftiread(fullfile(filename_t1.folder, filename_t1.name));
+
+        %% Load the subject mask
+        if isfield(parameters,'mask_name') && include_mask == 1
+            parameters.ROI_mask_location = sprintf('/project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-%03d/sub-%03d_%s.nii.gz', subject_id, subject_id, parameters.mask_name);
+        end
     
         %% Load coordinates
         if localite_coordinates == 1
