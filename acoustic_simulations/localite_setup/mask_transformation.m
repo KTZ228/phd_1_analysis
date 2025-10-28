@@ -55,18 +55,18 @@ function mask_transformation(subject_name)
     system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 2002 --o %s/dacc_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
     
     % Convert the freesurfer masks to nifti's
-    left_amygdala_location = sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name);
-    right_amygdala_location = sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name);
-    system(sprintf('mri_convert %s/amygdala_left.mgz %s', output_location_subject_tmp, left_amygdala_location))
-    system(sprintf('mri_convert %s/amygdala_right.mgz %s', output_location_subject_tmp, right_amygdala_location))
+    amygdala_left_location = sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name);
+    amygdala_right_location = sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name);
+    system(sprintf('mri_convert %s/amygdala_left.mgz %s', output_location_subject_tmp, amygdala_left_location))
+    system(sprintf('mri_convert %s/amygdala_right.mgz %s', output_location_subject_tmp, amygdala_right_location))
     system(sprintf('mri_convert %s/dacc_left.mgz %s/%s_dacc_left.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
     system(sprintf('mri_convert %s/dacc_right.mgz %s/%s_dacc_right.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
     
     %% Translate Payam's dACC mask for simulations
-    left_dacc = ('payam_left_dacc_mask.nii.gz');
-    left_dacc_location = fullfile(masks_folder, left_dacc);
-    right_dacc = ('payam_right_dacc_mask.nii.gz');
-    right_dacc_location = fullfile(masks_folder, right_dacc);
+    dacc_left = ('payam_dacc_left_mask.nii.gz');
+    dacc_left_location = fullfile(masks_folder, dacc_left);
+    dacc_right = ('payam_dacc_right_mask.nii.gz');
+    dacc_right_location = fullfile(masks_folder, dacc_right);
 
     % Navigate to subject folder and create masks
     cd (output_location_subject_tmp)
@@ -87,8 +87,8 @@ function mask_transformation(subject_name)
     system(sprintf('/opt/fsl/6.0.7/bin/convert_xfm -omat %s -inverse %s', transformation_matrix_linear_inverted, transformation_matrix_linear));
 
     % Apply the inverted affine transformation matrix to Payam's dACC masks
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_left_dacc_mask_linear.nii.gz -interp nearestneighbour', left_dacc_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_right_dacc_mask_linear.nii.gz -interp nearestneighbour', right_dacc_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_dacc_left_mask_linear.nii.gz -interp nearestneighbour', dacc_left_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_dacc_right_mask_linear.nii.gz -interp nearestneighbour', dacc_right_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
     
     %% Convert freesurfers T1 to nii and move to localite folder, and repeat conversion steps again
     freesurfer_mri_location = sprintf('/project/3025011.02/localite/%s/tmp/%s/mri/', subject_name, subject_name);
@@ -113,8 +113,8 @@ function mask_transformation(subject_name)
     system(sprintf('/opt/fsl/6.0.7/bin/convert_xfm -omat %s -inverse %s', transformation_matrix_linear_inverted, transformation_matrix_linear));
 
     % Apply the inverted affine transformation matrix to Freesurfer's Amygdala masks
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_left_amygdala.nii.gz -interp nearestneighbour', left_amygdala_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_right_amygdala.nii.gz -interp nearestneighbour', right_amygdala_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_amygdala_left.nii.gz -interp nearestneighbour', amygdala_left_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_amygdala_right.nii.gz -interp nearestneighbour', amygdala_right_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
 
     %% Use freesurfer's anatomical files from now on
     input_t1_name_and_location = freesurfer_t1_name_and_location;
@@ -135,41 +135,41 @@ function mask_transformation(subject_name)
     system(sprintf('/opt/fsl/6.0.7/bin/invwarp --ref=%s --warp=%s.nii.gz --out=%s', input_t1_name_and_location, transformation_matrix_nonlinear, transformation_matrix_nonlinear_inverted));
 
     %% Apply the inverted affine transformation matrix to Payam's dACC masks
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_left_dacc_mask_linear.nii.gz -interp nearestneighbour', left_dacc_location, input_t1_skullstriped, transformation_matrix_linear_inverted, output_location_subject_tmp, subject_name))
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_right_dacc_mask_linear.nii.gz -interp nearestneighbour', right_dacc_location, input_t1_skullstriped, transformation_matrix_linear_inverted, output_location_subject_tmp, subject_name))
-    system(sprintf('/opt/fsl/6.0.7/bin/applywarp --ref=%s --in=%s --warp=%s.nii.gz --out=%s/%s_payam_left_dacc_mask_nonlinear.nii.gz --interp=nn', input_t1_name_and_location, left_dacc_location, transformation_matrix_nonlinear_inverted, output_location_subject_tmp, subject_name))
-    system(sprintf('/opt/fsl/6.0.7/bin/applywarp --ref=%s --in=%s --warp=%s.nii.gz --out=%s/%s_payam_right_dacc_mask_nonlinear.nii.gz --interp=nn', input_t1_name_and_location, right_dacc_location, transformation_matrix_nonlinear_inverted, output_location_subject_tmp, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_dacc_left_mask_linear.nii.gz -interp nearestneighbour', dacc_left_location, input_t1_skullstriped, transformation_matrix_linear_inverted, output_location_subject_tmp, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_dacc_right_mask_linear.nii.gz -interp nearestneighbour', dacc_right_location, input_t1_skullstriped, transformation_matrix_linear_inverted, output_location_subject_tmp, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/applywarp --ref=%s --in=%s --warp=%s.nii.gz --out=%s/%s_payam_dacc_left_mask_nonlinear.nii.gz --interp=nn', input_t1_name_and_location, dacc_left_location, transformation_matrix_nonlinear_inverted, output_location_subject_tmp, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/applywarp --ref=%s --in=%s --warp=%s.nii.gz --out=%s/%s_payam_dacc_right_mask_nonlinear.nii.gz --interp=nn', input_t1_name_and_location, dacc_right_location, transformation_matrix_nonlinear_inverted, output_location_subject_tmp, subject_name))
 
     %% Extract center from different masks
-    left_amygdala = niftiread(sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name));
-    right_amygdala = niftiread(sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name));
-    left_dacc = niftiread(sprintf('%s/%s_payam_left_dacc_mask_linear.nii.gz', output_location_subject_tmp, subject_name));
-    right_dacc = niftiread(sprintf('%s/%s_payam_right_dacc_mask_linear.nii.gz', output_location_subject_tmp, subject_name));
+    amygdala_left = niftiread(sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name));
+    amygdala_right = niftiread(sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name));
+    dacc_left = niftiread(sprintf('%s/%s_payam_dacc_left_mask_linear.nii.gz', output_location_subject_tmp, subject_name));
+    dacc_right = niftiread(sprintf('%s/%s_payam_dacc_right_mask_linear.nii.gz', output_location_subject_tmp, subject_name));
 
     % Get nii info from the amygdala mask (should be same for dACC)
-    mask_size = size(left_amygdala);
+    mask_size = size(amygdala_left);
     mask_info = niftiinfo(sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name));
 
     % Get the coordinates of the non-zero voxels
-    [left_amygdala_x, left_amygdala_y, left_amygdala_z] = ind2sub(size(left_amygdala), find(left_amygdala));
-    [right_amygdala_x, right_amygdala_y, right_amygdala_z] = ind2sub(size(right_amygdala), find(right_amygdala));
-    [left_dacc_x, left_dacc_y, left_dacc_z] = ind2sub(size(left_dacc), find(left_dacc));
-    [right_dacc_x, right_dacc_y, right_dacc_z] = ind2sub(size(right_dacc), find(right_dacc));
+    [amygdala_left_x, amygdala_left_y, amygdala_left_z] = ind2sub(size(amygdala_left), find(amygdala_left));
+    [amygdala_right_x, amygdala_right_y, amygdala_right_z] = ind2sub(size(amygdala_right), find(amygdala_right));
+    [dacc_left_x, dacc_left_y, dacc_left_z] = ind2sub(size(dacc_left), find(dacc_left));
+    [dacc_right_x, dacc_right_y, dacc_right_z] = ind2sub(size(dacc_right), find(dacc_right));
     
     % Calculate the centers, the plus one is there to account for the
     % discrepancy in indexing between matlab and nifti
     dacc_y_offset = 4; % There to account for the fact that the dACC is not aligned perfectly along the z-axis
 
-    left_amygdala_center = round([mean(left_amygdala_x), mean(left_amygdala_y), mean(left_amygdala_z)]) + 1;
-    right_amygdala_center = round([mean(right_amygdala_x), mean(right_amygdala_y), mean(right_amygdala_z)]) + 1;
-    left_dacc_anterior = round([mean(left_dacc_x), mean(left_dacc_y) + dacc_y_offset, max(left_dacc_z)]) + 1;
-    right_dacc_anterior = round([mean(right_dacc_x), mean(right_dacc_y) + dacc_y_offset, max(right_dacc_z)]) + 1;
-    left_dacc_center = round([mean(left_dacc_x), mean(left_dacc_y), mean(left_dacc_z)]) + 1;
-    right_dacc_center = round([mean(right_dacc_x), mean(right_dacc_y), mean(right_dacc_z)]) + 1;
-    left_dacc_posterior = round([mean(left_dacc_x), mean(left_dacc_y) - dacc_y_offset, min(left_dacc_z)]) + 1;
-    right_dacc_posterior = round([mean(right_dacc_x), mean(right_dacc_y) - dacc_y_offset, min(right_dacc_z)]) + 1;
-    left_sham_center = round(mean([left_amygdala_center; left_dacc_center], 1)) + 1;
-    right_sham_center = round(mean([right_amygdala_center; right_dacc_center], 1)) + 1;
+    amygdala_left_center = round([mean(amygdala_left_x), mean(amygdala_left_y), mean(amygdala_left_z)]) + 1;
+    amygdala_right_center = round([mean(amygdala_right_x), mean(amygdala_right_y), mean(amygdala_right_z)]) + 1;
+    dacc_left_anterior = round([mean(dacc_left_x), mean(dacc_left_y) + dacc_y_offset, max(dacc_left_z)]) + 1;
+    dacc_right_anterior = round([mean(dacc_right_x), mean(dacc_right_y) + dacc_y_offset, max(dacc_right_z)]) + 1;
+    dacc_left_center = round([mean(dacc_left_x), mean(dacc_left_y), mean(dacc_left_z)]) + 1;
+    dacc_right_center = round([mean(dacc_right_x), mean(dacc_right_y), mean(dacc_right_z)]) + 1;
+    dacc_left_posterior = round([mean(dacc_left_x), mean(dacc_left_y) - dacc_y_offset, min(dacc_left_z)]) + 1;
+    dacc_right_posterior = round([mean(dacc_right_x), mean(dacc_right_y) - dacc_y_offset, min(dacc_right_z)]) + 1;
+    sham_left_center = round(mean([amygdala_left_center; dacc_left_center], 1)) + 1;
+    sham_right_center = round(mean([amygdala_right_center; dacc_right_center], 1)) + 1;
 
     %% Create new masks based on centers
     amygdala_mask = sprintf('%s/%s_amygdala_mask', output_location_subject, subject_name);
@@ -181,74 +181,74 @@ function mask_transformation(subject_name)
 
     % Make amygdala mask
     amygdala_mask_matrix = empty_matrix;
-    amygdala_mask_matrix(left_amygdala_center(1), left_amygdala_center(2), left_amygdala_center(3)) = 1;
-    amygdala_mask_matrix(right_amygdala_center(1), right_amygdala_center(2), right_amygdala_center(3)) = 1;
+    amygdala_mask_matrix(amygdala_left_center(1), amygdala_left_center(2), amygdala_left_center(3)) = 1;
+    amygdala_mask_matrix(amygdala_right_center(1), amygdala_right_center(2), amygdala_right_center(3)) = 1;
     niftiwrite(amygdala_mask_matrix, amygdala_mask, mask_info);
 
     % Make dACC mask
     dacc_mask_matrix = empty_matrix;
-    dacc_mask_matrix(left_dacc_anterior(1), left_dacc_anterior(2), left_dacc_anterior(3)) = 1;
-    dacc_mask_matrix(right_dacc_anterior(1), right_dacc_anterior(2), right_dacc_anterior(3)) = 1;
-    dacc_mask_matrix(left_dacc_center(1), left_dacc_center(2), left_dacc_center(3)) = 1;
-    dacc_mask_matrix(right_dacc_center(1), right_dacc_center(2), right_dacc_center(3)) = 1;
-    dacc_mask_matrix(left_dacc_posterior(1), left_dacc_posterior(2), left_dacc_posterior(3)) = 1;
-    dacc_mask_matrix(right_dacc_posterior(1), right_dacc_posterior(2), right_dacc_posterior(3)) = 1;
+    dacc_mask_matrix(dacc_left_anterior(1), dacc_left_anterior(2), dacc_left_anterior(3)) = 1;
+    dacc_mask_matrix(dacc_right_anterior(1), dacc_right_anterior(2), dacc_right_anterior(3)) = 1;
+    dacc_mask_matrix(dacc_left_center(1), dacc_left_center(2), dacc_left_center(3)) = 1;
+    dacc_mask_matrix(dacc_right_center(1), dacc_right_center(2), dacc_right_center(3)) = 1;
+    dacc_mask_matrix(dacc_left_posterior(1), dacc_left_posterior(2), dacc_left_posterior(3)) = 1;
+    dacc_mask_matrix(dacc_right_posterior(1), dacc_right_posterior(2), dacc_right_posterior(3)) = 1;
     niftiwrite(dacc_mask_matrix, dacc_mask, mask_info);
 
     % Make sham mask
     sham_mask_matrix = empty_matrix;
-    sham_mask_matrix(left_sham_center(1), left_sham_center(2), left_sham_center(3)) = 1;
-    sham_mask_matrix(right_sham_center(1), right_sham_center(2), right_sham_center(3)) = 1;
+    sham_mask_matrix(sham_left_center(1), sham_left_center(2), sham_left_center(3)) = 1;
+    sham_mask_matrix(sham_right_center(1), sham_right_center(2), sham_right_center(3)) = 1;
     niftiwrite(sham_mask_matrix, sham_mask, mask_info);
 
     %% Now find the same coordinates for the simulations masks
     % Extract center from different masks
-    left_amygdala = niftiread(sprintf('%s/%s_amygdala_left.nii.gz', segmentation_folder, subject_name));
-    right_amygdala = niftiread(sprintf('%s/%s_amygdala_right.nii.gz', segmentation_folder, subject_name));
-    left_dacc = niftiread(sprintf('%s/%s_payam_left_dacc_mask_linear.nii.gz', segmentation_folder, subject_name));
-    right_dacc = niftiread(sprintf('%s/%s_payam_right_dacc_mask_linear.nii.gz', segmentation_folder, subject_name));
+    amygdala_left = niftiread(sprintf('%s/%s_amygdala_left.nii.gz', segmentation_folder, subject_name));
+    amygdala_right = niftiread(sprintf('%s/%s_amygdala_right.nii.gz', segmentation_folder, subject_name));
+    dacc_left = niftiread(sprintf('%s/%s_payam_dacc_left_mask_linear.nii.gz', segmentation_folder, subject_name));
+    dacc_right = niftiread(sprintf('%s/%s_payam_dacc_right_mask_linear.nii.gz', segmentation_folder, subject_name));
 
-    % Get the coordinates of the non-zero voxels
-    [left_amygdala_x, left_amygdala_y, left_amygdala_z] = ind2sub(size(left_amygdala), find(left_amygdala));
-    [right_amygdala_x, right_amygdala_y, right_amygdala_z] = ind2sub(size(right_amygdala), find(right_amygdala));
-    [left_dacc_x, left_dacc_y, left_dacc_z] = ind2sub(size(left_dacc), find(left_dacc));
-    [right_dacc_x, right_dacc_y, right_dacc_z] = ind2sub(size(right_dacc), find(right_dacc));
+    % Get the coordinates of the non-zero voxelsleft_dacc
+    [amygdala_left_x, amygdala_left_y, amygdala_left_z] = ind2sub(size(amygdala_left), find(amygdala_left));
+    [amygdala_right_x, amygdala_right_y, amygdala_right_z] = ind2sub(size(amygdala_right), find(amygdala_right));
+    [dacc_left_x, dacc_left_y, dacc_left_z] = ind2sub(size(dacc_left), find(dacc_left));
+    [dacc_right_x, dacc_right_y, dacc_right_z] = ind2sub(size(dacc_right), find(dacc_right));
     
     % Calculate the centers, the plus one is there to account for the
     % discrepancy in indexing between matlab and nifti
     dacc_y_offset = 4; % There to account for the fact that the dACC is not aligned perfectly along the z-axis
 
-    left_amygdala_center = round([mean(left_amygdala_x), mean(left_amygdala_y), mean(left_amygdala_z)]) + 1;
-    right_amygdala_center = round([mean(right_amygdala_x), mean(right_amygdala_y), mean(right_amygdala_z)]) + 1;
-    left_dacc_anterior = round([mean(left_dacc_x), mean(left_dacc_y) + dacc_y_offset, max(left_dacc_z)]) + 1;
-    right_dacc_anterior = round([mean(right_dacc_x), mean(right_dacc_y) + dacc_y_offset, max(right_dacc_z)]) + 1;
-    left_dacc_center = round([mean(left_dacc_x), mean(left_dacc_y), mean(left_dacc_z)]) + 1;
-    right_dacc_center = round([mean(right_dacc_x), mean(right_dacc_y), mean(right_dacc_z)]) + 1;
-    left_dacc_posterior = round([mean(left_dacc_x), mean(left_dacc_y) - dacc_y_offset, min(left_dacc_z)]) + 1;
-    right_dacc_posterior = round([mean(right_dacc_x), mean(right_dacc_y) - dacc_y_offset, min(right_dacc_z)]) + 1;
-    left_sham_center = round(mean([left_amygdala_center; left_dacc_center], 1)) + 1;
-    right_sham_center = round(mean([right_amygdala_center; right_dacc_center], 1)) + 1;
+    amygdala_left_center = round([mean(amygdala_left_x), mean(amygdala_left_y), mean(amygdala_left_z)]) + 1;
+    amygdala_right_center = round([mean(amygdala_right_x), mean(amygdala_right_y), mean(amygdala_right_z)]) + 1;
+    dacc_left_anterior = round([mean(dacc_left_x), mean(dacc_left_y) + dacc_y_offset, max(dacc_left_z)]) + 1;
+    dacc_right_anterior = round([mean(dacc_right_x), mean(dacc_right_y) + dacc_y_offset, max(dacc_right_z)]) + 1;
+    dacc_left_center = round([mean(dacc_left_x), mean(dacc_left_y), mean(dacc_left_z)]) + 1;
+    dacc_right_center = round([mean(dacc_right_x), mean(dacc_right_y), mean(dacc_right_z)]) + 1;
+    dacc_left_posterior = round([mean(dacc_left_x), mean(dacc_left_y) - dacc_y_offset, min(dacc_left_z)]) + 1;
+    dacc_right_posterior = round([mean(dacc_right_x), mean(dacc_right_y) - dacc_y_offset, min(dacc_right_z)]) + 1;
+    sham_left_center = round(mean([amygdala_left_center; dacc_left_center], 1)) + 1;
+    sham_right_center = round(mean([amygdala_right_center; dacc_right_center], 1)) + 1;
 
     % Load coordinates into matrix
     focus_coords = [
-        left_amygdala_center;
-        right_amygdala_center;
-        left_amygdala_center;
-        right_amygdala_center;
-        left_amygdala_center;
-        right_amygdala_center;
-        left_dacc_anterior;
-        right_dacc_anterior;
-        left_dacc_center;
-        right_dacc_center;
-        left_dacc_posterior;
-        right_dacc_posterior;
-        left_sham_center;
-        right_sham_center;
-        left_sham_center;
-        right_sham_center;
-        left_sham_center;
-        right_sham_center;
+        amygdala_left_center;
+        amygdala_right_center;
+        amygdala_left_center;
+        amygdala_right_center;
+        amygdala_left_center;
+        amygdala_right_center;
+        dacc_left_anterior;
+        dacc_right_anterior;
+        dacc_left_center;
+        dacc_right_center;
+        dacc_left_posterior;
+        dacc_right_posterior;
+        sham_left_center;
+        sham_right_center;
+        sham_left_center;
+        sham_right_center;
+        sham_left_center;
+        sham_right_center;
     ];
 
     % Convert subject_id to numeric
