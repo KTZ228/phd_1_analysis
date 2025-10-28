@@ -39,7 +39,9 @@ transducer:
 
 focus_pos_t1_grid: [103,172,208]
 
-transducer_from_localite: 0 # should we load the transducer locations from the localite file(s) 
+transducer_from_localite: 0 # should we load the transducer locations from the localite file(s)
+
+mask_name: payam_right_dacc_mask_linear
 
 using_donders_hpc: 1
 overwrite_simnibs: 0

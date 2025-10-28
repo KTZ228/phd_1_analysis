@@ -41,6 +41,8 @@ focus_pos_t1_grid: [81, 144, 145]
 
 transducer_from_localite: 0 # should we load the transducer locations from the localite file(s) 
 
+mask_name: amygdala_left
+
 using_donders_hpc: 1
 overwrite_simnibs: 0
 use_forceqform: 1
