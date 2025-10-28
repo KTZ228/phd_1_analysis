@@ -10,5 +10,4 @@
 `source activate /opt/bidscoin`
 
 ### Combine BOLD echos
-`echocombine.py bids 'func/*task-AARL_echo-*' -p x013`
 `echocombine.py bids 'func/*task-AARL_echo-*'`
