@@ -239,13 +239,13 @@ def fit_model_vkf_lesioned(data):
     bounds = [
         (1e-6, 10000),  # v_initial
         (0, 10000),  # Omega
-        (-5, 4.6),  # log(softmax_temperature)
-        (-100, 100)  # bias
+        (0, 10),  # log(softmax_temperature)
+        (-3, 3)  # bias
     ]
 
     def run_single_fit():
         # Random initialization within bounds
-        init = np.random.uniform(low=[1e-6, 0, -5, -1], high=[100, 100, 4.6, 1])
+        init = np.random.uniform(low=[1e-6, 0, 2, -2], high=[100, 100, 8, 2])
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
@@ -287,13 +287,13 @@ def fit_model_vkf(data):
         (1e-6, 10000),  # v_initial
         (0, 10000),  # Omega
         (1e-6, 1),  # Lambda
-        (-5, 4.6),  # log(softmax_temperature)
-        (-100, 100)  # bias
+        (0, 10),  # log(softmax_temperature)
+        (-3, 3)  # bias
     ]
 
     def run_single_fit():
         # Random initialization within bounds
-        init = np.random.uniform(low=[1e-6, 0, 1e-6, -5, -1], high=[100, 100, 1, 4.6, 1])
+        init = np.random.uniform(low=[1e-6, 0, 1e-6, 2, -2], high=[100, 100, 1, 8, 2])
         result = minimize(neg_log_likelihood, init, bounds=bounds, method='L-BFGS-B')
         return result
 
