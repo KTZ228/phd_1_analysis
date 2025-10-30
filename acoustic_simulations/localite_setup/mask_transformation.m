@@ -41,28 +41,29 @@ function mask_transformation(subject_name)
     %system(sprintf('recon-all -i %s -s %s -T2 %s -T2pial -all -cw256', input_t1_name_and_location, subject_name, input_t2_name_and_location))
 
     % Segment subregions
-    system(sprintf('segment_subregions hippo-amygdala --cross %s', subject_name))
+    %system(sprintf('segment_subregions hippo-amygdala --cross %s', subject_name))
 
-    % Extract the amygdala's
-    % First, make sure it can reach the subject subfolders
+    % First, make sure you can reach the freesurfer subfolders
     output_location_subject_tmp = sprintf('%s/%s', output_location_subject_tmp, subject_name);
+
     % Then extract binary masks for the Amygdala
     system(sprintf('mri_binarize --i %s/mri/lh.hippoAmygLabels.CA.FSvoxelSpace.mgz --match 7001 7003 --o %s/amygdala_left.mgz', output_location_subject_tmp, output_location_subject_tmp))
     system(sprintf('mri_binarize --i %s/mri/rh.hippoAmygLabels.CA.FSvoxelSpace.mgz --match 7001 7003 --o %s/amygdala_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
 
-    % And for Freesurfer's dACC
+    % And for Freesurfer's dACC (so not Payam's, I use this as a comparison)
     system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 1002 --o %s/dacc_left.mgz', output_location_subject_tmp, output_location_subject_tmp))
     system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 2002 --o %s/dacc_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
     
     % Convert the freesurfer masks to nifti's
     amygdala_left_location = sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name);
     amygdala_right_location = sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name);
+
     system(sprintf('mri_convert %s/amygdala_left.mgz %s', output_location_subject_tmp, amygdala_left_location))
     system(sprintf('mri_convert %s/amygdala_right.mgz %s', output_location_subject_tmp, amygdala_right_location))
     system(sprintf('mri_convert %s/dacc_left.mgz %s/%s_dacc_left.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
     system(sprintf('mri_convert %s/dacc_right.mgz %s/%s_dacc_right.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
     
-    %% Translate Payam's dACC mask for simulations
+    %% Translate Payam's dACC mask for simulations (MNI > original T1)
     dacc_left = ('payam_dacc_left_mask.nii.gz');
     dacc_left_location = fullfile(masks_folder, dacc_left);
     dacc_right = ('payam_dacc_right_mask.nii.gz');
@@ -91,62 +92,59 @@ function mask_transformation(subject_name)
     system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_dacc_right_mask_linear.nii.gz -interp nearestneighbour', dacc_right_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
     
     %% Convert freesurfers T1 to nii and move to localite folder, and repeat conversion steps again
-    freesurfer_mri_location = sprintf('/project/3025011.02/localite/%s/tmp/%s/mri/', subject_name, subject_name);
-    freesurfer_mri_t1_name_and_location = fullfile(freesurfer_mri_location, 'T1.mgz');
-    freesurfer_mri_t2_name_and_location = fullfile(freesurfer_mri_location, 'T2.mgz');
+    freesurfer_location_mgz = sprintf('/project/3025011.02/localite/%s/tmp/%s/mri/', subject_name, subject_name);
+    freesurfer_t1_name_and_location_mgz = fullfile(freesurfer_location_mgz, 'T1.mgz');
+    freesurfer_t2_name_and_location_mgz = fullfile(freesurfer_location_mgz, 'T2.mgz');
 
     input_location = sprintf('/project/3025011.02/localite/%s', subject_name);
     freesurfer_t1_name_and_location = fullfile(input_location, sprintf('%s_T1w.nii', subject_name));
     freesurfer_t2_name_and_location = fullfile(input_location, sprintf('%s_T2w.nii', subject_name));
 
-    system(sprintf('mri_convert %s %s', freesurfer_mri_t1_name_and_location, freesurfer_t1_name_and_location))
-    system(sprintf('mri_convert %s %s', freesurfer_mri_t2_name_and_location, freesurfer_t2_name_and_location))
+    % Weirdly, these cannot be read by Localite
+    system(sprintf('mri_convert %s %s', freesurfer_t1_name_and_location_mgz, freesurfer_t1_name_and_location))
+    system(sprintf('mri_convert %s %s', freesurfer_t2_name_and_location_mgz, freesurfer_t2_name_and_location))
 
-    %% Now also translate the Amygdala masks
-    % Strip skull from the original subject T1
-    system(sprintf('/opt/fsl/6.0.7/bin/bet %s %s -R -f 0.5', freesurfer_t1_name_and_location, input_t1_skullstriped));
-
-    % Create a linear affine transformation matrix (T1 > MNI)
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -omat %s -dof 12', input_t1_skullstriped, input_t1_name_and_location, transformation_matrix_linear));
-
-    % Invert the affine transformation matrixes from (T1 > MNI) to (MNI > T1)
-    system(sprintf('/opt/fsl/6.0.7/bin/convert_xfm -omat %s -inverse %s', transformation_matrix_linear_inverted, transformation_matrix_linear));
+    %% Now also translate the Amygdala masks (freesurfer T1 > original T1)
+    % Create a linear affine transformation matrix
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -omat %s -dof 12', freesurfer_t1_name_and_location, input_t1_name_and_location, transformation_matrix_linear));
 
     % Apply the inverted affine transformation matrix to Freesurfer's Amygdala masks
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_amygdala_left.nii.gz -interp nearestneighbour', amygdala_left_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
-    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_amygdala_right.nii.gz -interp nearestneighbour', amygdala_right_location, input_t1_skullstriped, transformation_matrix_linear_inverted, segmentation_folder, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_amygdala_left.nii.gz -interp nearestneighbour', amygdala_left_location, input_t1_name_and_location, transformation_matrix_linear, segmentation_folder, subject_name))
+    system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_amygdala_right.nii.gz -interp nearestneighbour', amygdala_right_location, input_t1_name_and_location, transformation_matrix_linear, segmentation_folder, subject_name))
 
     %% Use freesurfer's anatomical files from now on
     input_t1_name_and_location = freesurfer_t1_name_and_location;
     input_t2_name_and_location = freesurfer_t2_name_and_location;
 
-    %% Strip skull from freesurfer's subject T1
+    %% Redo dACC transformation, now for localite (MNI > freesurfer T1)
+    % Strip skull from freesurfer's subject T1
     system(sprintf('/opt/fsl/6.0.7/bin/bet %s %s -R -f 0.5', input_t1_name_and_location, input_t1_skullstriped));
 
-    %% Create a linear affine transformation matrix as a starting point for the non-linear transformation (T1 > MNI)
+    % Create a linear affine transformation matrix as a starting point for the non-linear transformation (T1 > MNI)
     % Only fnirt needs a skullstriped brain, flirt does not
     system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref $FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz -omat %s -dof 12', input_t1_skullstriped, transformation_matrix_linear));
 
-    %% Create a non-linear affine transformation matrix with the linear transformation matrix as a starting point (T1 > MNI)
+    % Create a non-linear affine transformation matrix with the linear transformation matrix as a starting point (T1 > MNI)
     system(sprintf('/opt/fsl/6.0.7/bin/fnirt --ref=$FSLDIR/data/standard/MNI152_T1_2mm.nii.gz --in=%s --aff=%s --cout=%s --config=T1_2_MNI152_2mm', input_t1_name_and_location, transformation_matrix_linear, transformation_matrix_nonlinear));
 
-    %% Invert the affine transformation matrixes from (T1 > MNI) to (MNI > T1)
+    % Invert the affine transformation matrixes from (T1 > MNI) to (MNI > T1)
     system(sprintf('/opt/fsl/6.0.7/bin/convert_xfm -omat %s -inverse %s', transformation_matrix_linear_inverted, transformation_matrix_linear));
     system(sprintf('/opt/fsl/6.0.7/bin/invwarp --ref=%s --warp=%s.nii.gz --out=%s', input_t1_name_and_location, transformation_matrix_nonlinear, transformation_matrix_nonlinear_inverted));
 
-    %% Apply the inverted affine transformation matrix to Payam's dACC masks
+    % Apply the inverted affine transformation matrix to Payam's dACC masks
     system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_dacc_left_mask_linear.nii.gz -interp nearestneighbour', dacc_left_location, input_t1_skullstriped, transformation_matrix_linear_inverted, output_location_subject_tmp, subject_name))
     system(sprintf('/opt/fsl/6.0.7/bin/flirt -in %s -ref %s -applyxfm -init %s -out %s/%s_payam_dacc_right_mask_linear.nii.gz -interp nearestneighbour', dacc_right_location, input_t1_skullstriped, transformation_matrix_linear_inverted, output_location_subject_tmp, subject_name))
     system(sprintf('/opt/fsl/6.0.7/bin/applywarp --ref=%s --in=%s --warp=%s.nii.gz --out=%s/%s_payam_dacc_left_mask_nonlinear.nii.gz --interp=nn', input_t1_name_and_location, dacc_left_location, transformation_matrix_nonlinear_inverted, output_location_subject_tmp, subject_name))
     system(sprintf('/opt/fsl/6.0.7/bin/applywarp --ref=%s --in=%s --warp=%s.nii.gz --out=%s/%s_payam_dacc_right_mask_nonlinear.nii.gz --interp=nn', input_t1_name_and_location, dacc_right_location, transformation_matrix_nonlinear_inverted, output_location_subject_tmp, subject_name))
 
-    %% Extract center from different masks
+    %% Extract anatomical center from different masks
+    % Select which masks to use
     amygdala_left = niftiread(sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name));
     amygdala_right = niftiread(sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name));
     dacc_left = niftiread(sprintf('%s/%s_payam_dacc_left_mask_linear.nii.gz', output_location_subject_tmp, subject_name));
     dacc_right = niftiread(sprintf('%s/%s_payam_dacc_right_mask_linear.nii.gz', output_location_subject_tmp, subject_name));
 
-    % Get nii info from the amygdala mask (should be same for dACC)
+    % Get nii info from the amygdala mask (should be same for dACC after the translation, but always good to double check)
     mask_size = size(amygdala_left);
     mask_info = niftiinfo(sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name));
 
@@ -156,10 +154,11 @@ function mask_transformation(subject_name)
     [dacc_left_x, dacc_left_y, dacc_left_z] = ind2sub(size(dacc_left), find(dacc_left));
     [dacc_right_x, dacc_right_y, dacc_right_z] = ind2sub(size(dacc_right), find(dacc_right));
     
-    % Calculate the centers, the plus one is there to account for the
-    % discrepancy in indexing between matlab and nifti
-    dacc_y_offset = 4; % There to account for the fact that the dACC is not aligned perfectly along the z-axis
+    % Calculate the centers
+    % The offset is there to account for the fact that the dACC is not aligned perfectly along the z-axis
+    dacc_y_offset = 4; 
 
+    % The '+1' is there to account for the discrepancy in indexing between matlab and freesurfer
     amygdala_left_center = round([mean(amygdala_left_x), mean(amygdala_left_y), mean(amygdala_left_z)]) + 1;
     amygdala_right_center = round([mean(amygdala_right_x), mean(amygdala_right_y), mean(amygdala_right_z)]) + 1;
     dacc_left_anterior = round([mean(dacc_left_x), mean(dacc_left_y) + dacc_y_offset, max(dacc_left_z)]) + 1;
@@ -168,8 +167,8 @@ function mask_transformation(subject_name)
     dacc_right_center = round([mean(dacc_right_x), mean(dacc_right_y), mean(dacc_right_z)]) + 1;
     dacc_left_posterior = round([mean(dacc_left_x), mean(dacc_left_y) - dacc_y_offset, min(dacc_left_z)]) + 1;
     dacc_right_posterior = round([mean(dacc_right_x), mean(dacc_right_y) - dacc_y_offset, min(dacc_right_z)]) + 1;
-    sham_left_center = round(mean([amygdala_left_center; dacc_left_center], 1)) + 1;
-    sham_right_center = round(mean([amygdala_right_center; dacc_right_center], 1)) + 1;
+    sham_left_center = round(mean([amygdala_left_center; dacc_left_center], 1));
+    sham_right_center = round(mean([amygdala_right_center; dacc_right_center], 1));
 
     %% Create new masks based on centers
     amygdala_mask = sprintf('%s/%s_amygdala_mask', output_location_subject, subject_name);
@@ -201,34 +200,32 @@ function mask_transformation(subject_name)
     sham_mask_matrix(sham_right_center(1), sham_right_center(2), sham_right_center(3)) = 1;
     niftiwrite(sham_mask_matrix, sham_mask, mask_info);
 
-    %% Now find the same coordinates for the simulations masks
+    %% Now find the same coordinates for the masks that will be used for simulations
     % Extract center from different masks
     amygdala_left = niftiread(sprintf('%s/%s_amygdala_left.nii.gz', segmentation_folder, subject_name));
     amygdala_right = niftiread(sprintf('%s/%s_amygdala_right.nii.gz', segmentation_folder, subject_name));
     dacc_left = niftiread(sprintf('%s/%s_payam_dacc_left_mask_linear.nii.gz', segmentation_folder, subject_name));
     dacc_right = niftiread(sprintf('%s/%s_payam_dacc_right_mask_linear.nii.gz', segmentation_folder, subject_name));
 
-    % Get the coordinates of the non-zero voxelsleft_dacc
+    % Get the coordinates of the non-zero voxels
     [amygdala_left_x, amygdala_left_y, amygdala_left_z] = ind2sub(size(amygdala_left), find(amygdala_left));
     [amygdala_right_x, amygdala_right_y, amygdala_right_z] = ind2sub(size(amygdala_right), find(amygdala_right));
     [dacc_left_x, dacc_left_y, dacc_left_z] = ind2sub(size(dacc_left), find(dacc_left));
     [dacc_right_x, dacc_right_y, dacc_right_z] = ind2sub(size(dacc_right), find(dacc_right));
     
-    % Calculate the centers, the plus one is there to account for the
-    % discrepancy in indexing between matlab and nifti
-    dacc_y_offset = 4; % There to account for the fact that the dACC is not aligned perfectly along the z-axis
+    % Calculate the centers
+    amygdala_left_center = round([mean(amygdala_left_x), mean(amygdala_left_y), mean(amygdala_left_z)]);
+    amygdala_right_center = round([mean(amygdala_right_x), mean(amygdala_right_y), mean(amygdala_right_z)]);
+    dacc_left_anterior = round([mean(dacc_left_x), mean(dacc_left_y) + dacc_y_offset, max(dacc_left_z)]);
+    dacc_right_anterior = round([mean(dacc_right_x), mean(dacc_right_y) + dacc_y_offset, max(dacc_right_z)]);
+    dacc_left_center = round([mean(dacc_left_x), mean(dacc_left_y), mean(dacc_left_z)]);
+    dacc_right_center = round([mean(dacc_right_x), mean(dacc_right_y), mean(dacc_right_z)]);
+    dacc_left_posterior = round([mean(dacc_left_x), mean(dacc_left_y) - dacc_y_offset, min(dacc_left_z)]);
+    dacc_right_posterior = round([mean(dacc_right_x), mean(dacc_right_y) - dacc_y_offset, min(dacc_right_z)]);
+    sham_left_center = round(mean([amygdala_left_center; dacc_left_center], 1));
+    sham_right_center = round(mean([amygdala_right_center; dacc_right_center], 1));
 
-    amygdala_left_center = round([mean(amygdala_left_x), mean(amygdala_left_y), mean(amygdala_left_z)]) + 1;
-    amygdala_right_center = round([mean(amygdala_right_x), mean(amygdala_right_y), mean(amygdala_right_z)]) + 1;
-    dacc_left_anterior = round([mean(dacc_left_x), mean(dacc_left_y) + dacc_y_offset, max(dacc_left_z)]) + 1;
-    dacc_right_anterior = round([mean(dacc_right_x), mean(dacc_right_y) + dacc_y_offset, max(dacc_right_z)]) + 1;
-    dacc_left_center = round([mean(dacc_left_x), mean(dacc_left_y), mean(dacc_left_z)]) + 1;
-    dacc_right_center = round([mean(dacc_right_x), mean(dacc_right_y), mean(dacc_right_z)]) + 1;
-    dacc_left_posterior = round([mean(dacc_left_x), mean(dacc_left_y) - dacc_y_offset, min(dacc_left_z)]) + 1;
-    dacc_right_posterior = round([mean(dacc_right_x), mean(dacc_right_y) - dacc_y_offset, min(dacc_right_z)]) + 1;
-    sham_left_center = round(mean([amygdala_left_center; dacc_left_center], 1)) + 1;
-    sham_right_center = round(mean([amygdala_right_center; dacc_right_center], 1)) + 1;
-
+    %% Save these coordinates into the planning coordinates csv
     % Load coordinates into matrix
     focus_coords = [
         amygdala_left_center;
@@ -251,22 +248,10 @@ function mask_transformation(subject_name)
         sham_right_center;
     ];
 
-    % Convert subject_id to numeric
+    % Convert subject_name to subject_id (numeric)
     subject_id = str2double(regexp(subject_name, '\d+', 'match', 'once'));
     
-    % Validate focus_coords, not sure this is necessary
-    if size(focus_coords, 1) ~= 18
-        error('focus_coords must have 18 rows (one for each target)');
-    end
-    if size(focus_coords, 2) ~= 3
-        error('focus_coords must have 3 columns [x, y, z]');
-    end
-    
-    % Read the CSV file using semicolon as delimiter
-    planning_coordinate_location = '/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv';
-    planning_coordinate_list = readtable(planning_coordinate_location, 'Delimiter', ';');
-    
-    % Define target names (18 targets: 6 per group × 3 groups)
+    % Define target names
     target_names = cell(18, 1);
     idx = 1;
     for group = 1:3
@@ -275,16 +260,20 @@ function mask_transformation(subject_name)
             idx = idx + 1;
         end
     end
+
+    % Read the csv
+    planning_coordinate_location = '/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv';
+    planning_coordinate_list = readtable(planning_coordinate_location, 'Delimiter', ';');
     
     % Check if subject already exists
     subject_exists = any(planning_coordinate_list.subject_id == subject_id);
     
     if subject_exists
-        % Update existing subject
+        % Replace existing coordinates
         fprintf('Subject %d already exists. Updating coordinates...\n', subject_id);
         subject_rows = planning_coordinate_list.subject_id == subject_id;
         
-        % Update focus coordinates (keep pos_t1_grid coordinates as they are)
+        % Update focus coordinates only (keep pos_t1_grid coordinates as they are)
         row_indices = find(subject_rows);
         for i = 1:length(row_indices)
             row_idx = row_indices(i);
@@ -297,7 +286,7 @@ function mask_transformation(subject_name)
         % Add new subject
         fprintf('Adding new subject %d...\n', subject_id);
         
-        % Create new rows for the subject
+        % Create new rows and set pos coordinates to 0
         new_rows = table();
         new_rows.subject_id = repmat(subject_id, 18, 1);
         new_rows.stimulation_target = target_names;
@@ -321,6 +310,6 @@ function mask_transformation(subject_name)
     fprintf('Successfully saved coordinates to %s\n', planning_coordinate_location);
 
     %% Delete tmp folder
-    %system(sprintf('rm -rf %s', sprintf('%s/tmp', output_location_subject)));
+    %system(sprintf('rm -rf %s', fullfile(output_location_subject, ..)));
 
 end
