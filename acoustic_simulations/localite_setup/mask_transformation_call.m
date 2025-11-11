@@ -45,4 +45,7 @@ for subject_name = subject_list
     [res, out] = system(sbatch_call);
     display(res);
     display(out);
+
+    % Leave a minute between them to ensure all coordinates are saved
+    pause(60)
 end
