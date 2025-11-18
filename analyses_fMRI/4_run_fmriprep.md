@@ -6,4 +6,4 @@
 `cd /project/3025011.02/`
 
 ### Run fmriprep 
-`fmriprep_sub.py /project/3025011.02/bids --mem_mb 64000 --args " --output-spaces MNI152NLin2009cAsym:res-native"`
+`fmriprep_sub.py /project/3025011.02/bids --mem_mb 64000 --args " --output-spaces MNI152NLin2009cAsym:res-native --no-submm-recon"`

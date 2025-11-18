@@ -1,5 +1,10 @@
 function mask_transformation(subject_name)
     
+    %% Remove SimNIBS path
+    % To mitigate any conflicts with repelem.m
+    cd /home/affneu/kenvdzee/.conda/envs/
+    rmpath(genpath('simnibs_env'))
+
     %% Set folder names for segmentation
     % Set input names
     input_location = sprintf('/project/3025011.02/bids/%s/ses-mri01/anat', subject_name);
@@ -13,7 +18,7 @@ function mask_transformation(subject_name)
     addpath('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup');
 
     run_freesurfer = 'False';
-    
+
     if strcmp(run_freesurfer, 'False')
         disp('Freesurfer wont be used');
     end
@@ -36,6 +41,9 @@ function mask_transformation(subject_name)
     % Make output folders if they don't exist yet
     if ~isfolder(output_location_subject_tmp)
         mkdir(output_location_subject_tmp)
+    end
+    if ~isfolder(segmentation_folder)
+        mkdir(segmentation_folder);
     end
 
     % Send output location to freesurfer
@@ -66,17 +74,19 @@ function mask_transformation(subject_name)
     system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 2002 --o %s/anatomical_dacc_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
     
     % Convert the freesurfer masks to nifti's
-    amygdala_left_location = sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name);
-    amygdala_right_location = sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name);
+    amygdala_freesurfer_left_location = sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name);
+    amygdala_freesurfer_right_location = sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name);
+    amygdala_scanner_left_location = sprintf('%s/%s_amygdala_left.nii.gz', segmentation_folder, subject_name);
+    amygdala_scanner_right_location = sprintf('%s/%s_amygdala_right.nii.gz', segmentation_folder, subject_name);
 
-    system(sprintf('mri_convert %s/amygdala_left.mgz %s', output_location_subject_tmp, amygdala_left_location))
-    system(sprintf('mri_convert %s/amygdala_right.mgz %s', output_location_subject_tmp, amygdala_right_location))
+    system(sprintf('mri_convert %s/amygdala_left.mgz %s', output_location_subject_tmp, amygdala_freesurfer_left_location))
+    system(sprintf('mri_convert %s/amygdala_right.mgz %s', output_location_subject_tmp, amygdala_freesurfer_right_location))
     system(sprintf('mri_convert %s/anatomical_dacc_left.mgz %s/%s_anatomical_dacc_left.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
     system(sprintf('mri_convert %s/anatomical_dacc_right.mgz %s/%s_anatomical_dacc_right.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
 
     %% Now also translate the Amygdala masks (freesurfer T1 > original T1)
-    system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s/%s_amygdala_left.nii.gz --interp nearest --no-save-reg' ,amygdala_left_location, input_t1_name_and_location, segmentation_folder, subject_name));
-    system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s/%s_amygdala_right.nii.gz --interp nearest --no-save-reg' ,amygdala_right_location, input_t1_name_and_location, segmentation_folder, subject_name));
+    system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s --interp nearest --no-save-reg' ,amygdala_freesurfer_left_location, input_t1_name_and_location, amygdala_scanner_left_location));
+    system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s --interp nearest --no-save-reg' ,amygdala_freesurfer_right_location, input_t1_name_and_location, amygdala_scanner_right_location));
     
     %% Translate Payam's dACC mask for simulations (MNI > original T1)
     dacc_left = ('payam_dacc_left_mask.nii.gz');
@@ -101,204 +111,90 @@ function mask_transformation(subject_name)
     % Translate MNI coordinates
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject_coords -m %s -s %s -o %s', segmentation_folder, dacc_coordinates_MNI_location, dacc_coordinates_subject_location));
 
-    % Use FSLmaths to turn the csv into a target mask for the participant
+    %% Extract anatomical center from Amygdala masks
+    % Create centroid mask for the amygdala
+    amygdala_mask = sprintf('%s/%s_amygdala_mask.nii', output_location_subject, subject_name);
+    [~, cmdout] = system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_amygdala.sh %s %s %s', amygdala_scanner_left_location, amygdala_scanner_right_location, amygdala_mask));
+    
+    % Extract centroid coordinates
+    left_amygdala_coordinates = regexp(cmdout, 'CENTROID1:\s+(\d+)\s+(\d+)\s+(\d+)', 'tokens');
+    right_amygdala_coordinates = regexp(cmdout, 'CENTROID2:\s+(\d+)\s+(\d+)\s+(\d+)', 'tokens');
+    
+    % Convert to doubles and store in matrix (rows = amygdalae, columns = x,y,z)
+    amygdala_coordinates = [str2double(left_amygdala_coordinates{1}); 
+                            str2double(right_amygdala_coordinates{1})];
+
+    %% Translate the personalised dACC coordinates to a binary mask
+    % Create centroid mask for the dACC
     dacc_mask = sprintf('%s/%s_dacc_mask.nii', output_location_subject, subject_name);
-    system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/transform_MNI_csv_to_mask.sh %s %s %s', dacc_mask, input_t1_name_and_location, dacc_coordinates_subject_location));
+    [~, cmdout] = system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_dacc.sh %s %s %s', dacc_coordinates_subject_location, input_t1_name_and_location, dacc_mask));
 
-    %% Extract anatomical center from different masks
-    % Select which masks to use
-    amygdala_left_name = sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name);
-    amygdala_right_name = sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name);
-    %dacc_left_name = sprintf('%s/%s_payam_dacc_left_mask_nonlinear.nii.gz', output_location_subject_tmp, subject_name);
-    %dacc_right_name = sprintf('%s/%s_payam_dacc_right_mask_nonlinear.nii.gz', output_location_subject_tmp, subject_name);
-
-    amygdala_left = niftiread(amygdala_left_name);
-    amygdala_right = niftiread(amygdala_right_name);
-    %dacc_left = niftiread(dacc_left_name);
-    %dacc_right = niftiread(dacc_right_name);
-
-    % Get the coordinates of the non-zero voxels
-    [amygdala_left_x, amygdala_left_y, amygdala_left_z] = ind2sub(size(amygdala_left), find(amygdala_left));
-    [amygdala_right_x, amygdala_right_y, amygdala_right_z] = ind2sub(size(amygdala_right), find(amygdala_right));
-    %{
-    [dacc_left_x, dacc_left_y, dacc_left_z] = ind2sub(size(dacc_left), find(dacc_left));
-    [dacc_right_x, dacc_right_y, dacc_right_z] = ind2sub(size(dacc_right), find(dacc_right));
-
-    % Split the mask into outer slices
-    % Get the outermost coordinates on the z-axis
-    max_z_left = max(dacc_left_z);
-    min_z_left = min(dacc_left_z);
-    max_z_right = max(dacc_right_z);
-    min_z_right = min(dacc_right_z);
+    % Extract centroid coordinates
+    % Parse all target coordinates
+    % The output will be in format: TARGET_1: x y z
+    target_pattern = 'TARGET_(\d+):\s+(\d+)\s+(\d+)\s+(\d+)';
+    matches = regexp(cmdout, target_pattern, 'tokens');
     
-    % Split coordinates by highest and lowest z (including adjacent)
-    % Highest z coordinates (left) - includes max_z and max_z-1
-    dacc_left_high_idx = (dacc_left_z == max_z_left) | (dacc_left_z == max_z_left - 1) | (dacc_left_z == max_z_left - 2);
-    dacc_left_high_x = dacc_left_x(dacc_left_high_idx);
-    dacc_left_high_y = dacc_left_y(dacc_left_high_idx);
-    dacc_left_high_z = dacc_left_z(dacc_left_high_idx);
-
-    % Highest z coordinates (right) - includes max_z and max_z-1
-    dacc_right_high_idx = (dacc_right_z == max_z_right) | (dacc_right_z == max_z_right - 1) | (dacc_right_z == max_z_right - 2);
-    dacc_right_high_x = dacc_right_x(dacc_right_high_idx);
-    dacc_right_high_y = dacc_right_y(dacc_right_high_idx);
-    dacc_right_high_z = dacc_right_z(dacc_right_high_idx);
+    % Extract coordinates for each target
+    num_targets = length(matches);
+    dacc_coordinates = zeros(num_targets, 3);  % Preallocate as double matrix
     
-    % Lowest z coordinates (left) - includes min_z and min_z+1
-    dacc_left_low_idx = (dacc_left_z == min_z_left) | (dacc_left_z == min_z_left + 1) | (dacc_left_z == min_z_left + 2);
-    dacc_left_low_x = dacc_left_x(dacc_left_low_idx);
-    dacc_left_low_y = dacc_left_y(dacc_left_low_idx);
-    dacc_left_low_z = dacc_left_z(dacc_left_low_idx);
+    for i = 1:num_targets
+        dacc_coordinates(i, 1) = str2double(matches{i}{2});  % x
+        dacc_coordinates(i, 2) = str2double(matches{i}{3});  % y
+        dacc_coordinates(i, 3) = str2double(matches{i}{4});  % z
+    end
+
+    %% Calculate the middle between the amygdala and dacc for sham
+    % Separate coordinates
+    x1 = amygdala_coordinates(1,1);
+    y1 = amygdala_coordinates(1,2);
+    z1 = amygdala_coordinates(1,3);
+    x2 = dacc_coordinates(3,1);
+    y2 = dacc_coordinates(3,2);
+    z2 = dacc_coordinates(3,3);
+    x3 = amygdala_coordinates(2,1);
+    y3 = amygdala_coordinates(2,2);
+    z3 = amygdala_coordinates(2,3);
+    x4 = dacc_coordinates(4,1);
+    y4 = dacc_coordinates(4,2);
+    z4 = dacc_coordinates(4,3);
+
+    % Create centroid mask for the sham condition
+    sham_mask = sprintf('%s/%s_sham_mask.nii', output_location_subject, subject_name);
+    fprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_sham.sh %d %d %d %d %d %d %d %d %d %d %d %d %s %s', x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4, input_t1_name_and_location, sham_mask);
+    [~, cmdout] = system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_sham.sh %d %d %d %d %d %d %d %d %d %d %d %d %s %s', x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4, input_t1_name_and_location, sham_mask));
     
-    % Lowest z coordinates (right) - includes min_z and min_z+1
-    dacc_right_low_idx = (dacc_right_z == min_z_right) | (dacc_right_z == min_z_right + 1) | (dacc_right_z == min_z_right + 2);
-    dacc_right_low_x = dacc_right_x(dacc_right_low_idx);
-    dacc_right_low_y = dacc_right_y(dacc_right_low_idx);
-    dacc_right_low_z = dacc_right_z(dacc_right_low_idx);
-    
-    % Calculate the centers
-    % The offset is there to account for the fact that the dACC is not aligned perfectly along the z-axis
-    dacc_y_offset = 4; 
-    %}
-
-    translation_offset = 0;
-
-    % The '+1' is there to account for the discrepancy in indexing between matlab and freesurfer
-    amygdala_left_center = round([mean(amygdala_left_x), mean(amygdala_left_y), mean(amygdala_left_z)]) + translation_offset;
-    amygdala_right_center = round([mean(amygdala_right_x), mean(amygdala_right_y), mean(amygdala_right_z)]) + translation_offset;
-    %dacc_left_anterior = round([mean(dacc_left_high_x), mean(dacc_left_high_y), max(dacc_left_high_z)]) + translation_offset;
-    %dacc_right_anterior = round([mean(dacc_right_high_x), mean(dacc_right_high_y), max(dacc_right_high_z)]) + translation_offset;
-    %dacc_left_center = round([mean(dacc_left_x), mean(dacc_left_y), mean(dacc_left_z)]) + translation_offset;
-    %dacc_right_center = round([mean(dacc_right_x), mean(dacc_right_y), mean(dacc_right_z)]) + translation_offset;
-    %dacc_left_posterior = round([mean(dacc_left_low_x), mean(dacc_left_low_y), min(dacc_left_low_z)]) + translation_offset;
-    %dacc_right_posterior = round([mean(dacc_right_low_x), mean(dacc_right_low_y), min(dacc_right_low_z)]) + translation_offset;
-    sham_left_center = round(mean([amygdala_left_center; dacc_left_center], 1));
-    sham_right_center = round(mean([amygdala_right_center; dacc_right_center], 1));
-
-    %% Create new masks based on centers
-    amygdala_mask = sprintf('%s/%s_amygdala_mask', output_location_subject, subject_name);
-    %dacc_mask = sprintf('%s/%s_dacc_mask', output_location_subject, subject_name);
-    sham_mask = sprintf('%s/%s_sham_mask', output_location_subject, subject_name);
-
-    % Get nii info from the original mask
-    mask_size = size(amygdala_left);
-    mask_info = niftiinfo(amygdala_left_name);
-    % Make an empty mask based on the amygdala mask size
-    empty_matrix = zeros(mask_size(1), mask_size(2), mask_size(3), 'int32');
-
-    % Make amygdala mask (centroids)
-    amygdala_mask_matrix = empty_matrix;
-    amygdala_mask_matrix(amygdala_left_center(1), amygdala_left_center(2), amygdala_left_center(3)) = 1;
-    amygdala_mask_matrix(amygdala_right_center(1), amygdala_right_center(2), amygdala_right_center(3)) = 1;
-    niftiwrite(amygdala_mask_matrix, amygdala_mask, mask_info);
-
-    % Get nii info from the original mask
-    mask_size = size(amygdala_left);
-    mask_info = niftiinfo(amygdala_left_name);
-    % Make an empty mask based on the amygdala mask size
-    empty_matrix = zeros(mask_size(1), mask_size(2), mask_size(3), 'int32');
-
-    % Make dACC masks
-    %{
-    dacc_mask_matrix = empty_matrix;
-    dacc_mask_matrix(dacc_left_anterior(1), dacc_left_anterior(2), dacc_left_anterior(3)) = 1;%pca_results_left.front_centroid(1), pca_results_left.front_centroid(2), pca_results_left.front_centroid(3)) = 1;%
-    dacc_mask_matrix(dacc_right_anterior(1), dacc_right_anterior(2), dacc_right_anterior(3)) = 1;%pca_results_right.front_centroid(1), pca_results_right.front_centroid(2), pca_results_right.front_centroid(3)) = 1;%
-    dacc_mask_matrix(dacc_left_center(1), dacc_left_center(2), dacc_left_center(3)) = 1;%pca_results_left.centroid(1), pca_results_left.centroid(2), pca_results_left.centroid(3)) = 1;%
-    dacc_mask_matrix(dacc_right_center(1), dacc_right_center(2), dacc_right_center(3)) = 1;%pca_results_right.centroid(1), pca_results_right.centroid(2), pca_results_right.centroid(3)) = 1;%
-    dacc_mask_matrix(dacc_left_posterior(1), dacc_left_posterior(2), dacc_left_posterior(3)) = 1;%pca_results_left.back_centroid(1), pca_results_left.back_centroid(2), pca_results_left.back_centroid(3)) = 1;%
-    dacc_mask_matrix(dacc_right_posterior(1), dacc_right_posterior(2), dacc_right_posterior(3)) = 1;%pca_results_right.back_centroid(1), pca_results_left.back_centroid(2), pca_results_left.back_centroid(3)) = 1;%
-    niftiwrite(dacc_mask_matrix, dacc_mask, mask_info);
-    %}
-
-    % Make sham mask
-    sham_mask_matrix = empty_matrix;
-    sham_mask_matrix(sham_left_center(1), sham_left_center(2), sham_left_center(3)) = 1;
-    sham_mask_matrix(sham_right_center(1), sham_right_center(2), sham_right_center(3)) = 1;
-    niftiwrite(sham_mask_matrix, sham_mask, mask_info);
-
-    %% Now find the same coordinates for the masks that will be used for simulations
-    % Extract center from different masks
-    amygdala_left = niftiread(sprintf('%s/%s_amygdala_left.nii.gz', segmentation_folder, subject_name));
-    amygdala_right = niftiread(sprintf('%s/%s_amygdala_right.nii.gz', segmentation_folder, subject_name));
-    dacc_left = niftiread(sprintf('%s/%s_payam_dacc_left_mask_nonlinear.nii.gz', segmentation_folder, subject_name));
-    dacc_right = niftiread(sprintf('%s/%s_payam_dacc_right_mask_nonlinear.nii.gz', segmentation_folder, subject_name));
-
-    % Get the coordinates of the non-zero voxels
-    [amygdala_left_x, amygdala_left_y, amygdala_left_z] = ind2sub(size(amygdala_left), find(amygdala_left));
-    [amygdala_right_x, amygdala_right_y, amygdala_right_z] = ind2sub(size(amygdala_right), find(amygdala_right));
-    [dacc_left_x, dacc_left_y, dacc_left_z] = ind2sub(size(dacc_left), find(dacc_left));
-    [dacc_right_x, dacc_right_y, dacc_right_z] = ind2sub(size(dacc_right), find(dacc_right));
-
-    % Split the mask into outer slices
-    % Get the outermost coordinates on the z-axis
-    max_z_left = max(dacc_left_z);
-    min_z_left = min(dacc_left_z);
-    max_z_right = max(dacc_right_z);
-    min_z_right = min(dacc_right_z);
-    
-    % Split coordinates by highest and lowest z (including adjacent)
-    % Highest z coordinates (left) - includes max_z and max_z-1
-    dacc_left_high_idx = (dacc_left_z == max_z_left) | (dacc_left_z == max_z_left - 1) | (dacc_left_z == max_z_left - 2);
-    dacc_left_high_x = dacc_left_x(dacc_left_high_idx);
-    dacc_left_high_y = dacc_left_y(dacc_left_high_idx);
-    dacc_left_high_z = dacc_left_z(dacc_left_high_idx);
-
-    % Highest z coordinates (right) - includes max_z and max_z-1
-    dacc_right_high_idx = (dacc_right_z == max_z_right) | (dacc_right_z == max_z_right - 1) | (dacc_right_z == max_z_right - 2);
-    dacc_right_high_x = dacc_right_x(dacc_right_high_idx);
-    dacc_right_high_y = dacc_right_y(dacc_right_high_idx);
-    dacc_right_high_z = dacc_right_z(dacc_right_high_idx);
-    
-    % Lowest z coordinates (left) - includes min_z and min_z+1
-    dacc_left_low_idx = (dacc_left_z == min_z_left) | (dacc_left_z == min_z_left + 1) | (dacc_left_z == min_z_left + 2);
-    dacc_left_low_x = dacc_left_x(dacc_left_low_idx);
-    dacc_left_low_y = dacc_left_y(dacc_left_low_idx);
-    dacc_left_low_z = dacc_left_z(dacc_left_low_idx);
-    
-    % Lowest z coordinates (right) - includes min_z and min_z+1
-    dacc_right_low_idx = (dacc_right_z == min_z_right) | (dacc_right_z == min_z_right + 1) | (dacc_right_z == min_z_right + 2);
-    dacc_right_low_x = dacc_right_x(dacc_right_low_idx);
-    dacc_right_low_y = dacc_right_y(dacc_right_low_idx);
-    dacc_right_low_z = dacc_right_z(dacc_right_low_idx);
-    
-    % Calculate the centers
-    % The offset is there to account for the fact that the dACC is not aligned perfectly along the z-axis
-    dacc_y_offset = 4; 
-
-    % The '+1' is there to account for the discrepancy in indexing between matlab and freesurfer
-    amygdala_left_center = round([mean(amygdala_left_x), mean(amygdala_left_y), mean(amygdala_left_z)]) + translation_offset;
-    amygdala_right_center = round([mean(amygdala_right_x), mean(amygdala_right_y), mean(amygdala_right_z)]) + translation_offset;
-    dacc_left_anterior = round([mean(dacc_left_high_x), mean(dacc_left_high_y), max(dacc_left_high_z)]) + translation_offset;
-    dacc_right_anterior = round([mean(dacc_right_high_x), mean(dacc_right_high_y), max(dacc_right_high_z)]) + translation_offset;
-    dacc_left_center = round([mean(dacc_left_x), mean(dacc_left_y), mean(dacc_left_z)]) + translation_offset;
-    dacc_right_center = round([mean(dacc_right_x), mean(dacc_right_y), mean(dacc_right_z)]) + translation_offset;
-    dacc_left_posterior = round([mean(dacc_left_low_x), mean(dacc_left_low_y), min(dacc_left_low_z)]) + translation_offset;
-    dacc_right_posterior = round([mean(dacc_right_low_x), mean(dacc_right_low_y), min(dacc_right_low_z)]) + translation_offset;
-    sham_left_center = round(mean([amygdala_left_center; dacc_left_center], 1));
-    sham_right_center = round(mean([amygdala_right_center; dacc_right_center], 1));
+    % Extract centroid coordinates
+    left_sham_coordinates = regexp(cmdout, 'CENTROID1:\s+(\d+)\s+(\d+)\s+(\d+)', 'tokens');
+    right_sham_coordinates = regexp(cmdout, 'CENTROID2:\s+(\d+)\s+(\d+)\s+(\d+)', 'tokens');
+    sham_coordinates = [str2double(left_sham_coordinates{1}); 
+                            str2double(right_sham_coordinates{1})];
 
     %% Save these coordinates into the planning coordinates csv
     % Load coordinates into matrix
     focus_coords = [
-        amygdala_left_center;
-        amygdala_right_center;
-        amygdala_left_center;
-        amygdala_right_center;
-        amygdala_left_center;
-        amygdala_right_center;
-        dacc_left_anterior;
-        dacc_right_anterior;
-        dacc_left_center;
-        dacc_right_center;
-        dacc_left_posterior;
-        dacc_right_posterior;
-        sham_left_center;
-        sham_right_center;
-        sham_left_center;
-        sham_right_center;
-        sham_left_center;
-        sham_right_center;
+        amygdala_coordinates(1,1), amygdala_coordinates(1,2), amygdala_coordinates(1,3);
+        amygdala_coordinates(2,1), amygdala_coordinates(2,2), amygdala_coordinates(2,3);
+        amygdala_coordinates(1,1), amygdala_coordinates(1,2), amygdala_coordinates(1,3);
+        amygdala_coordinates(2,1), amygdala_coordinates(2,2), amygdala_coordinates(2,3);
+        amygdala_coordinates(1,1), amygdala_coordinates(1,2), amygdala_coordinates(1,3);
+        amygdala_coordinates(2,1), amygdala_coordinates(2,2), amygdala_coordinates(2,3);
+        dacc_coordinates(1,1), dacc_coordinates(1,2), dacc_coordinates(1,3);
+        dacc_coordinates(2,1), dacc_coordinates(2,2), dacc_coordinates(2,3);
+        dacc_coordinates(3,1), dacc_coordinates(3,2), dacc_coordinates(3,3);
+        dacc_coordinates(4,1), dacc_coordinates(4,2), dacc_coordinates(4,3);
+        dacc_coordinates(5,1), dacc_coordinates(5,2), dacc_coordinates(5,3);
+        dacc_coordinates(6,1), dacc_coordinates(6,2), dacc_coordinates(6,3);
+        sham_coordinates(1,1), sham_coordinates(1,2), sham_coordinates(1,3);
+        sham_coordinates(2,1), sham_coordinates(2,2), sham_coordinates(2,3);
+        sham_coordinates(1,1), sham_coordinates(1,2), sham_coordinates(1,3);
+        sham_coordinates(2,1), sham_coordinates(2,2), sham_coordinates(2,3);
+        sham_coordinates(1,1), sham_coordinates(1,2), sham_coordinates(1,3);
+        sham_coordinates(2,1), sham_coordinates(2,2), sham_coordinates(2,3);
     ];
+
+    disp(focus_coords)
 
     % Convert subject_name to subject_id (numeric)
     subject_id = str2double(regexp(subject_name, '\d+', 'match', 'once'));
@@ -357,7 +253,7 @@ function mask_transformation(subject_name)
     end
     
     % Write back to CSV
-    %writetable(planning_coordinate_list, planning_coordinate_location, 'Delimiter', ';');
+    writetable(planning_coordinate_list, planning_coordinate_location, 'Delimiter', ';');
     
     fprintf('Successfully saved coordinates to %s\n', planning_coordinate_location);
 
