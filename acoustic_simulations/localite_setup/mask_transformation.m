@@ -12,8 +12,11 @@ function mask_transformation(subject_name)
 
     addpath('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup');
 
-    disp('Freesurfer wont be used');
     run_freesurfer = 'False';
+    
+    if strcmp(run_freesurfer, 'False')
+        disp('Freesurfer wont be used');
+    end
 
     if ~isfile(input_t1_name_and_location)
         error('File "%s" does not exist', input_t1_name_and_location)
@@ -53,6 +56,7 @@ function mask_transformation(subject_name)
     % First, make sure you can reach the freesurfer subfolders
     output_location_subject_tmp = sprintf('%s/%s', output_location_subject_tmp, subject_name);
 
+    %% Extract binary masks and convert them to nifti's
     % Then extract binary masks for the Amygdala
     system(sprintf('mri_binarize --i %s/mri/lh.hippoAmygLabels.CA.FSvoxelSpace.mgz --match 7001 7003 --o %s/amygdala_left.mgz', output_location_subject_tmp, output_location_subject_tmp))
     system(sprintf('mri_binarize --i %s/mri/rh.hippoAmygLabels.CA.FSvoxelSpace.mgz --match 7001 7003 --o %s/amygdala_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
@@ -69,6 +73,10 @@ function mask_transformation(subject_name)
     system(sprintf('mri_convert %s/amygdala_right.mgz %s', output_location_subject_tmp, amygdala_right_location))
     system(sprintf('mri_convert %s/anatomical_dacc_left.mgz %s/%s_anatomical_dacc_left.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
     system(sprintf('mri_convert %s/anatomical_dacc_right.mgz %s/%s_anatomical_dacc_right.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
+
+    %% Now also translate the Amygdala masks (freesurfer T1 > original T1)
+    system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s/%s_amygdala_left.nii.gz --interp nearest --no-save-reg' ,amygdala_left_location, input_t1_name_and_location, segmentation_folder, subject_name));
+    system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s/%s_amygdala_right.nii.gz --interp nearest --no-save-reg' ,amygdala_right_location, input_t1_name_and_location, segmentation_folder, subject_name));
     
     %% Translate Payam's dACC mask for simulations (MNI > original T1)
     dacc_left = ('payam_dacc_left_mask.nii.gz');
@@ -83,43 +91,17 @@ function mask_transformation(subject_name)
     % Navigate to subject folder and create masks
     cd (output_location_subject_tmp)
 
-    % Use SimNIBS' pipeline for nonlinear transformation
+    % Use SimNIBS' pipeline for nonlinear transformation and place the
+    % output in subject space (place them in both the localite and
+    % segmentation folder)
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_left_mask.nii.gz --interp 0', dacc_left_location, segmentation_folder, segmentation_folder, subject_name));
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_right_mask.nii.gz --interp 0', dacc_right_location, segmentation_folder, segmentation_folder, subject_name));
-
-    %% Convert freesurfers T1 to nii and move to localite folder, and repeat conversion steps again
-    freesurfer_location_mgz = sprintf('/project/3025011.02/localite/%s/tmp/%s/mri/', subject_name, subject_name);
-    freesurfer_t1_name_and_location_mgz = fullfile(freesurfer_location_mgz, 'T1.mgz');
-    freesurfer_t2_name_and_location_mgz = fullfile(freesurfer_location_mgz, 'T2.mgz');
-
-    freesurfer_t1_name_and_location = fullfile(freesurfer_location_mgz, sprintf('%s_T1w.nii', subject_name));
-    freesurfer_t2_name_and_location = fullfile(freesurfer_location_mgz, sprintf('%s_T2w.nii', subject_name));
-
-    %% Weirdly, these cannot be read by Localite
-    system(sprintf('mri_convert %s %s', freesurfer_t1_name_and_location_mgz, freesurfer_t1_name_and_location))
-    system(sprintf('mri_convert %s %s', freesurfer_t2_name_and_location_mgz, freesurfer_t2_name_and_location))
-
-    %% Now also translate the Amygdala masks (freesurfer T1 > original T1)
-    system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s/%s_amygdala_left.nii.gz --interp nearest --no-save-reg' ,amygdala_left_location, input_t1_name_and_location, segmentation_folder, subject_name));
-    system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s/%s_amygdala_right.nii.gz --interp nearest --no-save-reg' ,amygdala_right_location, input_t1_name_and_location, segmentation_folder, subject_name));
-
-    %% Use freesurfer's anatomical files from now on
-    %input_t1_name_and_location = freesurfer_t1_name_and_location;
-    %input_t2_name_and_location = freesurfer_t2_name_and_location;
-
-    %% Redo dACC transformation, now for localite (MNI > freesurfer T1)
-    % Freesurfer approach
-    %system(sprintf('mri_vol2vol --mov %s --targ %s --tal --o %s/%s_payam_dacc_left_mask_nonlinear.nii.gz --interp nearest --no-save-reg' ,dacc_coordinates_location, freesurfer_t1_name_and_location, output_location_subject, subject_name));
-    %system(sprintf('mri_vol2vol --mov %s --targ %s --tal --o %s/%s_payam_dacc_right_mask_nonlinear.nii.gz --interp nearest --no-save-reg' ,dacc_right_coordinates_location, freesurfer_t1_name_and_location, output_location_subject, subject_name));
-    %system(sprintf('mri_vol2vol --mov %s --targ %s --tal --o %s/%s_payam_dacc_right_mask_nonlinear.nii.gz --interp nearest --no-save-reg' ,dacc_right_coordinates_location, freesurfer_t1_name_and_location, output_location_subject, subject_name));
-
-    % Use SimNIBS' pipeline for nonlinear transformation (this resamples the
-    % mask to scanner anatomical, not to the cropped freesurfer output)
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_left_mask.nii.gz --interp 0', dacc_left_location, segmentation_folder, output_location_subject_tmp, subject_name));
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_right_mask.nii.gz --interp 0', dacc_right_location, segmentation_folder, output_location_subject_tmp, subject_name));
+    % Translate MNI coordinates
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject_coords -m %s -s %s -o %s', segmentation_folder, dacc_coordinates_MNI_location, dacc_coordinates_subject_location));
 
-    % Now use FSLmaths to turn the csv into a target mask for the participant
+    % Use FSLmaths to turn the csv into a target mask for the participant
     dacc_mask = sprintf('%s/%s_dacc_mask.nii', output_location_subject, subject_name);
     system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/transform_MNI_csv_to_mask.sh %s %s %s', dacc_mask, input_t1_name_and_location, dacc_coordinates_subject_location));
 
