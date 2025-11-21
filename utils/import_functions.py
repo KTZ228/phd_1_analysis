@@ -552,7 +552,7 @@ def main(raw_output_path,
          pilot_analysis=False,
          binary_output=False,
          remove_reversals=False,
-         remove_invalid_files=True,
+         remove_invalid_trials=True,
          selected_pattern='behavioural_output') -> pd.DataFrame:
     """ Main function that runs the import functions.
 
@@ -570,7 +570,7 @@ def main(raw_output_path,
         If True, the output will be in binary format.
     remove_reversals : bool
         If True, trials where a reversal occurred will be removed.
-    remove_invalid_files : bool
+    remove_invalid_trials : bool
         If True, invalid files will be removed from the analysis.
     selected_pattern : str
         Allows you to select the pattern of the output files.
@@ -585,11 +585,13 @@ def main(raw_output_path,
     recent_files = list_files_with_date_and_subject_id(raw_output_path, unique_subject_ids, unique_sessions, selected_pattern)
 
     # Remove the invalid files
-    if remove_invalid_files:
-        recent_files = remove_invalid_files(recent_files, raw_output_path)
+    #if remove_invalid_trials:
+        #recent_files = remove_invalid_files(recent_files, raw_output_path)
 
     # Then, import all behavioural datasets and combine them into 1
     dataframe = combine_result_files(recent_files)
+
+    # Extract one of the blocks for exclusion
 
     # If we're analysing the pilot data, make some changes to ensure backwards compatibility of the analysis
     if pilot_analysis:

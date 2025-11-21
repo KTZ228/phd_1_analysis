@@ -12,7 +12,7 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-which_sims = 'target_2';
+which_sims = 'target_1';
 test_pipeline = 0;
 localite_coordinates = 0;
 include_mask = 0;
@@ -24,8 +24,7 @@ heatrise_optimised = 0;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [43];
-session_number = 2;
+subject_list = [10, 14, 15];%[5, 10, 14, 15, 22, 37];%[5, 10, 14, 15, 16, 20, 22, 23, 25, 28, 29, 37, 38]; 
 
 % Set config files and export location]
 if strcmp(which_sims, 'target_1')
@@ -57,7 +56,7 @@ for subject_id = subject_list
     %% for consecutive simulations, you create multiple configs within one structure
     parameters = load_parameters(config_sequential, config_location);
 
-    if isfield(parameters, 'subsequent_heating_config') && test_pipeline == 1 && ~strcmp(which_sims, 'target_2')
+    if isfield(parameters, 'subsequent_heating_config') && test_pipeline == 1 && ~strcmp(which_sims, 'target_2') && localite_coordinates ~= 1
         n_consecutive_simulations = 2;
         heating_config_list = parameters.subsequent_heating_config;
     elseif isfield(parameters, 'subsequent_heating_config')
@@ -88,6 +87,12 @@ for subject_id = subject_list
         else
             parameters = load_parameters(heating_config_list(consecutive_simulation_number), config_location);
         end
+
+        if strcmp(interactive_or_slurm = 'interactive')
+            parameters.interactive = 1;
+        else
+            parameters.interactive = 0;
+        end
         
         % Load the stimulation target and replace the 4 with a 3 since the
         % defocussed and focussed have the same coordinates
@@ -111,8 +116,8 @@ for subject_id = subject_list
         %% Load coordinates
         if localite_coordinates == 1
             %% Change output folder to post-hoc
-            parameters.output_location = strrep(parameters.t1_path_template, 'planning', 'post-hoc');
-            parameters.sim_path = strrep(parameters.t2_path_template, 'planning', 'post-hoc');
+            parameters.output_location = strrep(parameters.output_location, 'planning', 'post-hoc');
+            parameters.sim_path = strrep(parameters.sim_path, 'planning', 'post-hoc');
 
             %% Load coordinates from Localite
             % First check if any of the instrument_markers are named incorrectly
@@ -121,28 +126,64 @@ for subject_id = subject_list
     
             % Loop through the filtered rows to find the 
             for i = 1:height(incorrectly_named_instrument_markers)
-                % Check if 'stimulation_target_left' matches any 'intended_name'
+                % Check if 'stimulation_target' matches any 'intended_name'
                 if any(strcmp(stimulation_target_coordinates, incorrectly_named_instrument_markers.intended_name))
                     % Find the row where it matches and replace with 'original_name'
                     match_row = strcmp(incorrectly_named_instrument_markers.intended_name, stimulation_target_coordinates);
-                    trigger_marker_left = incorrectly_named_instrument_markers.original_name{match_row};
+                    trigger_marker_name = incorrectly_named_instrument_markers.original_name{match_row};
                 else
-                    trigger_marker_left = stimulation_target_coordinates;
+                    trigger_marker_name = stimulation_target_coordinates;
                 end
             end
+
+            %% Then determine which session number is coupled to which target
+            randomisation_list_location = '/project/3025011.02/O5.Randomisation_list_AmydACC.csv';
+            
+            % Read the CSV file with semicolon delimiter
+            randomisation_list = readtable(randomisation_list_location, 'Delimiter', ';');
+            
+            % Create the subject ID string in the format 'sub-X'
+            subject_str = sprintf('sub-%d', subject_id);
+            
+            % Find the row matching the subject ID
+            row_idx = strcmp(randomisation_list.SubjectID, subject_str);
+            
+            if ~any(row_idx)
+                warning('Subject ID %d not found in the file', subject_id);
+                session_number = NaN;
+                return;
+            end
+            
+            % Extract the row for this subject
+            subject_row = randomisation_list(row_idx, :);
+            
+            % Search through sessions 1-4 for the matching which_sims
+            session_number = NaN;
+            for sess = 1:4
+                session_col = sprintf('Session%d', sess);
+                if strcmp(subject_row.(session_col){1}, which_sims)
+                    session_number = sess;
+                    break;
+                end
+            end
+            
+            if isnan(session_number)
+                warning('which_sims "%s" not found for subject %d', which_sims, subject_id);
+            end
     
+            %% Now load the coordinates into subject space
             % Set expected_focal_distance_mm
             t1_grid_step_mm = t1_header.PixelDimensions(1);
             focal_distance_t1 = norm(parameters.focus_pos_t1_grid - parameters.transducer.pos_t1_grid);
             parameters.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
-            parameters_right.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
     
-            % To compensate for potential offsets between the center of the reference and the edge of the bowl
-            reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm) - 7;
+            % To compensate for the offset between the center of the reference and the edge of the bowl
+            coupler_to_transducer_distance = 3;
+            reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm) - coupler_to_transducer_distance;
             
             % Load the most recent trigger mark file
             extract_dt = @(x) datetime(x.name(end-20:end-4),'InputFormat','yyyyMMddHHmmssSSS');
-            localite_file_name_and_location = sprintf(localite_location, subject_id, session_number);
+            localite_file_name_and_location = sprintf('/project/3025011.02/raw/sub-%03d/ses-mri%02d/localite', subject_id, session_number);
             trig_mark_files = dir(localite_file_name_and_location);
             if isempty(trig_mark_files)
                 error('Localite file `%s` cannot be found', localite_file_name_and_location)
@@ -151,25 +192,37 @@ for subject_id = subject_list
             % Filter out files that are not InstrumentMarker files
             trig_mark_files = trig_mark_files(contains({trig_mark_files.name}, 'InstrumentMarker'));
             
-            % Select the most recent file
+            % Select the most recent file and extract the coordinates
             [~,idx] = sort([arrayfun(extract_dt,trig_mark_files)],'descend');
             trig_mark_files = trig_mark_files(idx);
-            
-            % Translate left transducer trigger markers to raster positions
-            [left_trans_ras_pos, left_focus_ras_pos] = get_trans_pos_from_instrument_markers(fullfile(trig_mark_files(1).folder, trig_mark_files(1).name), trigger_marker_left, 5, ...
-                reference_to_transducer_distance, parameters.expected_focal_distance_mm);
-            parameters.transducer.pos_t1_grid = ras_to_grid(left_trans_ras_pos, t1_header);
-            parameters.focus_pos_t1_grid = ras_to_grid(left_focus_ras_pos, t1_header);
+            recent_trig_mark_file = xml2struct(fullfile(trig_mark_files(1).folder, trig_mark_files(1).name));
+
+            % Load the trigger markers and turn them into doubles
+            trigger_markers = recent_trig_mark_file.InstrumentMarkerList.InstrumentMarker{1,consecutive_simulation_number}.Marker.Matrix4D.Attributes;
+            trigger_marker_fieldnames = fieldnames(trigger_markers);
+            for i = 1:length(trigger_marker_fieldnames)
+                trigger_markers.(trigger_marker_fieldnames{i}) = str2double(trigger_markers.(trigger_marker_fieldnames{i}));
+            end
+
+            % Reshape the markers
+            trigger_markers = struct2cell(trigger_markers);
+            trigger_markers = reshape(cell2mat(trigger_markers)', 4, 4)';
+
+            % -- Extract and interpret Localite coordinate system:
+            %   - coord_matrix(:,4): the position (origin) in RAS mm
+            %   - coord_matrix(:,1): coil local X axis, typically pointing from coil center to head
+            reference_position = trigger_markers(:, 4);
+            reference_vector = trigger_markers(:, 1);
     
-            % Translate right transducer trigger markers to raster positions
-            [right_trans_ras_pos, right_focus_ras_pos] = get_trans_pos_from_instrument_markers(fullfile(trig_mark_files(1).folder, trig_mark_files(1).name), trigger_marker_right, 5, ...
-                reference_to_transducer_distance, parameters_right.expected_focal_distance_mm);
-            parameters_right.transducer.pos_t1_grid = ras_to_grid(right_trans_ras_pos, t1_header);
-            parameters_right.focus_pos_t1_grid = ras_to_grid(right_focus_ras_pos, t1_header);
+            % -- Compute the RAS mm position of the transducer surface
+            transducer_pos_ras = reference_position + reference_to_transducer_distance * reference_vector;
+            % -- Compute the RAS mm position of the acoustic focal point (forward along vector)
+            target_pos_ras = reference_position + parameters.expected_focal_distance_mm * reference_vector;
     
-            %% Label transducer and focus locations
-            transducers = [parameters.transducer.pos_t1_grid parameters_right.transducer.pos_t1_grid];
-            focus = [parameters.focus_pos_t1_grid parameters_right.focus_pos_t1_grid];
+            % -- Convert these world (RAS mm) positions into MRI voxel index space
+            parameters.transducer.pos_t1_grid = ras_to_grid(transducer_pos_ras(1:3, :), t1_header);
+            parameters.focus_pos_t1_grid = ras_to_grid(target_pos_ras(1:3, :), t1_header);
+
         else
             %% Load coordinates from the exploratory_coordinate_list
             exploratory_coordinate_list = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
@@ -183,13 +236,17 @@ for subject_id = subject_list
         
             parameters.transducer.pos_t1_grid = [row_coordinates_left.pos_t1_grid_x, row_coordinates_left.pos_t1_grid_y, row_coordinates_left.pos_t1_grid_z];
             parameters.focus_pos_t1_grid = [row_coordinates_left.focus_pos_t1_grid_x, row_coordinates_left.focus_pos_t1_grid_y, row_coordinates_left.focus_pos_t1_grid_z];
-        
-            %% Label transducer and focus locations
-            transducers = parameters.transducer.pos_t1_grid';
-            focus = parameters.focus_pos_t1_grid';
         end
     
         %% Preview transducer location
+        % Compensate for 1-based indexing in Matlab
+        parameters.transducer.pos_t1_grid = parameters.transducer.pos_t1_grid + 1;
+        parameters.focus_pos_t1_grid = parameters.focus_pos_t1_grid + 1;
+
+        % Flip the coordinates around for later use
+        transducer_coordinates = parameters.transducer.pos_t1_grid';
+        focus_coordinates = parameters.focus_pos_t1_grid';
+
         % Makes a different slice depending on the target
         if contains(stimulation_target, 'target_2')
             slice_dim_right_figure = 1;
@@ -199,11 +256,11 @@ for subject_id = subject_list
         
         figure;
         hImage = imshowpair(...
-            plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducers(:,1), focus(:,1), parameters), ...
-            plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducers(:,1), focus(:,1), parameters, 'slice_dim', slice_dim_right_figure), ...
+            plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducer_coordinates(:,1), focus_coordinates(:,1), parameters), ...
+            plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducer_coordinates(:,1), focus_coordinates(:,1), parameters, 'slice_dim', slice_dim_right_figure), ...
             'montage');
         hAxes = get(hImage, 'Parent');
-        title(hAxes, sprintf('sub-%03d %s [%g; %g; %g]', subject_id, stimulation_target, transducers(:,1)));
+        title(hAxes, sprintf('sub-%03d %s [%g; %g; %g]', subject_id, stimulation_target, transducer_coordinates(:,1)-1)); % -1 is at the end to remove compensation of 1-based indexing in plot title
         
         %% Simulations for the left target
         % Load additional parameters into config

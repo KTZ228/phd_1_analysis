@@ -1,0 +1,88 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+## Load libraries
+```{r}
+library(renv)           # save package versions
+library(tidyverse)      # data managing
+library(tidyr)          # data handling
+library(dplyr)          # data managing
+library(ggplot2)        # plotting
+library(lme4)           # mixed (logistic) models
+library(emmeans)
+library(glue)
+library(stringr)
+```
+
+## Import data
+```{r}
+subject_id <- 47
+subject_id <- str_pad(subject_id, 3, pad = "0")
+
+combined_dataframe_location <- glue("/Volumes/project/3025011.02/raw/sub-{subject_id}/ses-mri01/beh")
+combined_dataframe_name <- glue("behavioural_output_sub-{subject_id}_session-01_")
+
+df <- read.csv(dir(combined_dataframe_location, full.names=T, pattern=combined_dataframe_name), header = TRUE, sep = ";")
+```
+
+## Filter the data a bit
+```{r}
+df <- df[df$probability_condition != 50, ]
+df <- df[df$objectively_correct != 'Late', ]
+```
+
+## Redefine as factors
+```{r}
+df <- df %>%
+  mutate(
+    response = case_when(
+      response == "up" ~ 1,
+      response == "down" ~ -1,
+      TRUE ~ NA_real_  # for any other values
+    ),
+    subjectively_correct = case_when(
+      subjectively_correct == "True" ~ 1,
+      subjectively_correct == "False" ~ -1,
+      TRUE ~ NA_real_
+    )
+  )
+
+df$response_1_back <- c(df$response[-1], NA)
+df$response_2_back <- c(df$response[-(1:2)], NA, NA)
+df$subjectively_correct_1_back <- c(df$subjectively_correct[-1], NA)
+df$subjectively_correct_2_back <- c(df$subjectively_correct[-(1:2)], NA, NA)
+
+df$response <- as.factor(df$response)
+df$response_1_back <- as.factor(df$response_1_back)
+df$response_2_back <- as.factor(df$response_2_back)
+
+df$subjectively_correct <- as.factor(df$subjectively_correct)
+df$subjectively_correct_1_back <- as.factor(df$subjectively_correct_1_back)
+df$subjectively_correct_2_back <- as.factor(df$subjectively_correct_2_back)
+```
+
+## Run model for angry stimuli
+```{r}
+model <- glm(response ~ response_1_back * subjectively_correct_1_back + response_2_back * subjectively_correct_2_back,
+              data = df_stimuli_1 <- df[df$stimuli_type == 1, ],
+              family = binomial())
+
+# See if they learned
+summary(model)
+```
+
+## Run model for happy stimuli
+```{r}
+model <- glm(response ~ response_1_back * subjectively_correct_1_back + response_2_back * subjectively_correct_2_back,
+              data = df_stimuli_2 <- df[df$stimuli_type == 2, ],
+              family = binomial())
+
+# See if they learned
+summary(model)
+```
