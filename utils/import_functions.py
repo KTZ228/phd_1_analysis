@@ -64,6 +64,8 @@ def list_files_with_date_and_subject_id_old(file_path: str,
     # Choose the files to look for
     if selected_pattern == 'joystick_output':
         pattern = r'joystick_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
+    elif selected_pattern == 'speakup':
+        pattern = r'sub-(\d{2})_d(\d{1})_.*\behavioural_output.csv$'
     else:
         pattern = r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
 
@@ -127,6 +129,8 @@ def list_files_with_date_and_subject_id(file_path: str,
     # Choose the pattern to look for
     if selected_pattern == 'joystick_output':
         pattern = re.compile(r'joystick_output_sub-(\d{3})_session-(\d{2})_.*\.csv$')
+    elif selected_pattern == 'speakup':
+        pattern = re.compile(r'sub-(\d{2})_d(\d{1})_rlt_behavioural_output.csv$')
     else:
         pattern = re.compile(r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$')
 
@@ -136,20 +140,20 @@ def list_files_with_date_and_subject_id(file_path: str,
     for root, dirs, files in os.walk(file_path):
         # Filter files that start with the right selected_pattern first (quick string check)
         for file in files:
-            if file.startswith(selected_pattern) and file.endswith('.csv'):
-                match = pattern.match(file)
-                if match:
-                    subject_id = int(match.group(1))
-                    session_num = int(match.group(2))
+            #if file.startswith(selected_pattern) and file.endswith('.csv'):
+            match = pattern.match(file)
+            if match:
+                subject_id = int(match.group(1))
+                session_num = int(match.group(2))
 
-                    # If specific subjects/sessions are requested, filter here
-                    if unique_subject_ids and subject_id not in unique_subject_ids:
-                        continue
-                    if unique_sessions and session_num not in unique_sessions:
-                        continue
+                # If specific subjects/sessions are requested, filter here
+                if unique_subject_ids and subject_id not in unique_subject_ids:
+                    continue
+                if unique_sessions and session_num not in unique_sessions:
+                    continue
 
-                    full_path = os.path.join(root, file)
-                    file_dict[(subject_id, session_num)].append(full_path)
+                full_path = os.path.join(root, file)
+                file_dict[(subject_id, session_num)].append(full_path)
 
     # If no specific subjects/sessions were provided, use all found
     if not unique_subject_ids and not unique_sessions:
@@ -320,41 +324,6 @@ def flip_joystick_data(dataframe: pd.DataFrame) -> pd.DataFrame:
 
 
 def check_congruency(row,
-                     binary_output: bool = False):
-    """ Functions that reads a row and sees whether the participant's response was congruent or not.
-    So here, we code the movement where you push the joystick away from you for happy faces as incongruent.
-
-    Parameters
-    ----------
-    row : pd.DataFrame.row
-
-    Returns
-    -------
-    condition : str
-        A string containing the congruency condition for the given row.
-    """
-    if (row['response'] == 'up' and row['stimuli_type'] == 1) or (
-            row['response'] == 'down' and row['stimuli_type'] == 2):
-        if binary_output is True:
-            condition = 1
-        else:
-            condition = 'congruent'
-    elif (row['response'] == 'down' and row['stimuli_type'] == 1) or (
-            row['response'] == 'up' and row['stimuli_type'] == 2):
-        if binary_output is True:
-            condition = -1
-        else:
-            condition = 'incongruent'
-    else:
-        if binary_output is True:
-            condition = 0
-        else:
-            condition = 'undefined'
-
-    return condition
-
-
-def check_hidden_congruency(row,
                      binary_output: bool = False):
     """ Functions that reads a row and sees whether the conditions are congruent or not.
     So here, we code the most rewarding movement being where you have to push the joystick away from you for happy faces as incongruent.
@@ -583,7 +552,8 @@ def main(raw_output_path,
          pilot_analysis=False,
          binary_output=False,
          remove_reversals=False,
-         remove_invalid_trials=True) -> pd.DataFrame:
+         remove_invalid_files=True,
+         selected_pattern='behavioural_output') -> pd.DataFrame:
     """ Main function that runs the import functions.
 
     Parameters
@@ -598,6 +568,12 @@ def main(raw_output_path,
         If True, only the first 10 subjects will be used for analysis.
     binary_output : bool
         If True, the output will be in binary format.
+    remove_reversals : bool
+        If True, trials where a reversal occurred will be removed.
+    remove_invalid_files : bool
+        If True, invalid files will be removed from the analysis.
+    selected_pattern : str
+        Allows you to select the pattern of the output files.
 
     Returns
     -------
@@ -606,10 +582,11 @@ def main(raw_output_path,
     """
 
     # First, get a list of the behavioural datafiles
-    recent_files = list_files_with_date_and_subject_id(raw_output_path, unique_subject_ids, unique_sessions)
+    recent_files = list_files_with_date_and_subject_id(raw_output_path, unique_subject_ids, unique_sessions, selected_pattern)
 
     # Remove the invalid files
-    recent_files = remove_invalid_files(recent_files, raw_output_path)
+    if remove_invalid_files:
+        recent_files = remove_invalid_files(recent_files, raw_output_path)
 
     # Then, import all behavioural datasets and combine them into 1
     dataframe = combine_result_files(recent_files)
@@ -637,7 +614,6 @@ def main(raw_output_path,
     # Make congruency and hidden congruency columns
     dataframe['congruency'] = dataframe.apply(check_congruency, args=(binary_output,), axis=1)
     print(dataframe[['stimuli_type', 'probability_condition', 'congruency']])
-    dataframe['hidden_congruency'] = dataframe.apply(check_hidden_congruency, args=(binary_output,), axis=1)
 
     # Make valence column
     dataframe['valence'] = dataframe.apply(check_valence, args=(binary_output,), axis=1)
