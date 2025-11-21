@@ -30,8 +30,8 @@ for subject_name = subject_list
     fprintf(fid, '#SBATCH --time=24:00:00\n');
     fprintf(fid, '#SBATCH --output=%s\n', fullfile(log_location, '%j_freesurfer_output.log'));
     fprintf(fid, '#SBATCH --error=%s\n', fullfile(log_location, '%j_freesurfer_error.log'));
-    fprintf(fid, '#SBATCH --chdir=%s\n', pwd);
-    fprintf(fid, '\nmodule load matlab/R2024b\n');
+    fprintf(fid, '#SBATCH --chdir=%s\n', '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup');
+    fprintf(fid, '\nmodule load matlab/R2023b\n');
     
     % Add environment setup and the segmentation command
     fprintf(fid, 'matlab -nodisplay -nosplash -r "%s; exit;"', freesurfer_call);

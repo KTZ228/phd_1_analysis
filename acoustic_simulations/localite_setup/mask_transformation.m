@@ -1,9 +1,34 @@
 function mask_transformation(subject_name)
+
+    %% Run the segmentation pipelines?
+    run_segmentation_pipelines = 'False';
     
     %% Remove SimNIBS path
     % To mitigate any conflicts with repelem.m
     cd /home/affneu/kenvdzee/.conda/envs/
-    rmpath(genpath('simnibs_env'))
+    rmpath(genpath('simnibs_env'));
+
+    %% Add participant rows to coordinate and intensity csv's
+    
+
+    %% Run SimNIBS segmentation
+    % Add PRESTUS to the path
+    cd /home/affneu/kenvdzee/Documents/PRESTUS/
+    addpath('functions')
+    addpath(genpath('toolboxes'))
+    addpath('/home/common/matlab/fieldtrip/qsub')
+
+    subject_id = str2double(regexp(subject_name, '\d+', 'match'));
+    parameters = load_parameters('config_kenneth_phd_1_simnibs_segmentation.yaml', '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/');
+    if strcmp(run_segmentation_pipelines, 'True')
+        %single_subject_pipeline(subject_id, parameters);
+        %pause(180);
+    end
+
+    %% Remove SimNIBS path again
+    % To mitigate any conflicts with repelem.m
+    cd /home/affneu/kenvdzee/.conda/envs/
+    rmpath(genpath('simnibs_env'));
 
     %% Set folder names for segmentation
     % Set input names
@@ -16,12 +41,6 @@ function mask_transformation(subject_name)
     segmentation_folder = sprintf('/project/3025011.02/TUS_simulations/segmentation_data/m2m_%s', subject_name);
 
     addpath('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup');
-
-    run_freesurfer = 'False';
-
-    if strcmp(run_freesurfer, 'False')
-        disp('Freesurfer wont be used');
-    end
 
     if ~isfile(input_t1_name_and_location)
         error('File "%s" does not exist', input_t1_name_and_location)
@@ -42,15 +61,12 @@ function mask_transformation(subject_name)
     if ~isfolder(output_location_subject_tmp)
         mkdir(output_location_subject_tmp)
     end
-    if ~isfolder(segmentation_folder)
-        mkdir(segmentation_folder);
-    end
 
     % Send output location to freesurfer
     setenv('SUBJECTS_DIR', output_location_subject_tmp)
 
     %% Run Freesurfer
-    if strcmp(run_freesurfer, 'True')
+    if strcmp(run_segmentation_pipelines, 'True')
         % Start the recon-all pipeline from freesurfer
         system(sprintf('recon-all -i %s -s %s -T2 %s -T2pial -all -cw256', input_t1_name_and_location, subject_name, input_t2_name_and_location))
     
@@ -59,6 +75,8 @@ function mask_transformation(subject_name)
 
         % Create MNI transform
         system(sprintf('mni152reg --s %s', subject_name))
+    else
+        disp('Freesurfer wont be used');
     end
 
     % First, make sure you can reach the freesurfer subfolders
@@ -162,7 +180,6 @@ function mask_transformation(subject_name)
 
     % Create centroid mask for the sham condition
     sham_mask = sprintf('%s/%s_sham_mask.nii', output_location_subject, subject_name);
-    fprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_sham.sh %d %d %d %d %d %d %d %d %d %d %d %d %s %s', x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4, input_t1_name_and_location, sham_mask);
     [~, cmdout] = system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_sham.sh %d %d %d %d %d %d %d %d %d %d %d %d %s %s', x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4, input_t1_name_and_location, sham_mask));
     
     % Extract centroid coordinates
@@ -194,6 +211,7 @@ function mask_transformation(subject_name)
         sham_coordinates(2,1), sham_coordinates(2,2), sham_coordinates(2,3);
     ];
 
+    fprintf('\nNew coordinates for %s are saved as:\n', subject_name);
     disp(focus_coords)
 
     % Convert subject_name to subject_id (numeric)
