@@ -26,7 +26,7 @@ transducer:
   dist_to_plane_mm: 65.3 # distance to the transducer plane from the geometric focus
   source_amp: 177828 # [Pa]
   strength_1: 177828
-  strength_2: 235219
+  strength_2: 229000 #235219
   strength_3: 270000
   strength_4: 302585
   source_phase_deg: [0, 246.38, 173.81, 200.94, 202.4, 185.4, 187.76, 196.82, 207.92, 198.1, 193.69, 192.72, 201.01, 202.58, 201.71, 184.48, 178.35, 175.82, 180.32, 186.4, 184.91, 176.93, 178.08, 169.46, 179.76, 193.07, 208.58, 132.02, 75.93, 50.12] # source phase [deg]
@@ -50,6 +50,9 @@ use_forceqform: 1
 run_posthoc_water_sims: 0
 run_heating_sims: 1
 run_acoustic_sims: 1
+
+# Here to compensate for the decreased skull thickness in the temporal window
+skull_smooth_threshold: 0.2
 
 # Stimulate the next location
 subsequent_heating_config: [config_kenneth_phd_1_amygdala_3_PCD15287_01001_90mm.yaml, config_kenneth_phd_1_amygdala_4_PCD15287_01002_90mm.yaml, config_kenneth_phd_1_amygdala_5_PCD15287_01001_90mm.yaml, config_kenneth_phd_1_amygdala_6_PCD15287_01002_90mm.yaml]
