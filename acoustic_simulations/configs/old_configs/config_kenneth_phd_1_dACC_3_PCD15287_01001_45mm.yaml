@@ -1,0 +1,64 @@
+# Location of stored data
+data_path: /project/3025011.02/bids/
+seg_path: /project/3025011.02/TUS_simulations/segmentation_data/
+simnibs_bin_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/bin/
+ld_library_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/lib/python3.9/site-packages/simnibs/mesh_tools/cgal/../../external/lib/linux
+subject_subfolder: 1
+output_location: /project/3025011.02/TUS_simulations/planning/target_2_3/
+stimulation_target: target_2_3
+
+overwrite_simnibs: 0
+
+# Picks a specific GPU that always works for thermal simulations
+hcp_gpu: "gpu:1"
+hcp_partition: gpu40g
+
+# Structure of subfolders containing T1 and T1 images
+## It is easier to store the subject data of each participant in an individual subfolder
+t1_path_template: sub-%1$03d/ses-mri01/anat/*mprage_T1w.nii.gz
+t2_path_template: sub-%1$03d/ses-mri01/anat/*sagisop2ellscan_T2w.nii.gz
+
+transducer: 
+  n_elements: 30 # number of elements in the transducer
+  Elements_ID_mm: [10, 13.7667, 17.5333, 22.3, 24.5667, 26.8333, 30, 31.7667, 33.5333, 36.3, 37.7667, 39.2333, 41.7, 43.0, 44.3, 46.5, 47.6667, 48.8333, 51, 52.0333, 53.0667, 55.1, 56.0667, 57.0333, 58.9, 59.8, 60.7, 62.5, 63.3333, 64.1667]
+  Elements_OD_mm: [13.7667, 17.5333, 21.3, 24.5667, 26.8333, 29.1, 31.7667, 33.5333, 35.3, 37.7667, 39.2333, 40.7, 43.0, 44.3, 45.6, 47.6667, 48.8333, 50, 52.0333, 53.0667, 54.1, 56.0667, 57.0333, 58, 59.8, 60.7, 61.6, 63.3333, 64.1667, 65]
+  curv_radius_mm: 75 # radius of curvature of the bowl 
+  dist_to_plane_mm: 65.3 # distance to the transducer plane from the geometric focus
+  source_amp: 138101 # [Pa]
+  strength_1: 138101
+  strength_2: 189378
+  strength_3: 215000
+  strength_4: 243112
+  source_phase_deg: [0, 228.09, 62.88, 309.34, 279.55, 242.83, 116.02, 75.92, 287.65, 97.76, 106.38, 108.41, 115.8, 94.39, 101.63, 119.18, 123.3, 137.37, 171.31, 177.17, 192.93, 214.06, 221.75, 230.6, 246.59, 256.89, 256.76, 253.69, 261.26, 113.54]
+  phases_1: [0, 228.09, 62.88, 309.34, 279.55, 242.83, 116.02, 75.92, 287.65, 97.76, 106.38, 108.41, 115.8, 94.39, 101.63, 119.18, 123.3, 137.37, 171.31, 177.17, 192.93, 214.06, 221.75, 230.6, 246.59, 256.89, 256.76, 253.69, 261.26, 113.54]
+  phases_2: [0, 217.93, 99.77, 52.71, 321.51, 250.49, 83.57, 67.84, 318.83, 83.02, 104.55, 130.66, 96.99, 153.78, 111.73, 155.72, 160.36, 181.53, 256.83, 159.98, 198.78, 241.23, 242.84, 259.92, 266.12, 138.7, 272.03, 274.92, 279.13, 74.27]
+  phases_3: [0, 217.93, 99.77, 52.71, 321.51, 250.49, 83.57, 67.84, 318.83, 83.02, 104.55, 130.66, 96.99, 153.78, 111.73, 155.72, 160.36, 181.53, 256.83, 159.98, 198.78, 241.23, 242.84, 259.92, 266.12, 138.7, 272.03, 274.92, 279.13, 74.27]
+  phases_4: [0, 210.92, 105.89, 53.62, 332.86, 321.45, 74.35, 41.67, 326.69, 80.49, 98.57, 127.39, 123.35, 148.11, 103.85, 130.93, 173.74, 201.74, 228.61, 193.63, 182.93, 211.16, 231.19, 243.18, 258.75, 107.85, 280.98, 277.2, 251.18, 100.45]
+  pos_t1_grid: [84,182,262]
+  source_freq_hz: 300e3 # [Hz] the central frequency
+
+focus_pos_t1_grid: [103,172,208]
+
+transducer_from_localite: 0 # should we load the transducer locations from the localite file(s)
+
+mask_name: payam_dacc_left_mask_linear
+
+using_donders_hpc: 1
+overwrite_simnibs: 0
+use_forceqform: 1
+
+run_heating_sims: 1
+run_acoustic_sims: 1
+
+# Simulate the next location
+subsequent_heating_config: [config_kenneth_phd_1_dACC_3_PCD15287_01001_45mm.yaml, config_kenneth_phd_1_dACC_4_PCD15287_01001_45mm.yaml, config_kenneth_phd_1_dACC_5_PCD15287_01001_45mm.yaml, config_kenneth_phd_1_dACC_6_PCD15287_01001_45mm.yaml]
+
+# Parameters for thermal simulations
+thermal:
+  duty_cycle: 0.2
+  n_trials: 80
+  sim_time_steps: 0.5
+  post_stim_dur: 20
+  post_stim_time_step_dur: 0.5
+  pri_duration: 0.5
+  equal_steps: 0

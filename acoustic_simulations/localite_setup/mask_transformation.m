@@ -1,15 +1,7 @@
 function mask_transformation(subject_name)
 
     %% Run the segmentation pipelines?
-    run_segmentation_pipelines = 'False';
-    
-    %% Remove SimNIBS path
-    % To mitigate any conflicts with repelem.m
-    cd /home/affneu/kenvdzee/.conda/envs/
-    rmpath(genpath('simnibs_env'));
-
-    %% Add participant rows to coordinate and intensity csv's
-    
+    run_segmentation_pipelines = 'True';
 
     %% Run SimNIBS segmentation
     % Add PRESTUS to the path
@@ -18,11 +10,29 @@ function mask_transformation(subject_name)
     addpath(genpath('toolboxes'))
     addpath('/home/common/matlab/fieldtrip/qsub')
 
+    % Find the correct anatomical files
     subject_id = str2double(regexp(subject_name, '\d+', 'match'));
-    parameters = load_parameters('config_kenneth_phd_1_simnibs_segmentation.yaml', '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/');
+    parameters = load_parameters('config_kenneth_phd_1_amygdala_6_PCD15287_01002_90mm.yaml', '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/');
+    t1_matches = dir(sprintf(fullfile(parameters.data_path, parameters.t1_path_template), subject_id));
+    input_t1_name_and_location = fullfile(t1_matches(1).folder, t1_matches(1).name);
+    t2_matches = dir(sprintf(fullfile(parameters.data_path, parameters.t2_path_template), subject_id));
+    input_t2_name_and_location = fullfile(t2_matches(1).folder, t2_matches(1).name);
+
+    % Create SimNIBS segmentation folder
+    segmentation_folder = sprintf('%sm2m_%s', parameters.seg_path, subject_name);
+    if ~isfolder(segmentation_folder)
+        mkdir(segmentation_folder);
+    end
+
+    % Run SimNIBS segmentation
     if strcmp(run_segmentation_pipelines, 'True')
-        %single_subject_pipeline(subject_id, parameters);
-        %pause(180);
+        simnibs_command = sprintf(['cd %s && ' ...
+            'PATH=/home/affneu/kenvdzee/.conda/envs/simnibs_env/bin/:$PATH ' ...
+            'LD_LIBRARY_PATH=%s ' ...
+            'charm ''%s'' %s %s --forcerun --forceqform'], ...
+            parameters.seg_path, parameters.ld_library_path, subject_name, input_t1_name_and_location, input_t2_name_and_location);
+        disp(simnibs_command)
+        system(simnibs_command)
     end
 
     %% Remove SimNIBS path again
@@ -30,15 +40,41 @@ function mask_transformation(subject_name)
     cd /home/affneu/kenvdzee/.conda/envs/
     rmpath(genpath('simnibs_env'));
 
+    %% Add participant rows to intensity csv
+    stimulation_intensity_list_location = '/project/3025011.02/TUS_simulations/planning/stimulation_intensity_list.csv';
+    stimulation_intensity_list = readtable(stimulation_intensity_list_location, 'Delimiter', ';', 'ReadVariableNames', false);
+    
+    % Check if any rows contain the subject_id (checking first column)
+    % Convert first column to string array for comparison
+    subject_id_column = string(stimulation_intensity_list{:,1});
+    subject_exists = any(contains(subject_id_column, string(subject_id)));
+    
+    % If subject doesn't exist, add the intensity values
+    if ~subject_exists
+        % Create new rows to add
+        subject_intensity_list = {subject_id, 'target_1', 2, 0.2;
+                   subject_id, 'target_2', 3, 0.2;
+                   subject_id, 'target_3', 1, 0.2};
+        
+        subject_intensity_list = cell2table(subject_intensity_list, 'VariableNames', stimulation_intensity_list.Properties.VariableNames);
+        
+        % Append new rows to existing data
+        stimulation_intensity_list = [stimulation_intensity_list; subject_intensity_list];
+        
+        fprintf('Added intensity data for %s\n', subject_name);
+    else
+        fprintf('Rows with %s already exist\n', subject_name);
+    end
+
+    % Sort by subject_id and target for organisation
+    stimulation_intensity_list = sortrows(stimulation_intensity_list, ['subject_id', 'stimulation_target']);
+    
+    % Write the data back to the same file with semicolon delimiter
+    writetable(stimulation_intensity_list, stimulation_intensity_list_location, 'Delimiter', ';', 'WriteVariableNames', true);
+
     %% Set folder names for segmentation
-    % Set input names
-    input_location = sprintf('/project/3025011.02/bids/%s/ses-mri01/anat', subject_name);
-    input_t1_name_and_location = fullfile(input_location, (sprintf('%s*mprage_T1w.nii.gz', subject_name)));
-    input_t1_name_and_location = fullfile(input_location, dir(input_t1_name_and_location).name);
-    input_t2_name_and_location = fullfile(input_location, (sprintf('%s*sagisop2ellscan_T2w.nii.gz', subject_name)));
-    input_t2_name_and_location = fullfile(input_location, dir(input_t2_name_and_location).name);
+    % Set mask folder location
     masks_folder = '/project/3025011.02/localite/masks/';
-    segmentation_folder = sprintf('/project/3025011.02/TUS_simulations/segmentation_data/m2m_%s', subject_name);
 
     addpath('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup');
 
@@ -80,27 +116,27 @@ function mask_transformation(subject_name)
     end
 
     % First, make sure you can reach the freesurfer subfolders
-    output_location_subject_tmp = sprintf('%s/%s', output_location_subject_tmp, subject_name);
+    output_location_subject_freesurfer = sprintf('%s/%s', output_location_subject_tmp, subject_name);
 
     %% Extract binary masks and convert them to nifti's
     % Then extract binary masks for the Amygdala
-    system(sprintf('mri_binarize --i %s/mri/lh.hippoAmygLabels.CA.FSvoxelSpace.mgz --match 7001 7003 --o %s/amygdala_left.mgz', output_location_subject_tmp, output_location_subject_tmp))
-    system(sprintf('mri_binarize --i %s/mri/rh.hippoAmygLabels.CA.FSvoxelSpace.mgz --match 7001 7003 --o %s/amygdala_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
+    system(sprintf('mri_binarize --i %s/mri/lh.hippoAmygLabels.CA.FSvoxelSpace.mgz --match 7001 7003 --o %s/amygdala_left.mgz', output_location_subject_freesurfer, output_location_subject_freesurfer))
+    system(sprintf('mri_binarize --i %s/mri/rh.hippoAmygLabels.CA.FSvoxelSpace.mgz --match 7001 7003 --o %s/amygdala_right.mgz', output_location_subject_freesurfer, output_location_subject_freesurfer))
 
     % And for Freesurfer's dACC (so not Payam's, I use this as a comparison)
-    system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 1002 --o %s/anatomical_dacc_left.mgz', output_location_subject_tmp, output_location_subject_tmp))
-    system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 2002 --o %s/anatomical_dacc_right.mgz', output_location_subject_tmp, output_location_subject_tmp))
+    system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 1002 --o %s/anatomical_dacc_left.mgz', output_location_subject_freesurfer, output_location_subject_freesurfer))
+    system(sprintf('mri_binarize --i %s/mri/aparc+aseg.mgz --match 2002 --o %s/anatomical_dacc_right.mgz', output_location_subject_freesurfer, output_location_subject_freesurfer))
     
     % Convert the freesurfer masks to nifti's
-    amygdala_freesurfer_left_location = sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_tmp, subject_name);
-    amygdala_freesurfer_right_location = sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_tmp, subject_name);
+    amygdala_freesurfer_left_location = sprintf('%s/%s_amygdala_left.nii.gz', output_location_subject_freesurfer, subject_name);
+    amygdala_freesurfer_right_location = sprintf('%s/%s_amygdala_right.nii.gz', output_location_subject_freesurfer, subject_name);
     amygdala_scanner_left_location = sprintf('%s/%s_amygdala_left.nii.gz', segmentation_folder, subject_name);
     amygdala_scanner_right_location = sprintf('%s/%s_amygdala_right.nii.gz', segmentation_folder, subject_name);
 
-    system(sprintf('mri_convert %s/amygdala_left.mgz %s', output_location_subject_tmp, amygdala_freesurfer_left_location))
-    system(sprintf('mri_convert %s/amygdala_right.mgz %s', output_location_subject_tmp, amygdala_freesurfer_right_location))
-    system(sprintf('mri_convert %s/anatomical_dacc_left.mgz %s/%s_anatomical_dacc_left.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
-    system(sprintf('mri_convert %s/anatomical_dacc_right.mgz %s/%s_anatomical_dacc_right.nii.gz', output_location_subject_tmp, output_location_subject_tmp, subject_name))
+    system(sprintf('mri_convert %s/amygdala_left.mgz %s', output_location_subject_freesurfer, amygdala_freesurfer_left_location))
+    system(sprintf('mri_convert %s/amygdala_right.mgz %s', output_location_subject_freesurfer, amygdala_freesurfer_right_location))
+    system(sprintf('mri_convert %s/anatomical_dacc_left.mgz %s/%s_anatomical_dacc_left.nii.gz', output_location_subject_freesurfer, output_location_subject_freesurfer, subject_name))
+    system(sprintf('mri_convert %s/anatomical_dacc_right.mgz %s/%s_anatomical_dacc_right.nii.gz', output_location_subject_freesurfer, output_location_subject_freesurfer, subject_name))
 
     %% Now also translate the Amygdala masks (freesurfer T1 > original T1)
     system(sprintf('mri_vol2vol --mov %s --targ %s --regheader --o %s --interp nearest --no-save-reg' ,amygdala_freesurfer_left_location, input_t1_name_and_location, amygdala_scanner_left_location));
@@ -114,24 +150,24 @@ function mask_transformation(subject_name)
     dacc_coordinates_MNI = ('payam_dacc_coordinates.csv');
     dacc_coordinates_MNI_location = fullfile(masks_folder, dacc_coordinates_MNI);
     dacc_coordinates_subject = sprintf('%s_payam_dacc_coordinates.csv', subject_name);
-    dacc_coordinates_subject_location = fullfile(output_location_subject_tmp, dacc_coordinates_subject);
+    dacc_coordinates_subject_location = fullfile(output_location_subject_freesurfer, dacc_coordinates_subject);
 
     % Navigate to subject folder and create masks
-    cd (output_location_subject_tmp)
+    cd (output_location_subject_freesurfer)
 
     % Use SimNIBS' pipeline for nonlinear transformation and place the
     % output in subject space (place them in both the localite and
     % segmentation folder)
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_left_mask.nii.gz --interp 0', dacc_left_location, segmentation_folder, segmentation_folder, subject_name));
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_right_mask.nii.gz --interp 0', dacc_right_location, segmentation_folder, segmentation_folder, subject_name));
-    system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_left_mask.nii.gz --interp 0', dacc_left_location, segmentation_folder, output_location_subject_tmp, subject_name));
-    system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_right_mask.nii.gz --interp 0', dacc_right_location, segmentation_folder, output_location_subject_tmp, subject_name));
+    system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_left_mask.nii.gz --interp 0', dacc_left_location, segmentation_folder, output_location_subject_freesurfer, subject_name));
+    system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject -i %s -m %s -o %s/%s_payam_dacc_right_mask.nii.gz --interp 0', dacc_right_location, segmentation_folder, output_location_subject_freesurfer, subject_name));
     % Translate MNI coordinates
     system(sprintf('module -s load anaconda3 && unset LD_LIBRARY_PATH && source activate simnibs_env && mni2subject_coords -m %s -s %s -o %s', segmentation_folder, dacc_coordinates_MNI_location, dacc_coordinates_subject_location));
 
     %% Extract anatomical center from Amygdala masks
     % Create centroid mask for the amygdala
-    amygdala_mask = sprintf('%s/%s_amygdala_mask.nii', output_location_subject, subject_name);
+    amygdala_mask = sprintf('%s/%s_target_1_mask.nii', output_location_subject, subject_name);
     [~, cmdout] = system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_amygdala.sh %s %s %s', amygdala_scanner_left_location, amygdala_scanner_right_location, amygdala_mask));
     
     % Extract centroid coordinates
@@ -144,7 +180,7 @@ function mask_transformation(subject_name)
 
     %% Translate the personalised dACC coordinates to a binary mask
     % Create centroid mask for the dACC
-    dacc_mask = sprintf('%s/%s_dacc_mask.nii', output_location_subject, subject_name);
+    dacc_mask = sprintf('%s/%s_target_2_mask.nii', output_location_subject, subject_name);
     [~, cmdout] = system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_dacc.sh %s %s %s', dacc_coordinates_subject_location, input_t1_name_and_location, dacc_mask));
 
     % Extract centroid coordinates
@@ -179,7 +215,7 @@ function mask_transformation(subject_name)
     z4 = dacc_coordinates(4,3);
 
     % Create centroid mask for the sham condition
-    sham_mask = sprintf('%s/%s_sham_mask.nii', output_location_subject, subject_name);
+    sham_mask = sprintf('%s/%s_target_3_mask.nii', output_location_subject, subject_name);
     [~, cmdout] = system(sprintf('/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup/create_centroids_sham.sh %d %d %d %d %d %d %d %d %d %d %d %d %s %s', x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4, input_t1_name_and_location, sham_mask));
     
     % Extract centroid coordinates
@@ -276,6 +312,6 @@ function mask_transformation(subject_name)
     fprintf('Successfully saved coordinates to %s\n', planning_coordinate_location);
 
     %% Delete tmp folder
-    %system(sprintf('rm -rf %s', fullfile(output_location_subject, ..)));
+    system(sprintf('rm -rf %s', fullfile(output_location_subject_tmp)));
 
 end

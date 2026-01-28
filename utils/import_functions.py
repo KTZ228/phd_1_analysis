@@ -44,7 +44,8 @@ def unique_subject_ids_and_sessions(file_path: str,
 def list_files_with_date_and_subject_id_old(file_path: str,
                                         unique_subject_ids: list = [],
                                         unique_sessions: list = [],
-                                        selected_pattern: str = 'behavioural_output') -> list:
+                                        selected_pattern: str = 'behavioural_output',
+                                        print_output = False) -> list:
     """This will create a list of the most recent files of every subject and every session.
 
     Parameters
@@ -55,6 +56,10 @@ def list_files_with_date_and_subject_id_old(file_path: str,
         A list containing all subject IDs found in the folder.
     unique_sessions : list(int)
         A list containing all sessions found in the folder.
+    selected_pattern : str
+        Either 'joystick_output' or 'speakup', otherwise it uses the default.
+    print_output : bool
+        If True, the list of recent files will be printed to the console.
 
     Returns
     -------
@@ -96,7 +101,8 @@ def list_files_with_date_and_subject_id_old(file_path: str,
 
     if not recent_files:
         raise Exception('No files found')
-    print(recent_files)
+    if print_output:
+        print(recent_files)
 
     return recent_files
 
@@ -107,7 +113,8 @@ from collections import defaultdict
 def list_files_with_date_and_subject_id(file_path: str,
                                         unique_subject_ids: list = [],
                                         unique_sessions: list = [],
-                                        selected_pattern: str = 'behavioural_output') -> list:
+                                        selected_pattern: str = 'behavioural_output',
+                                        print_output = False) -> list:
     """This will create a list of the most recent files of every subject and every session.
 
     Parameters
@@ -120,6 +127,8 @@ def list_files_with_date_and_subject_id(file_path: str,
         A list containing all sessions found in the folder.
     selected_pattern : str
         Either 'joystick_output' or 'behavioural_output'.
+    print_output : bool
+        If True, the list of recent files will be printed to the console.
 
     Returns
     -------
@@ -176,7 +185,8 @@ def list_files_with_date_and_subject_id(file_path: str,
 
     if not recent_files:
         raise Exception('No files found')
-    print(recent_files)
+    if print_output:
+        print(recent_files)
 
     return recent_files
 
@@ -213,7 +223,8 @@ def combine_result_files(recent_results: list) -> pd.DataFrame:
 
 
 def combine_joystick_with_results(dataframe: pd.DataFrame,
-                                  joystick_filenames: list) -> (
+                                  joystick_filenames: list,
+                                  print_output = False) -> (
         pd.DataFrame):
     """ This function takes a dataframe containing the results and a dataframe containing the joystick data and combines them.
 
@@ -223,6 +234,8 @@ def combine_joystick_with_results(dataframe: pd.DataFrame,
         A dataframe containing the results of the experiment.
     joystick_filenames : list
         A list of file locations of the joystick data.
+    print_output : bool
+        If True, the first 100 rows of the combined dataframe will be printed to the console.
 
     Returns
     -------
@@ -252,7 +265,8 @@ def combine_joystick_with_results(dataframe: pd.DataFrame,
 
     # Rename some columns in the joystick dataframe
     joystick_dataframe_combined = joystick_dataframe_combined.rename(columns={'datapoint': 'joystick_datapoint', 'location_y': 'joystick_location', 'timepoint': 'joystick_timepoint'})
-    print(joystick_dataframe_combined.head(100))
+    if print_output:
+        print(joystick_dataframe_combined.head(100))
 
     # Then, combine it with the results dataframe
     dataframe_with_joystick_data = pd.merge(
@@ -331,6 +345,7 @@ def check_congruency(row,
     Parameters
     ----------
     row : pd.DataFrame.row
+    binary_output : bool
 
     Returns
     -------
@@ -339,18 +354,18 @@ def check_congruency(row,
     """
     if (row['probability_condition'] > 50 and row['stimuli_type'] == 1) or (
                 row['probability_condition'] < 50 and row['stimuli_type'] == 2):
-        if binary_output is True:
+        if binary_output:
             condition = 1
         else:
             condition = 'congruent'
     elif (row['probability_condition'] < 50 and row['stimuli_type'] == 1) or (
                 row['probability_condition'] > 50 and row['stimuli_type'] == 2):
-        if binary_output is True:
+        if binary_output:
             condition = -1
         else:
             condition = 'incongruent'
     else:
-        if binary_output is True:
+        if binary_output:
             condition = 0
         else:
             condition = 'undefined'
@@ -365,6 +380,7 @@ def check_valence(row,
     Parameters
     ----------
     row : pd.DataFrame.row
+    binary_output : bool
 
     Returns
     -------
@@ -372,17 +388,17 @@ def check_valence(row,
         A string containing the valence for the given row.
     """
     if row['stimuli_type'] == 1:
-        if binary_output is True:
+        if binary_output:
             emotional_valence = -1
         else:
             emotional_valence = 'angry'
     elif row['stimuli_type'] == 2:
-        if binary_output is True:
+        if binary_output:
             emotional_valence = 1
         else:
             emotional_valence = 'happy'
     else:
-        if binary_output is True:
+        if binary_output:
             emotional_valence = 0
         else:
             emotional_valence = 'no_emotion'
@@ -397,6 +413,7 @@ def check_correct_response(row,
     Parameters
     ----------
     row : pd.DataFrame.row
+    binary_output : bool
 
     Returns
     -------
@@ -404,17 +421,17 @@ def check_correct_response(row,
         A string containing the valence for the given row.
     """
     if row['probability_condition'] == 80:
-        if binary_output is True:
+        if binary_output:
             correct_response = 1
         else:
             correct_response = 'up'
     elif row['probability_condition'] == 20:
-        if binary_output is True:
+        if binary_output:
             correct_response = -1
         else:
             correct_response = 'down'
     else:
-        if binary_output is True:
+        if binary_output:
             correct_response = 0
         else:
             correct_response = 'no_correct_response'
@@ -553,6 +570,7 @@ def main(raw_output_path,
          binary_output=False,
          remove_reversals=False,
          remove_invalid_trials=True,
+         print_output=False,
          selected_pattern='behavioural_output') -> pd.DataFrame:
     """ Main function that runs the import functions.
 
@@ -572,6 +590,10 @@ def main(raw_output_path,
         If True, trials where a reversal occurred will be removed.
     remove_invalid_trials : bool
         If True, invalid files will be removed from the analysis.
+    block_isolated : str
+        If 'block_2', only block 2 will be analysed. If 'block_3', only block 3 will be analysed.
+    print_output : bool
+        If True, the dataframe will be printed to the console.
     selected_pattern : str
         Allows you to select the pattern of the output files.
 
@@ -582,7 +604,7 @@ def main(raw_output_path,
     """
 
     # First, get a list of the behavioural datafiles
-    recent_files = list_files_with_date_and_subject_id(raw_output_path, unique_subject_ids, unique_sessions, selected_pattern)
+    recent_files = list_files_with_date_and_subject_id(raw_output_path, unique_subject_ids, unique_sessions, selected_pattern, print_output)
 
     # Remove the invalid files
     #if remove_invalid_trials:
@@ -592,6 +614,11 @@ def main(raw_output_path,
     dataframe = combine_result_files(recent_files)
 
     # Extract one of the blocks for exclusion
+    #if block_isolated == 'block_2':
+    #    dataframe = dataframe[dataframe['probability_condition'] != 50]
+    #    datablockframe = dataframe[dataframe['trial'].isin(range(0, 448))]
+    #elif block_isolated == 'block_3':
+    #    dataframe = dataframe[dataframe['trial'].isin(range(448, 669))]
 
     # If we're analysing the pilot data, make some changes to ensure backwards compatibility of the analysis
     if pilot_analysis:
@@ -615,11 +642,13 @@ def main(raw_output_path,
 
     # Make congruency and hidden congruency columns
     dataframe['congruency'] = dataframe.apply(check_congruency, args=(binary_output,), axis=1)
-    print(dataframe[['stimuli_type', 'probability_condition', 'congruency']])
+    if print_output:
+        print(dataframe[['stimuli_type', 'probability_condition', 'congruency']])
 
     # Make valence column
     dataframe['valence'] = dataframe.apply(check_valence, args=(binary_output,), axis=1)
-    print(dataframe[['stimuli_type', 'valence']])
+    if print_output:
+        print(dataframe[['stimuli_type', 'valence']])
 
     # Add WSLS column before removing trials
     dataframe = utils.learning_models.add_WSLS_column(dataframe)
@@ -631,11 +660,13 @@ def main(raw_output_path,
     dataframe = dataframe[dataframe['probability_condition'] != 50]
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
     dataframe = dataframe.groupby('stimuli_type', group_keys=False).apply(lambda x: check_volatility(x, binary_output))
-    print(dataframe[['subject_id', 'session', 'stimuli_type', 'probability_condition', 'volatility']])
+    if print_output:
+        print(dataframe[['subject_id', 'session', 'stimuli_type', 'probability_condition', 'volatility']])
 
     # Make stimulation condition column
     dataframe['stimulation_condition'] = dataframe.apply(check_stimulation_condition, args=(binary_output,), axis=1)
-    print(dataframe[['subject_id', 'session', 'stimulation_condition']])
+    if print_output:
+        print(dataframe[['subject_id', 'session', 'stimulation_condition']])
 
     # Add a column for the most rewarding response
     dataframe['correct_response'] = dataframe.apply(check_correct_response, args=(binary_output,), axis=1)
@@ -656,7 +687,7 @@ def main(raw_output_path,
 
     if remove_invalid_trials:
         # Remove trials where RT < 50ms, please note that this number is arbitrary and can be changed
-        dataframe = dataframe[dataframe['RT_s'] >= 0.05]
+        #dataframe = dataframe[dataframe['RT_s'] >= 0.05]
 
         # Remove late trials
         dataframe = dataframe[dataframe['objectively_correct'] != 'Late']

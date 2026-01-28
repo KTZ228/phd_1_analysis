@@ -20,24 +20,50 @@ t2_path_template: sub-%1$03d/ses-mri01/anat/*sagisop2ellscan_T2w.nii.gz
 
 transducer: 
   n_elements: 30 # number of elements in the transducer
-  Elements_ID_mm: [10, 13.7667, 17.5333, 22.3, 24.5667, 26.8333, 30, 31.7667, 33.5333, 36.3, 37.7667, 39.2333, 41.7, 43.0, 44.3, 46.5, 47.6667, 48.8333, 51, 52.0333, 53.0667, 55.1, 56.0667, 57.0333, 58.9, 59.8, 60.7, 62.5, 63.3333, 64.1667]
-  Elements_OD_mm: [13.7667, 17.5333, 21.3, 24.5667, 26.8333, 29.1, 31.7667, 33.5333, 35.3, 37.7667, 39.2333, 40.7, 43.0, 44.3, 45.6, 47.6667, 48.8333, 50, 52.0333, 53.0667, 54.1, 56.0667, 57.0333, 58, 59.8, 60.7, 61.6, 63.3333, 64.1667, 65]
+  Elements_ID_mm: [10.0, 13.7667, 17.5333, 22.3, 24.5667, 26.8333, 30.0, 31.7667,
+    33.5333, 36.3, 37.7667, 39.2333, 41.7, 43.0, 44.3, 46.5, 47.6667, 48.8333, 51.0,
+    52.0333, 53.0667, 55.1, 56.0667, 57.0333, 58.9, 59.8, 60.7, 62.5, 63.3333, 64.1667]
+  Elements_OD_mm: [13.7667, 17.5333, 21.3, 24.5667, 26.8333, 29.1, 31.7667, 33.5333,
+    35.3, 37.7667, 39.2333, 40.7, 43.0, 44.3, 45.6, 47.6667, 48.8333, 50.0, 52.0333,
+    53.0667, 54.1, 56.0667, 57.0333, 58.0, 59.8, 60.7, 61.6, 63.3333, 64.1667, 65.0]
   curv_radius_mm: 75 # radius of curvature of the bowl 
   dist_to_plane_mm: 65.3 # distance to the transducer plane from the geometric focus
-  source_amp: 177828 # [Pa]
-  strength_1: 177828
-  strength_2: 229000 #235219
-  strength_3: 270000
-  strength_4: 302585
-  source_phase_deg: [0, 246.38, 173.81, 200.94, 202.4, 185.4, 187.76, 196.82, 207.92, 198.1, 193.69, 192.72, 201.01, 202.58, 201.71, 184.48, 178.35, 175.82, 180.32, 186.4, 184.91, 176.93, 178.08, 169.46, 179.76, 193.07, 208.58, 132.02, 75.93, 50.12] # source phase [deg]
-  phases_1: [0, 246.38, 173.81, 200.94, 202.4, 185.4, 187.76, 196.82, 207.92, 198.1, 193.69, 192.72, 201.01, 202.58, 201.71, 184.48, 178.35, 175.82, 180.32, 186.4, 184.91, 176.93, 178.08, 169.46, 179.76, 193.07, 208.58, 132.02, 75.93, 50.12]
-  phases_2: [0, 277.64, 178.5, 169.57, 203.03, 185.35, 199.9, 201.81, 207.9, 191.36, 202.29, 206.16, 197.04, 185.06, 187.8, 188.95, 191.85, 186.65, 167.98, 169.1, 172.55, 190.76, 201.19, 196.7, 163.22, 138.31, 160.07, 200.42, 92.98, 24.81]
-  phases_3: [0, 277.64, 178.5, 169.57, 203.03, 185.35, 199.9, 201.81, 207.9, 191.36, 202.29, 206.16, 197.04, 185.06, 187.8, 188.95, 191.85, 186.65, 167.98, 169.1, 172.55, 190.76, 201.19, 196.7, 163.22, 138.31, 160.07, 200.42, 92.98, 24.81]
-  phases_4: [0, 227.3, 183.8, 211.44, 221.78, 223.96, 222.78, 223.48, 225.02, 221.38, 217.01, 214.08, 214.26, 212.89, 212.82, 206.59, 201.94, 199.3, 200.85, 203.37, 206.78, 211.77, 211.12, 208.84, 196.79, 187.3, 182.73, 166.73, 109.52, 48.39]
+  source_amp: 181278 # [Pa]
+  strength_1: 181278
+  strength_2: 184500
+  source_phase_deg: [0.0, 231.5940875416279, 243.57574588457814, 197.24122783149426,
+    218.4858581079426, 201.90675327783762, 214.48837656306188, 198.6631182267147,
+    189.2356789567199, 214.37408779382238, 147.71064787706186, 129.89979076679992,
+    258.3733546399248, 64.37688877474717, 148.1764376272315, 247.31148920453293, 198.7501512541664,
+    198.9828313739447, 171.39836574496292, 203.22696918346855, 187.06699175580925,
+    172.18204243437006, 209.88938006684552, 188.0820448626102, 191.28447371849566,
+    203.39341994073672, 163.697169480927, 159.11721811959546, 175.22578692116824,
+    162.73112611189956]
+  phases_1: [0.0, 231.5940875416279, 243.57574588457814, 197.24122783149426,
+    218.4858581079426, 201.90675327783762, 214.48837656306188, 198.6631182267147,
+    189.2356789567199, 214.37408779382238, 147.71064787706186, 129.89979076679992,
+    258.3733546399248, 64.37688877474717, 148.1764376272315, 247.31148920453293, 198.7501512541664,
+    198.9828313739447, 171.39836574496292, 203.22696918346855, 187.06699175580925,
+    172.18204243437006, 209.88938006684552, 188.0820448626102, 191.28447371849566,
+    203.39341994073672, 163.697169480927, 159.11721811959546, 175.22578692116824,
+    162.73112611189956]
+  phases_2: [0.0, 227.5742171108034, 242.0294807882842, 218.3207662027516,
+    195.62953655984967, 203.4851601914184, 227.25396616907688, 205.66798192845246,
+    173.19262431209484, 226.6086123771771, 164.38493820711392, 125.56565294794102,
+    253.50948448097327, 62.55193724967253, 152.61459518047053, 248.35507060333862,
+    205.48446600931302, 195.41229785160857, 203.46473903110729, 186.5145814806626,
+    177.0396376528402, 187.21031834111946, 203.66589432553334, 187.6904312653314,
+    193.23624352125543, 199.3174427445668, 172.82576138809566, 165.37165833708397,
+    156.321780580845, 176.1362192271717]
+  set_focus_wrt_exit_plane_mm: 75.0
   pos_t1_grid: [14,185,140]
   source_freq_hz: 300e3 # [Hz] the central frequency
 
 focus_pos_t1_grid: [143, 143, 144]
+
+# Not save mat files to save storage
+savemat: 0
+ld_library_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/lib/python3.9/site-packages/simnibs/mesh_tools/cgal/../../external/lib/linux
 
 transducer_from_localite: 0 # should we load the transducer locations from the localite file(s)
 
@@ -57,17 +83,12 @@ skull_smooth_threshold: 0.2
 # Stimulate the next location
 subsequent_heating_config: [config_kenneth_phd_1_amygdala_2_PCD15287_01002_90mm.yaml, config_kenneth_phd_1_amygdala_3_PCD15287_01001_90mm.yaml, config_kenneth_phd_1_amygdala_4_PCD15287_01002_90mm.yaml, config_kenneth_phd_1_amygdala_5_PCD15287_01001_90mm.yaml, config_kenneth_phd_1_amygdala_6_PCD15287_01002_90mm.yaml]
 
-start_break_trials: [69] # End of the active stimulation phase, defined as (40/on-off cycle duration)+1;
-stop_break_trials: [83] # End of the inactive stimulation phase, defined as (100/on-off cycle duration);
-# Both of these can be defined as lists if you need multiple on- and off- periods
-## on-off cycle is 0.2s for this protocol
-
+# Parameters for thermal simulations
 thermal:
-  duty_cycle: 0.1 # this actually is the duty_cycle
-  n_trials: 83 # end of stop_break_trials
-
-  # These should only be changed if they don't meet the criteria described in "run_heating_simulations"
-  sim_time_steps: 0.1 # [s] simulation time steps during the stimulation period
-  post_stim_time_step_dur: 1 # post-stimulation (inter-trial) steps
-  on_off_step_duration: 0.6 # duration of the on+off cycle (e.g., with a duty cycle of 0.3 and 0.01 s time steps for simulation, the whole on+off cycle will take 0.1 s)
-  equal_steps: 0 # is the duration of the simulation steps equal for on and off steps? if not, it is computed based on the sim_time_steps * n_steps where n_steps is the needed number of on and off steps derived from the duty cycle
+  duty_cycle: 0.2
+  n_trials: 80
+  sim_time_steps: 0.5
+  post_stim_dur: 20
+  post_stim_time_step_dur: 0.5
+  pri_duration: 0.5
+  equal_steps: 0

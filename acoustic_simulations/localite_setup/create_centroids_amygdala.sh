@@ -32,6 +32,12 @@ mkdir -p "$output_dir"
 centroid1=($(fslstats "$mask1" -C | awk '{print int($1), int($2), int($3)}'))
 centroid2=($(fslstats "$mask2" -C | awk '{print int($1), int($2), int($3)}'))
 
+# Correct y-axis and z-axis height on coordinates
+centroid1[1]=$((centroid1[1] + 2))
+centroid2[1]=$((centroid2[1] + 2))
+centroid1[2]=$((centroid1[2] + 2))
+centroid2[2]=$((centroid2[2] + 2))
+
 # Output centroids in MATLAB-friendly format
 echo "CENTROID1: ${centroid1[0]} ${centroid1[1]} ${centroid1[2]}"
 echo "CENTROID2: ${centroid2[0]} ${centroid2[1]} ${centroid2[2]}"

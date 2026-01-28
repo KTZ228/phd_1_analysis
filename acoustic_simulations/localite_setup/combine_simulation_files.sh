@@ -33,10 +33,10 @@ fslmaths sub-005_dacc_sparse.nii.gz -mul /project/3025011.02/TUS_simulations/seg
 stats=$(fslstats sub-005_dacc_right_sparse.nii.gz -M -S | tr ' ' ',')
 echo "sub-005,sparse,right,$stats" >> intensity_in_roi.csv
 
-fslmaths target_1_1/sub-005/sub-005_final_isppa_orig_coord_target_1_1_dc20_strength_1_.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-005/sub-005_amygdala_left.nii.gz sub-005_amygdala_left.nii.gz
+fslmaths /project/3025011.02/TUS_simulations/planning/target_1_1/sub-005/sub-005_final_isppa_orig_coord_target_1_1_dc20_strength_1.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-005/sub-005_amygdala_left.nii.gz sub-005_amygdala_left.nii.gz
 stats=$(fslstats sub-005_amygdala_left.nii.gz -M -S | tr ' ' ',')
 echo "sub-005,amygdala,left,$stats" >> intensity_in_roi.csv
-fslmaths target_1_2/sub-005/sub-005_final_isppa_orig_coord_target_1_2_dc20_strength_1_.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-005/sub-005_amygdala_right.nii.gz sub-005_amygdala_right.nii.gz
+fslmaths /project/3025011.02/TUS_simulations/planning/target_1_2/sub-005/sub-005_final_isppa_orig_coord_target_1_2_dc20_strength_1.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-005/sub-005_amygdala_right.nii.gz sub-005_amygdala_right.nii.gz
 stats=$(fslstats sub-005_amygdala_right.nii.gz -M -S | tr ' ' ',')
 echo "sub-005,amygdala,right,$stats" >> intensity_in_roi.csv
 
@@ -68,10 +68,10 @@ fslmaths sub-022_dacc_sparse.nii.gz -mul /project/3025011.02/TUS_simulations/seg
 stats=$(fslstats sub-022_dacc_right_sparse.nii.gz -M -S | tr ' ' ',')
 echo "sub-022,sparse,right,$stats" >> intensity_in_roi.csv
 
-fslmaths target_1_1/sub-022/sub-022_final_isppa_orig_coord_target_1_1_dc20_strength_1_.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-022/sub-022_amygdala_left.nii.gz sub-022_amygdala_left.nii.gz
+fslmaths /project/3025011.02/TUS_simulations/planning/target_1_1/sub-022/sub-022_final_isppa_orig_coord_target_1_1_dc20_strength_1.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-022/sub-022_amygdala_left.nii.gz sub-022_amygdala_left.nii.gz
 stats=$(fslstats sub-022_amygdala_left.nii.gz -M -S | tr ' ' ',')
 echo "sub-022,amygdala,left,$stats" >> intensity_in_roi.csv
-fslmaths target_1_2/sub-022/sub-022_final_isppa_orig_coord_target_1_2_dc20_strength_1_.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-022/sub-022_amygdala_right.nii.gz sub-022_amygdala_right.nii.gz
+fslmaths /project/3025011.02/TUS_simulations/planning/target_1_2/sub-022/sub-022_final_isppa_orig_coord_target_1_2_dc20_strength_1.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-022/sub-022_amygdala_right.nii.gz sub-022_amygdala_right.nii.gz
 stats=$(fslstats sub-022_amygdala_right.nii.gz -M -S | tr ' ' ',')
 echo "sub-022,amygdala,right,$stats" >> intensity_in_roi.csv
 
@@ -103,9 +103,9 @@ fslmaths sub-037_dacc_sparse.nii.gz -mul /project/3025011.02/TUS_simulations/seg
 stats=$(fslstats sub-037_dacc_right_sparse.nii.gz -M -S | tr ' ' ',')
 echo "sub-037,sparse,right,$stats" >> intensity_in_roi.csv
 
-fslmaths target_1_1/sub-037/sub-037_final_isppa_orig_coord_target_1_1_dc20_strength_1_.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-037/sub-037_amygdala_left.nii.gz sub-037_amygdala_left.nii.gz
+fslmaths /project/3025011.02/TUS_simulations/planning/target_1_1/sub-037/sub-037_final_isppa_orig_coord_target_1_1_dc20_strength_1.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-037/sub-037_amygdala_left.nii.gz sub-037_amygdala_left.nii.gz
 stats=$(fslstats sub-037_amygdala_left.nii.gz -M -S | tr ' ' ',')
 echo "sub-037,amygdala,left,$stats" >> intensity_in_roi.csv
-fslmaths target_1_2/sub-037/sub-037_final_isppa_orig_coord_target_1_2_dc20_strength_1_.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-037/sub-037_amygdala_right.nii.gz sub-037_amygdala_right.nii.gz
+fslmaths /project/3025011.02/TUS_simulations/planning/target_1_2/sub-037/sub-037_final_isppa_orig_coord_target_1_2_dc20_strength_1.nii.gz -mul /project/3025011.02/TUS_simulations/segmentation_data/m2m_sub-037/sub-037_amygdala_right.nii.gz sub-037_amygdala_right.nii.gz
 stats=$(fslstats sub-037_amygdala_right.nii.gz -M -S | tr ' ' ',')
 echo "sub-037,amygdala,right,$stats" >> intensity_in_roi.csv

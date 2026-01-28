@@ -1,0 +1,65 @@
+# Location of stored data
+data_path: /project/3025011.02/bids/
+seg_path: /project/3025011.02/TUS_simulations/segmentation_data/
+simnibs_bin_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/bin/
+ld_library_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/lib/python3.9/site-packages/simnibs/mesh_tools/cgal/../../external/lib/linux
+subject_subfolder: 1
+output_location: /project/3025011.02/TUS_simulations/planning/target_1_6/
+stimulation_target: target_1_6
+
+overwrite_simnibs: 0
+
+# Picks a specific GPU that always works for thermal simulations
+hcp_gpu: "gpu:1"
+hcp_partition: gpu40g
+
+# Structure of subfolders containing T1 and T1 images
+## It is easier to store the subject data of each participant in an individual subfolder
+t1_path_template: sub-%1$03d/ses-mri01/anat/*mprage_T1w.nii.gz
+t2_path_template: sub-%1$03d/ses-mri01/anat/*sagisop2ellscan_T2w.nii.gz
+
+transducer: 
+  n_elements: 30 # number of elements in the transducer
+  Elements_ID_mm: [10, 13.7667, 17.5333, 22.3, 24.5667, 26.8333, 30, 31.7667, 33.5333, 36.3, 37.7667, 39.2333, 41.7, 43.0, 44.3, 46.5, 47.6667, 48.8333, 51, 52.0333, 53.0667, 55.1, 56.0667, 57.0333, 58.9, 59.8, 60.7, 62.5, 63.3333, 64.1667]
+  Elements_OD_mm: [13.7667, 17.5333, 21.3, 24.5667, 26.8333, 29.1, 31.7667, 33.5333, 35.3, 37.7667, 39.2333, 40.7, 43.0, 44.3, 45.6, 47.6667, 48.8333, 50, 52.0333, 53.0667, 54.1, 56.0667, 57.0333, 58, 59.8, 60.7, 61.6, 63.3333, 64.1667, 65]
+  curv_radius_mm: 75 # radius of curvature of the bowl 
+  dist_to_plane_mm: 65.3 # distance to the transducer plane from the geometric focus
+  source_amp: 177828 # [Pa]
+  strength_1: 177828
+  strength_2: 229000 #235219
+  strength_3: 270000
+  strength_4: 302585
+  source_phase_deg: [0, 246.38, 173.81, 200.94, 202.4, 185.4, 187.76, 196.82, 207.92, 198.1, 193.69, 192.72, 201.01, 202.58, 201.71, 184.48, 178.35, 175.82, 180.32, 186.4, 184.91, 176.93, 178.08, 169.46, 179.76, 193.07, 208.58, 132.02, 75.93, 50.12] # source phase [deg]
+  phases_1: [0, 246.38, 173.81, 200.94, 202.4, 185.4, 187.76, 196.82, 207.92, 198.1, 193.69, 192.72, 201.01, 202.58, 201.71, 184.48, 178.35, 175.82, 180.32, 186.4, 184.91, 176.93, 178.08, 169.46, 179.76, 193.07, 208.58, 132.02, 75.93, 50.12]
+  phases_2: [0, 277.64, 178.5, 169.57, 203.03, 185.35, 199.9, 201.81, 207.9, 191.36, 202.29, 206.16, 197.04, 185.06, 187.8, 188.95, 191.85, 186.65, 167.98, 169.1, 172.55, 190.76, 201.19, 196.7, 163.22, 138.31, 160.07, 200.42, 92.98, 24.81]
+  phases_3: [0, 277.64, 178.5, 169.57, 203.03, 185.35, 199.9, 201.81, 207.9, 191.36, 202.29, 206.16, 197.04, 185.06, 187.8, 188.95, 191.85, 186.65, 167.98, 169.1, 172.55, 190.76, 201.19, 196.7, 163.22, 138.31, 160.07, 200.42, 92.98, 24.81]
+  phases_4: [0, 227.3, 183.8, 211.44, 221.78, 223.96, 222.78, 223.48, 225.02, 221.38, 217.01, 214.08, 214.26, 212.89, 212.82, 206.59, 201.94, 199.3, 200.85, 203.37, 206.78, 211.77, 211.12, 208.84, 196.79, 187.3, 182.73, 166.73, 109.52, 48.39]
+  pos_t1_grid: [14,185,140]
+  source_freq_hz: 300e3 # [Hz] the central frequency
+
+focus_pos_t1_grid: [143, 143, 144]
+
+transducer_from_localite: 0 # should we load the transducer locations from the localite file(s)
+
+mask_name: amygdala_right
+
+using_donders_hpc: 1
+overwrite_simnibs: 0
+use_forceqform: 1
+
+run_posthoc_water_sims: 0
+run_heating_sims: 1
+run_acoustic_sims: 1
+
+# Here to compensate for the decreased skull thickness in the temporal window
+skull_smooth_threshold: 0.2
+
+# Parameters for thermal simulations
+thermal:
+  duty_cycle: 0.2
+  n_trials: 80
+  sim_time_steps: 0.5
+  post_stim_dur: 20
+  post_stim_time_step_dur: 0.5
+  pri_duration: 0.5
+  equal_steps: 0

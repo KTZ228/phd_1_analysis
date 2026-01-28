@@ -25,11 +25,16 @@ transducer:
   curv_radius_mm: 75 # radius of curvature of the bowl 
   dist_to_plane_mm: 65.3 # distance to the transducer plane from the geometric focus
   source_amp: 308598 # [Pa]
-  source_phase_deg: [0, 163, 0, 355, 258, 221, 0, 151, 246, 156, 205, 120, 29, 60, 116, 257, 0, 0, 82, 0, 236, 254, 268, 288, 116, 132, 146, 177, 37, 8] # source phase [deg]
+  source_phase_deg: [0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180, 0, 180] # source phase [deg]
   pos_t1_grid: [136,182,262]
   source_freq_hz: 300e3 # [Hz] the central frequency
 
 focus_pos_t1_grid: [103,172,208]
+
+# Not save mat files to save storage
+savemat: 0
+ld_library_path: /home/affneu/kenvdzee/.conda/envs/simnibs_env/lib/python3.9/site-packages/simnibs/mesh_tools/cgal/../../external/lib/linux
+
 transducer_from_localite: 0 # should we load the transducer locations from the localite file(s) 
 
 using_donders_hpc: 1
@@ -43,17 +48,12 @@ run_acoustic_sims: 1
 # Stimulate the next location
 subsequent_heating_config: [config_kenneth_phd_1_defocussed_1_PCD15287_01001.yaml, config_kenneth_phd_1_defocussed_2_PCD15287_01002.yaml, config_kenneth_phd_1_defocussed_3_PCD15287_01001.yaml, config_kenneth_phd_1_defocussed_4_PCD15287_01002.yaml, config_kenneth_phd_1_defocussed_5_PCD15287_01001.yaml, config_kenneth_phd_1_defocussed_6_PCD15287_01002.yaml]
 
-start_break_trials: [69] # End of the active stimulation phase, defined as (40/on-off cycle duration)+1;
-stop_break_trials: [83] # End of the inactive stimulation phase, defined as (100/on-off cycle duration);
-# Both of these can be defined as lists if you need multiple on- and off- periods
-## on-off cycle is 0.2s for this protocol
-
+# Parameters for thermal simulations
 thermal:
-  duty_cycle: 0.1 # this actually is the duty_cycle
-  n_trials: 83 # end of stop_break_trials
-
-  # These should only be changed if they don't meet the criteria described in "run_heating_simulations"
-  sim_time_steps: 0.1 # [s] simulation time steps during the stimulation period
-  post_stim_time_step_dur: 1 # post-stimulation (inter-trial) steps
-  on_off_step_duration: 0.6 # duration of the on+off cycle (e.g., with a duty cycle of 0.3 and 0.01 s time steps for simulation, the whole on+off cycle will take 0.1 s)
-  equal_steps: 0 # is the duration of the simulation steps equal for on and off steps? if not, it is computed based on the sim_time_steps * n_steps where n_steps is the needed number of on and off steps derived from the duty cycle
+  duty_cycle: 0.2
+  n_trials: 80
+  sim_time_steps: 0.5
+  post_stim_dur: 20
+  post_stim_time_step_dur: 0.5
+  pri_duration: 0.5
+  equal_steps: 0

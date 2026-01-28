@@ -2,7 +2,7 @@
 clc; clear; close all;
 
 %% Set the subject_name
-subject_list = ["sub-005", "sub-010", "sub-014", "sub-015", "sub-016", "sub-020", "sub-022", "sub-023", "sub-025", "sub-028", "sub-029", "sub-037", "sub-038"];
+subject_list = ["sub-052"];
 
 output_location = '/project/3025011.02/localite';
 log_location = fullfile(output_location, 'slurm_job_logs');
@@ -47,5 +47,7 @@ for subject_name = subject_list
     display(out);
 
     % Leave a minute between them to ensure all coordinates are saved
-    pause(60)
+    if length(subject_list) > 1
+        pause(59)
+    end
 end
