@@ -23,7 +23,7 @@ function mask_transformation(subject_name)
     if ~isfolder(segmentation_folder)
         mkdir(segmentation_folder);
     end
-
+    
     % Run SimNIBS segmentation
     if strcmp(run_segmentation_pipelines, 'True')
         simnibs_command = sprintf(['cd %s && ' ...
@@ -31,10 +31,10 @@ function mask_transformation(subject_name)
             'LD_LIBRARY_PATH=%s ' ...
             'charm ''%s'' %s %s --forcerun --forceqform'], ...
             parameters.seg_path, parameters.ld_library_path, subject_name, input_t1_name_and_location, input_t2_name_and_location);
-        disp(simnibs_command)
+        fprintf('Running SimNIBS with command: %s', simnibs_command)
         system(simnibs_command)
     end
-
+    
     %% Remove SimNIBS path again
     % To mitigate any conflicts with repelem.m
     cd /home/affneu/kenvdzee/.conda/envs/
@@ -42,7 +42,7 @@ function mask_transformation(subject_name)
 
     %% Add participant rows to intensity csv
     stimulation_intensity_list_location = '/project/3025011.02/TUS_simulations/planning/stimulation_intensity_list.csv';
-    stimulation_intensity_list = readtable(stimulation_intensity_list_location, 'Delimiter', ';', 'ReadVariableNames', false);
+    stimulation_intensity_list = readtable(stimulation_intensity_list_location, 'Delimiter', ';');
     
     % Check if any rows contain the subject_id (checking first column)
     % Convert first column to string array for comparison
@@ -60,17 +60,17 @@ function mask_transformation(subject_name)
         
         % Append new rows to existing data
         stimulation_intensity_list = [stimulation_intensity_list; subject_intensity_list];
+
+        % Sort by subject_id and target for organisation
+        stimulation_intensity_list = sortrows(stimulation_intensity_list, {'subject_id', 'stimulation_target'});
         
+        % Write the data back to the same file with semicolon delimiter
+        writetable(stimulation_intensity_list, stimulation_intensity_list_location, 'Delimiter', ';', 'WriteVariableNames', true);
+
         fprintf('Added intensity data for %s\n', subject_name);
     else
-        fprintf('Rows with %s already exist\n', subject_name);
+        fprintf('Intensity data for %s already exist\n', subject_name);
     end
-
-    % Sort by subject_id and target for organisation
-    stimulation_intensity_list = sortrows(stimulation_intensity_list, ['subject_id', 'stimulation_target']);
-    
-    % Write the data back to the same file with semicolon delimiter
-    writetable(stimulation_intensity_list, stimulation_intensity_list_location, 'Delimiter', ';', 'WriteVariableNames', true);
 
     %% Set folder names for segmentation
     % Set mask folder location
@@ -303,7 +303,7 @@ function mask_transformation(subject_name)
         planning_coordinate_list = [planning_coordinate_list; new_rows];
         
         % Sort by subject_id for organization
-        planning_coordinate_list = sortrows(planning_coordinate_list, 'subject_id');
+        planning_coordinate_list = sortrows(planning_coordinate_list, {'subject_id', 'stimulation_target'});
     end
     
     % Write back to CSV

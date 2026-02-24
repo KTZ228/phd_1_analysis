@@ -2,7 +2,7 @@
 clc; clear; close all;
 
 %% Set the subject_name
-subject_list = ["sub-052"];
+subject_list = ["sub-056", "sub-057"];
 
 output_location = '/project/3025011.02/localite';
 log_location = fullfile(output_location, 'slurm_job_logs');
@@ -26,8 +26,8 @@ for subject_name = subject_list
     fprintf(fid, '#SBATCH --job-name=%s\n', job_name);
     fprintf(fid, '#SBATCH --nodes=1\n');
     fprintf(fid, '#SBATCH --ntasks=1\n');
-    fprintf(fid, '#SBATCH --mem=20G\n');
-    fprintf(fid, '#SBATCH --time=24:00:00\n');
+    fprintf(fid, '#SBATCH --mem=30G\n');
+    fprintf(fid, '#SBATCH --time=30:00:00\n');
     fprintf(fid, '#SBATCH --output=%s\n', fullfile(log_location, '%j_freesurfer_output.log'));
     fprintf(fid, '#SBATCH --error=%s\n', fullfile(log_location, '%j_freesurfer_error.log'));
     fprintf(fid, '#SBATCH --chdir=%s\n', '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/localite_setup');

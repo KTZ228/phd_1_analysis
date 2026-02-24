@@ -12,7 +12,7 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-target_list = [1, 2];
+target_list = [3];
 test_pipeline = 0;
 localite_coordinates = 0;
 include_mask = 0;
@@ -24,7 +24,7 @@ heatrise_optimised = 1;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [52];
+subject_list = [57];
 
 % Config location
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
