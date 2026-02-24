@@ -1,0 +1,60 @@
+----------------------------------------
+Begin PBS Prologue Tue Nov 26 13:10:21 CET 2024 1732623021
+Job ID:		   54915247.dccn-l029.dccn.nl
+Username:	   saskoc
+Group:		   affneu
+Asked resources:   walltime=03:03:00,mem=34896609280b,neednodes=matlab,ncpus=1
+Queue:		   matlab
+Nodes:		   dccn-c046.dccn.nl
+----------------------------------------
+Limiting memory+swap to 35433480192 bytes ...
+End PBS Prologue Tue Nov 26 13:10:21 CET 2024 1732623021
+----------------------------------------
+Starting matlab/R2024a
+Executing /opt/matlab/R2024a/bin/matlab -singleCompThread -nodisplay -singleCompThread -nosplash -nodisplay -r restoredefaultpath;addpath('/home/common/matlab/fieldtrip/qsub');qsubexec('/project/3025003.01/code/fMRI/batch_spm12/main_files/saskoc_dccn_c035_p3875_b1_j157');exit
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+                  R2024a (24.1.0.2537033) 64-bit (glnxa64)
+                             February 21, 2024
+
+[Warning: Unable to load Toolbox Path Cache
+/home/affneu/saskoc/.matlab/R2024a/toolbox_cache-24.1.0-1733850489-glnxa64.xml.
+The cache file is not in the correct format. It will be regenerated upon
+quitting MATLAB.] 
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+The create_model1 task is finished
+Item 'Image type', field 'val': No matching defaults value found.
+
+
+------------------------------------------------------------------------
+26-Nov-2024 13:12:29 - Running job #1
+------------------------------------------------------------------------
+26-Nov-2024 13:12:29 - Running 'fMRI model specification'
+26-Nov-2024 13:12:30 - Failed  'fMRI model specification'
+Brace indexing is not supported for variables of this type.
+In file "/project/3025003.01/code/software/spm12/config/spm_run_fmri_spec.m" (v7739), function "spm_run_fmri_spec" at line 296.
+
+The following modules did not run:
+Failed: fMRI model specification
+
+[Warning: an error was detected during job execution] 
+[> In fexec (line 217)
+In qsubexec (line 95)] 
+----------------------------------------
+Begin PBS Epilogue Tue Nov 26 13:12:41 CET 2024 1732623161
+Job ID:		   54915247.dccn-l029.dccn.nl
+Job Exit Code:     0
+Username:	   saskoc
+Group:		   affneu
+Job Name:	   saskoc_dccn_c035_p3875_b1_j157
+Session:	   13234
+Asked resources:   walltime=03:03:00,mem=34896609280b,neednodes=matlab,ncpus=1
+Used resources:	   cput=00:00:59,walltime=00:02:14,mem=1228214272b
+Queue:		   matlab
+Nodes:		   dccn-c046.dccn.nl
+End PBS Epilogue Tue Nov 26 13:12:41 CET 2024 1732623161
+----------------------------------------
