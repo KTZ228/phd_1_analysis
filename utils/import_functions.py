@@ -52,9 +52,9 @@ def list_files_with_date_and_subject_id_old(file_path: str,
     ----------
     file_path : str
         Path to the experiment output folder.
-    unique_subject_ids : list(int)
+    unique_subject_ids : list(Int64)
         A list containing all subject IDs found in the folder.
-    unique_sessions : list(int)
+    unique_sessions : list(Int64)
         A list containing all sessions found in the folder.
     selected_pattern : str
         Either 'joystick_output' or 'speakup', otherwise it uses the default.
@@ -121,9 +121,9 @@ def list_files_with_date_and_subject_id(file_path: str,
     ----------
     file_path : str
         Path to the experiment output folder.
-    unique_subject_ids : list(int)
+    unique_subject_ids : list(Int64)
         A list containing all subject IDs found in the folder.
-    unique_sessions : list(int)
+    unique_sessions : list(Int64)
         A list containing all sessions found in the folder.
     selected_pattern : str
         Either 'joystick_output' or 'behavioural_output'.
@@ -322,13 +322,13 @@ def flip_joystick_data(dataframe: pd.DataFrame) -> pd.DataFrame:
     # For 'probability_condition', swap 80 with 20 and vice versa.
     dataframe.loc[mask, 'probability_condition'] = (
         dataframe.loc[mask, 'probability_condition']
-        .replace({80: 20, 20: 80})
+        .map({80: 20, 20: 80})
     )
 
     # For 'response', swap 'up' with 'down' and vice versa.
     dataframe.loc[mask, 'response'] = (
         dataframe.loc[mask, 'response']
-        .replace({'up': 'down', 'down': 'up'})
+        .map({'up': 'down', 'down': 'up'})
     )
 
     # Optionally, drop the helper column
@@ -455,8 +455,10 @@ def check_volatility(dataframe: pd.DataFrame,
         The same dataframe containing the new column info.
     """
 
+    # Think about changing this to count trials from both variables as trials since reversal since they switch together
+
     # This differentiates between a stable and volatile block
-    stable_cutoff = 15
+    stable_cutoff = 24
 
     # Initialize the new column with empty strings
     dataframe['volatility'] = ''
@@ -529,6 +531,7 @@ def check_volatility(dataframe: pd.DataFrame,
 def check_stimulation_condition(row,
                   binary_output: bool = False):
     """ Functions that reads a row and notes the stimulation condition.
+    This is obviously a placeholder so that I can write the analyses based on the stimulation condition before deblinding.
 
     Parameters
     ----------
@@ -563,6 +566,43 @@ def check_stimulation_condition(row,
     return stimulation_condition
 
 
+def add_WSLS_columns(dataframe: pd.DataFrame) -> (
+        pd.DataFrame):
+    """ Function to use the subjectively or objectively correct data and the responses to determine when the participant
+    stayed with the current response, shifted when lost and vice versa.
+
+    Parameters
+    ----------
+    dataframe: pd.DataFrame
+        A dataframe that must contain the subject_id, session, stimuli_type, trial, subjectively_correct and the response.
+
+    Returns
+    -------
+    dataframe: pd.DataFrame
+        A dataframe containing the new columns previous_outcome, previous_response and WSLS.
+    """
+
+    # Takes the values from 'subjectively_correct' and shifts them by one to look back at a previous trial
+    dataframe['previous_outcome'] = dataframe.groupby('stimuli_type')['subjectively_correct'].shift(1)
+    mapping = {1: 1, -1: 0}
+    dataframe['previous_outcome'] = dataframe['previous_outcome'].map(mapping)
+    dataframe['previous_outcome'] = dataframe['previous_outcome'].astype('Int64')
+
+    # Determine whether participants stuck with their choices
+    dataframe['previous_response'] = dataframe.groupby('stimuli_type')['response'].shift(1)
+    dataframe['stay'] = (dataframe['response'] == dataframe['previous_response']).astype('Int64')
+    dataframe['stay'] = dataframe['stay'].map(mapping)
+    dataframe['stay'] = dataframe['stay'].astype('Int64')
+
+    # Determine choice stickiness
+    dataframe['response_before_previous_trial'] = dataframe.groupby('stimuli_type')['response'].shift(2)
+    dataframe['choicestickiness'] = (dataframe['previous_response'] == dataframe['response_before_previous_trial']).astype('Int64')
+
+    print(dataframe[['subject_id','session','previous_outcome','subjectively_correct','stay']])
+
+    return dataframe
+
+
 def main(raw_output_path,
          unique_subject_ids,
          unique_sessions,
@@ -578,9 +618,9 @@ def main(raw_output_path,
     ----------
     raw_output_path : str
         Path to the experiment output folder.
-    unique_subject_ids : list(int)
+    unique_subject_ids : list('Int64')
         A list containing all subject IDs found in the folder.
-    unique_sessions : list(int)
+    unique_sessions : list('Int64')
         A list containing all sessions found in the folder.
     pilot_analysis : bool
         If True, only the first 10 subjects will be used for analysis.
@@ -623,17 +663,17 @@ def main(raw_output_path,
     # If we're analysing the pilot data, make some changes to ensure backwards compatibility of the analysis
     if pilot_analysis:
         dataframe.rename(columns={'iti': 'trial_duration'}, inplace=True)
-        dataframe['stimuli_type'] = dataframe['stimuli_type'].replace(3, 2)
+        dataframe['stimuli_type'] = dataframe['stimuli_type'].map(3, 2)
 
     # Checks if and compensates for when the joystick was flipped for any of the sessions
     dataframe = flip_joystick_data(dataframe)
 
     # Turns the performance values into boolean ones
     mapping = {'True': 1, 'False': 0, 'Even': 0, 'Late': 0}
-    dataframe['objectively_correct_boolean'] = dataframe['objectively_correct'].replace(mapping)
-    dataframe['objectively_correct_boolean'] = dataframe['objectively_correct_boolean'].astype('int')
-    dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct'].replace(mapping)
-    dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct_boolean'].astype('int')
+    dataframe['objectively_correct_boolean'] = dataframe['objectively_correct'].map(mapping)
+    dataframe['objectively_correct_boolean'] = dataframe['objectively_correct_boolean'].astype('Int64')
+    dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct'].map(mapping)
+    dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct_boolean'].astype('Int64')
     dataframe['subjectively_correct_boolean_one_back'] = dataframe['subjectively_correct_boolean'].shift(1)
 
     # Convert performance to errors
@@ -651,10 +691,7 @@ def main(raw_output_path,
         print(dataframe[['stimuli_type', 'valence']])
 
     # Add WSLS column before removing trials
-    dataframe = utils.learning_models.add_WSLS_column(dataframe)
-    mapping = {1: 1, -1: 0}
-    dataframe['stay_shift'] = dataframe['same_response_as_one_back'].replace(mapping)
-    dataframe['stay_shift'] = dataframe['stay_shift'].astype('int')
+    dataframe = add_WSLS_columns(dataframe)
 
     # Make volatility column
     dataframe = dataframe[dataframe['probability_condition'] != 50]
@@ -672,10 +709,11 @@ def main(raw_output_path,
     dataframe['correct_response'] = dataframe.apply(check_correct_response, args=(binary_output,), axis=1)
     # Make binary response column
     mapping = {'up': 1, 'down': -1}
-    dataframe['response_boolean'] = dataframe['response'].replace(mapping)
-    dataframe['correct_response_boolean'] = dataframe['correct_response'].replace(mapping)
+    dataframe['response_boolean'] = dataframe['response'].map(mapping)
+    dataframe['correct_response_boolean'] = dataframe['correct_response'].map(mapping)
 
     # Add a column that indicates how many trials ago the last reversal occurred
+    ## Would it be better to combine the two? Since a reversal always occurs in both stimuli at the same time
     dataframe['trials_since_reversal'] = (
         dataframe.groupby((dataframe['probability_condition'] != dataframe['probability_condition'].shift()).cumsum())
         .cumcount()
@@ -697,8 +735,8 @@ def main(raw_output_path,
 
     # Add columns containing integers for the subject_id and session number
     if binary_output:
-        dataframe['subject_id'] = dataframe['subject_id'].str.replace('sub-', '').astype(int)
-        dataframe['session'] = dataframe['session'].str.replace('session-', '').astype(int)
+        dataframe['subject_id'] = dataframe['subject_id'].str.map('sub-', '').astype('Int64')
+        dataframe['session'] = dataframe['session'].str.map('session-', '').astype('Int64')
 
     return dataframe
 
