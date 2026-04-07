@@ -5,7 +5,7 @@
 
 # Load more ram into the terminal for echocombine
 #SBATCH --mem=64G
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --job-name=fmri_preproc
 
 # Run BIDScoin

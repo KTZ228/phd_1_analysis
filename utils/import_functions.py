@@ -325,10 +325,10 @@ def flip_joystick_data(dataframe: pd.DataFrame) -> pd.DataFrame:
         .map({80: 20, 20: 80})
     )
 
-    # For 'response', swap 'up' with 'down' and vice versa.
+    # For 'response', swap 'avoid' with 'approach' and vice versa.
     dataframe.loc[mask, 'response'] = (
         dataframe.loc[mask, 'response']
-        .map({'up': 'down', 'down': 'up'})
+        .map({'avoid': 'approach', 'approach': 'avoid'})
     )
 
     # Optionally, drop the helper column
@@ -406,7 +406,7 @@ def check_valence(row,
     return emotional_valence
 
 
-def check_correct_response(row,
+def check_most_rewarding_response(row,
                         binary_output: bool = False):
     """ Functions that reads a row and notes the response that would have resulted in the highest chance of a reward.
 
@@ -422,21 +422,21 @@ def check_correct_response(row,
     """
     if row['probability_condition'] == 80:
         if binary_output:
-            correct_response = 1
+            most_rewarding_response = 1
         else:
-            correct_response = 'up'
+            most_rewarding_response = 'avoid'
     elif row['probability_condition'] == 20:
         if binary_output:
-            correct_response = -1
+            most_rewarding_response = -1
         else:
-            correct_response = 'down'
+            most_rewarding_response = 'approach'
     else:
         if binary_output:
-            correct_response = 0
+            most_rewarding_response = 0
         else:
-            correct_response = 'no_correct_response'
+            most_rewarding_response = 'no_most_rewarding_response'
 
-    return correct_response
+    return most_rewarding_response
 
 
 def check_volatility(dataframe: pd.DataFrame,
@@ -611,6 +611,7 @@ def main(raw_output_path,
          remove_reversals=False,
          remove_invalid_trials=True,
          print_output=False,
+         fmri_analysis=False,
          selected_pattern='behavioural_output') -> pd.DataFrame:
     """ Main function that runs the import functions.
 
@@ -634,6 +635,8 @@ def main(raw_output_path,
         If 'block_2', only block 2 will be analysed. If 'block_3', only block 3 will be analysed.
     print_output : bool
         If True, the dataframe will be printed to the console.
+    fmri_analysis : bool
+        If True, trials that would've normally been removed, now get an extra boolean column.
     selected_pattern : str
         Allows you to select the pattern of the output files.
 
@@ -652,6 +655,14 @@ def main(raw_output_path,
 
     # Then, import all behavioural datasets and combine them into 1
     dataframe = combine_result_files(recent_files)
+
+    # Create an untouched copy of the dataframe
+    if fmri_analysis:
+        dataframe_copy = dataframe.copy()
+
+    # Change responses to approach and avoid
+    mapping = {'up': 'avoid', 'down': 'approach'}
+    dataframe['response'] = dataframe['response'].map(mapping)
 
     # Extract one of the blocks for exclusion
     #if block_isolated == 'block_2':
@@ -706,11 +717,11 @@ def main(raw_output_path,
         print(dataframe[['subject_id', 'session', 'stimulation_condition']])
 
     # Add a column for the most rewarding response
-    dataframe['correct_response'] = dataframe.apply(check_correct_response, args=(binary_output,), axis=1)
+    dataframe['most_rewarding_response'] = dataframe.apply(check_most_rewarding_response, args=(binary_output,), axis=1)
     # Make binary response column
-    mapping = {'up': 1, 'down': -1}
+    mapping = {'avoid': 1, 'approach': -1}
     dataframe['response_boolean'] = dataframe['response'].map(mapping)
-    dataframe['correct_response_boolean'] = dataframe['correct_response'].map(mapping)
+    dataframe['most_rewarding_response_boolean'] = dataframe['most_rewarding_response'].map(mapping)
 
     # Add a column that indicates how many trials ago the last reversal occurred
     ## Would it be better to combine the two? Since a reversal always occurs in both stimuli at the same time
@@ -737,6 +748,15 @@ def main(raw_output_path,
     if binary_output:
         dataframe['subject_id'] = dataframe['subject_id'].str.map('sub-', '').astype('Int64')
         dataframe['session'] = dataframe['session'].str.map('session-', '').astype('Int64')
+
+    # Now re-introduce the removed rows
+    if fmri_analysis:
+        unique_trial_identifiers = ['subject_id', 'session', 'trial']
+        existing_trials = dataframe.set_index(unique_trial_identifiers).index
+        removed_trials = dataframe_copy[~dataframe_copy.set_index(unique_trial_identifiers).index.isin(existing_trials)]
+        removed_trials['removed_trial'] = 'removed_trial'
+        dataframe['removed_trial'] = 'non-removed_trial'
+        dataframe = pd.concat([dataframe, removed_trials]).sort_values(unique_trial_identifiers).reset_index(drop=True)
 
     return dataframe
 

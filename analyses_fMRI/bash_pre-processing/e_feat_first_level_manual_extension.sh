@@ -1,9 +1,12 @@
 #!/bin/bash
 #
 # Generate .fsf files from template and run 1st level FEAT analysis
+# Usage: d_feat_first_level.sh [suffix]
+# If suffix is provided, it is appended to the output directory name with an underscore.
 shopt -s nullglob
 
-template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template.fsf"
+suffix="$1"
+template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_most_rewarding_response.fsf"
 derivdir="/project/3025011.02/bids/derivatives/fsl"
 
 if [ ! -f "$template" ]; then
@@ -19,12 +22,18 @@ for confounds in "${derivdir}"/sub-*/ses-*/func/*_task-AARL_confounds_for_feat.t
     fsf="${funcdir}/${sub}_${ses}_task-AARL_design.fsf"
 
     echo "Creating: $fsf"
-    sed -e "s/sub-000/${sub}/g" -e "s/ses-mri00/${ses}/g" "$template" > "$fsf"
+    if [ -n "$suffix" ]; then
+        sed -e "s|ses-mri00\"|ses-mri00_${suffix}\"|" \
+            -e "s/sub-000/${sub}/g" -e "s/ses-mri00/${ses}/g" \
+            "$template" > "$fsf"
+    else
+        sed -e "s/sub-000/${sub}/g" -e "s/ses-mri00/${ses}/g" "$template" > "$fsf"
+    fi
 
     echo "Submitting: ${sub} ${ses}"
     sbatch --job-name="feat_${sub}_${ses}" \
            --mem=32G \
            --time=24:00:00 \
            --output="${funcdir}/feat_%j.log" \
-           --wrap="export FSLPARALLEL=0; feat $fsf"
+           --wrap="export FSLPARALLEL=1; feat $fsf"
 done
