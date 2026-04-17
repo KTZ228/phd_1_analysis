@@ -3,14 +3,14 @@ shopt -s nullglob globstar
 
 fsldir="${FSLDIR:-/opt/fsl/6.0.6}"
 bg="${fsldir}/data/standard/MNI152_T1_2mm_brain.nii.gz"
-searchdir="/project/3025011.02/bids/derivatives/fsl"
+searchdir="/project/3025011.02/bids/derivatives/fsl/old"
 
 coords=(
     "22 -6 -20"
     "-18 -6 -20"
 )
 
-stats=("zstat2" "zstat3" "zstat4")
+stats=("zstat1")
 
 dispmin=-10
 dispmax=10

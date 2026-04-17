@@ -109,7 +109,7 @@ set fmri(st_file) ""
 set fmri(bet_yn) 1
 
 # Spatial smoothing FWHM (mm)
-set fmri(smooth) 5
+set fmri(smooth) 0
 
 # Intensity normalization
 set fmri(norm_yn) 0
@@ -140,14 +140,14 @@ set fmri(motionevsbeta) ""
 set fmri(scriptevsbeta) ""
 
 # Robust outlier detection in FLAME?
-set fmri(robust_yn) 1
+set fmri(robust_yn) 0
 
 # Higher-level modelling
 # 3 : Fixed effects
 # 0 : Mixed Effects: Simple OLS
 # 2 : Mixed Effects: FLAME 1
 # 1 : Mixed Effects: FLAME 1+2
-set fmri(mixed_yn) 2
+set fmri(mixed_yn) 3
 
 # Higher-level permutations
 set fmri(randomisePermutations) 5000
@@ -159,7 +159,7 @@ set fmri(evs_vox) 0
 
 # Number of contrasts
 set fmri(ncon_orig) 1
-set fmri(ncon_real) 1
+set fmri(ncon_real) 4
 
 # Number of F-tests
 set fmri(nftests_orig) 0
@@ -179,7 +179,7 @@ set fmri(threshmask) ""
 # 1 : Uncorrected
 # 2 : Voxel
 # 3 : Cluster
-set fmri(thresh) 0
+set fmri(thresh) 3
 
 # P threshold
 set fmri(prob_thresh) 0.05
@@ -239,7 +239,7 @@ set fmri(reghighres_search) 90
 set fmri(reghighres_dof) BBR
 
 # Registration to standard image?
-set fmri(regstandard_yn) 1
+set fmri(regstandard_yn) 0
 
 # Use alternate reference images?
 set fmri(alternateReference_yn) 0
@@ -284,13 +284,13 @@ set fmri(copeinput.4) 1
 set fmri(copeinput.5) 1
 
 # 4D AVW data or FEAT directory (1)
-set feat_files(1) "/project/3025011.02/bids/derivatives/fsl/old/sub-052/ses-mri02/func/sub-052_ses-mri02_f_a_comp_cor.feat"
+set feat_files(1) "/project/3025011.02/bids/derivatives/fsl/old/sub-052/ses-mri02/func/sub-052_ses-mri02.feat"
 
 # 4D AVW data or FEAT directory (2)
-set feat_files(2) "/project/3025011.02/bids/derivatives/fsl/old/sub-052/ses-mri03/func/sub-052_ses-mri03_f_a_comp_cor.feat"
+set feat_files(2) "/project/3025011.02/bids/derivatives/fsl/old/sub-052/ses-mri03/func/sub-052_ses-mri03.feat"
 
 # 4D AVW data or FEAT directory (3)
-set feat_files(3) "/project/3025011.02/bids/derivatives/fsl/old/sub-052/ses-mri04/func/sub-052_ses-mri04_f_a_comp_cor.feat"
+set feat_files(3) "/project/3025011.02/bids/derivatives/fsl/old/sub-052/ses-mri04/func/sub-052_ses-mri04.feat"
 
 # Add confound EVs text file
 set fmri(confoundevs) 0
@@ -485,7 +485,7 @@ set fmri(con_mode) real
 set fmri(conpic_real.1) 1
 
 # Title for contrast_real 1
-set fmri(conname_real.1) "SUBID_session_mean"
+set fmri(conname_real.1) "session_mean"
 
 # Real contrast_real vector 1 element 1
 set fmri(con_real1.1) 1
@@ -496,8 +496,89 @@ set fmri(con_real1.2) 1.0
 # Real contrast_real vector 1 element 3
 set fmri(con_real1.3) 1.0
 
+# Display images for contrast_real 2
+set fmri(conpic_real.2) 1
+
+# Title for contrast_real 2
+set fmri(conname_real.2) "session_2>session_3"
+
+# Real contrast_real vector 2 element 1
+set fmri(con_real2.1) 1.0
+
+# Real contrast_real vector 2 element 2
+set fmri(con_real2.2) -1.0
+
+# Real contrast_real vector 2 element 3
+set fmri(con_real2.3) 0
+
+# Display images for contrast_real 3
+set fmri(conpic_real.3) 1
+
+# Title for contrast_real 3
+set fmri(conname_real.3) "session_2>session_4"
+
+# Real contrast_real vector 3 element 1
+set fmri(con_real3.1) 1.0
+
+# Real contrast_real vector 3 element 2
+set fmri(con_real3.2) 0
+
+# Real contrast_real vector 3 element 3
+set fmri(con_real3.3) -1.0
+
+# Display images for contrast_real 4
+set fmri(conpic_real.4) 1
+
+# Title for contrast_real 4
+set fmri(conname_real.4) "session_3>session_4"
+
+# Real contrast_real vector 4 element 1
+set fmri(con_real4.1) 0
+
+# Real contrast_real vector 4 element 2
+set fmri(con_real4.2) 1.0
+
+# Real contrast_real vector 4 element 3
+set fmri(con_real4.3) -1.0
+
 # Contrast masking - use >0 instead of thresholding?
 set fmri(conmask_zerothresh_yn) 0
+
+# Mask real contrast/F-test 1 with real contrast/F-test 2?
+set fmri(conmask1_2) 0
+
+# Mask real contrast/F-test 1 with real contrast/F-test 3?
+set fmri(conmask1_3) 0
+
+# Mask real contrast/F-test 1 with real contrast/F-test 4?
+set fmri(conmask1_4) 0
+
+# Mask real contrast/F-test 2 with real contrast/F-test 1?
+set fmri(conmask2_1) 0
+
+# Mask real contrast/F-test 2 with real contrast/F-test 3?
+set fmri(conmask2_3) 0
+
+# Mask real contrast/F-test 2 with real contrast/F-test 4?
+set fmri(conmask2_4) 0
+
+# Mask real contrast/F-test 3 with real contrast/F-test 1?
+set fmri(conmask3_1) 0
+
+# Mask real contrast/F-test 3 with real contrast/F-test 2?
+set fmri(conmask3_2) 0
+
+# Mask real contrast/F-test 3 with real contrast/F-test 4?
+set fmri(conmask3_4) 0
+
+# Mask real contrast/F-test 4 with real contrast/F-test 1?
+set fmri(conmask4_1) 0
+
+# Mask real contrast/F-test 4 with real contrast/F-test 2?
+set fmri(conmask4_2) 0
+
+# Mask real contrast/F-test 4 with real contrast/F-test 3?
+set fmri(conmask4_3) 0
 
 # Do contrast masking at all?
 set fmri(conmask1_1) 0

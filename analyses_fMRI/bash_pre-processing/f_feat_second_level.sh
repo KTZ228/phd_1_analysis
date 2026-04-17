@@ -170,4 +170,4 @@ sbatch --job-name="feat_second_level" \
        --mem=64G \
        --time=24:00:00 \
        --output="${derivdir}/feat_second_level_array_%A_%a.log" \
-       --wrap="fsf=\$(sed -n \"\${SLURM_ARRAY_TASK_ID}p\" ${joblist}); export FSLPARALLEL=1; feat \$fsf"
+       --wrap="fsf=\$(sed -n \"\${SLURM_ARRAY_TASK_ID}p\" ${joblist}); export FSLPARALLEL=0; feat \$fsf"
