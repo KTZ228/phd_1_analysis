@@ -5,7 +5,7 @@
 # Confound files must be named: <sub>_<ses>_task-AARL_confounds_for_feat_<suffix>.txt
 shopt -s nullglob
 
-template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_most_rewarding_response.fsf"
+template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_most_rewarding_response_temporal_derivative_breaks.fsf"
 derivdir="/project/3025011.02/bids/derivatives/fsl"
 joblist="${derivdir}/feat_joblist_$(date +%Y%m%d_%H%M%S).txt"
 
@@ -44,7 +44,7 @@ fi
 echo "Submitting job array with $njobs tasks (joblist: $joblist)"
 
 # Pass 2: submit the whole thing as a single job array
-sbatch --job-name="feat_array" \
+sbatch --job-name="feat_first_level" \
        --array=1-${njobs} \
        --mem=32G \
        --time=24:00:00 \
