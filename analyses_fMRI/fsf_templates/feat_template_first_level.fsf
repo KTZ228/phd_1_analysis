@@ -55,7 +55,7 @@ set fmri(inputtype) 2
 set fmri(filtering_yn) 1
 
 # Brain/background threshold, %
-set fmri(brain_thresh) 10
+set fmri(brain_thresh) 0
 
 # Critical z for design efficiency calculation
 set fmri(critical_z) 5.3
@@ -1532,7 +1532,7 @@ set fmri(conmask1_1) 0
 # Now options that don't appear in the GUI
 
 # Alternative (to BETting) mask image
-set fmri(alternative_mask) "/project/3025011.02/bids/derivatives/fmriprep/sub-000/ses-mri00/func/sub-000_ses-mri00_task-AARL_space-MNI152NLin6Asym_res-02_desc-brain_mask.nii.gz"
+set fmri(alternative_mask) "/opt/fsl/6.0.6/data/standard/MNI152_T1_2mm_brain_mask.nii.gz"
 
 # Initial structural space registration initialisation transform
 set fmri(init_initial_highres) ""

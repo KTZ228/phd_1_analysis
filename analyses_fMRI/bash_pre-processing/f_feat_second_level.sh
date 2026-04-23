@@ -21,7 +21,7 @@
 shopt -s nullglob
 
 template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_second_level.fsf"
-derivdir="/project/3025011.02/bids/derivatives/fsl/old"
+derivdir="/project/3025011.02/bids/derivatives/fsl"
 sessions=(ses-mri02 ses-mri03 ses-mri04)
 joblist="${derivdir}/feat_second_level_joblist_$(date +%Y%m%d_%H%M%S).txt"
 skiplog="${derivdir}/feat_second_level_skipped_$(date +%Y%m%d_%H%M%S).txt"
