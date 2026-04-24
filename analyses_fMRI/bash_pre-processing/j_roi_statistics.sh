@@ -1,29 +1,35 @@
 #!/bin/bash
 #
 # Extract ROI statistics (mean, stddev, non-zero voxel count) from every
-# copeX.nii.gz file under the FSL derivatives tree, using every mask in the
+# copeX.nii.gz file under the FSL derivatives tree, and from the matching
+# zstatX.nii.gz in the same stats/ directory, using every mask in the
 # MNI_masks directory.
 #
 # For each cope file found, writes a single CSV next to it:
 #   <stats_dir>/<cope_basename>_roi_stats.csv
-# with one row per mask:
-#   mask,mean,stddev,nvoxels
+# with one row per mask and paired cope/zstat columns:
+#   mask;cope_mean;cope_stddev;cope_nvoxels;cope_volume_mm3;zstat_mean;zstat_stddev;zstat_nvoxels;zstat_volume_mm3
 #
 # Usage
 # -----
 #   bash i_fslstats_roi_extraction.sh
+#   bash i_fslstats_roi_extraction.sh --force
 #
 # Notes
 # -----
 # - Uses fslstats -M -S -V to match the original reference command, which
 #   reports the MEAN and STDDEV of NON-ZERO voxels within the mask, and the
 #   COUNT of non-zero voxels (voxels + mm^3).
+# - For zstat this means non-zero z-values; if you want stats across ALL
+#   in-mask voxels (including zeros), swap -M/-S for -m/-s.
 # - Search scope is the whole FSL derivatives tree, which picks up copes
 #   inside 1st-level .feat/stats/, 2nd-level .gfeat/copeN.feat/stats/, and
 #   3rd-level group/.gfeat/copeN.feat/stats/. If you want to narrow this,
 #   edit `searchdir` below.
 # - Idempotent: if the CSV already exists and is non-empty it is skipped.
 #   Delete it (or pass --force) to regenerate.
+# - If a cope has no matching zstat in the same stats/ dir, the zstat
+#   columns are filled with NA.
 shopt -s nullglob globstar
 
 searchdir="/project/3025011.02/bids/derivatives/fsl"
@@ -36,7 +42,7 @@ force=0
 while [ $# -gt 0 ]; do
     case "$1" in
         -f|--force) force=1; shift ;;
-        -h|--help)  sed -n '2,30p' "$0"; exit 0 ;;
+        -h|--help)  sed -n '2,35p' "$0"; exit 0 ;;
         *) echo "ERROR: unknown argument '$1'"; exit 1 ;;
     esac
 done
@@ -71,6 +77,31 @@ echo "Searching for cope files under: $searchdir"
 echo
 
 # ---------------------------------------------------------------------------
+# Helper: run fslstats on an image with a mask and return the 4 values as
+# semicolon-separated "mean;stddev;nvox;volmm3". Returns "NA;NA;NA;NA" if
+# the image is missing or fslstats fails.
+# ---------------------------------------------------------------------------
+run_fslstats() {
+    local img="$1" mask="$2"
+
+    if [ ! -f "$img" ]; then
+        echo "NA;NA;NA;NA"
+        return
+    fi
+
+    local out
+    out=$(fslstats "$img" -k "$mask" -M -S -V 2>/dev/null)
+    if [ -z "$out" ]; then
+        echo "NA;NA;NA;NA"
+        return
+    fi
+
+    local mean sd nvox volmm3
+    read -r mean sd nvox volmm3 <<< "$out"
+    echo "${mean};${sd};${nvox};${volmm3}"
+}
+
+# ---------------------------------------------------------------------------
 # Find all cope files. copeX.nii.gz live inside <...>.feat/stats/ directories.
 # The globstar pattern below catches them at every nesting depth.
 # ---------------------------------------------------------------------------
@@ -86,47 +117,44 @@ echo "Found $ncopes cope file(s)."
 echo
 
 # ---------------------------------------------------------------------------
-# Loop: for each cope, write one CSV with one row per mask.
+# Loop: for each cope, write one CSV with one row per mask (cope + zstat).
 # ---------------------------------------------------------------------------
 i=0
 for cope in "${cope_files[@]}"; do
     i=$((i + 1))
     copedir=$(dirname "$cope")
-    copebase=$(basename "$cope" .nii.gz)
+    copebase=$(basename "$cope" .nii.gz)          # e.g. cope1
+    copeidx="${copebase#cope}"                    # e.g. 1
+    zstat="${copedir}/zstat${copeidx}.nii.gz"
     outcsv="${copedir}/${copebase}_roi_stats.csv"
 
-    if [ "$force" -eq 0 ] && [ -s "$outcsv" ]; then
-        echo "[$i/$ncopes] Skipping (exists): $outcsv"
-        continue
+    if [ ! -f "$zstat" ]; then
+        echo "[$i/$ncopes] $cope"
+        echo "    NOTE: no matching zstat${copeidx}.nii.gz — zstat columns will be NA"
+    else
+        echo "[$i/$ncopes] $cope"
     fi
 
-    echo "[$i/$ncopes] $cope"
-    echo "mask;mean;stddev;nvoxels;volume_mm3" > "$outcsv"
+    echo "mask;cope_mean;cope_stddev;cope_nvoxels;cope_volume_mm3;zstat_mean;zstat_stddev;zstat_nvoxels;zstat_volume_mm3" > "$outcsv"
 
     for mask in "${masks[@]}"; do
         maskname=$(basename "$mask")
         maskname="${maskname%.nii.gz}"
         maskname="${maskname%.nii}"
 
-        # fslstats -M -S -V:
-        #   -M : mean of non-zero voxels within mask
-        #   -S : stddev of non-zero voxels within mask
-        #   -V : nvoxels (int)  volume_mm3 (float)
-        # Output is space-separated on a single line:
-        #   "<mean> <stddev> <nvox> <vol_mm3>"
-        out=$(fslstats "$cope" -k "$mask" -M -S -V 2>/dev/null)
-        if [ -z "$out" ]; then
-            echo "    WARN: fslstats failed for mask=$maskname"
-            echo "${maskname};NA;NA;NA;NA" >> "$outcsv"
-            continue
+        cope_stats=$(run_fslstats "$cope"  "$mask")
+        zstat_stats=$(run_fslstats "$zstat" "$mask")
+
+        # Warn (but still write the row) if cope extraction actually failed
+        if [[ "$cope_stats" == "NA;NA;NA;NA" ]] && [ -f "$cope" ]; then
+            echo "    WARN: fslstats failed on cope for mask=$maskname"
         fi
 
-        read -r mean sd nvox volmm3 <<< "$out"
-        echo "${maskname};${mean};${sd};${nvox};${volmm3}" >> "$outcsv"
+        echo "${maskname};${cope_stats};${zstat_stats}" >> "$outcsv"
     done
 
     echo "    -> $outcsv"
 done
 
 echo
-echo "Done. Wrote ROI stats CSVs next to each cope file."
+echo "Done. Wrote ROI stats CSVs (cope + zstat) next to each cope file."

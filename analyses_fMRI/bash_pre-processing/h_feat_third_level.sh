@@ -180,24 +180,14 @@ fi
 
 # ---------------------------------------------------------------------------
 # Helper: inject per-subject blocks + outputdir + N into a fresh .fsf.
-#
-# Blocks expected by the template:
-#   __FEAT_FILES_BLOCK__   one `set feat_files(N) "..."` per subject
-#   __EV_BLOCK__           full per-subject EV definitions + evg grid
-#                          (separate-means design: one EV per subject)
-#   __GROUPMEM_BLOCK__     one `set fmri(groupmem.N) 1` per subject
-#   __CON_REAL_BLOCK__     one `set fmri(con_real1.N) 1` per subject
-#                          (group-mean contrast: every EV weighted 1)
-#   __NSUBJECTS__          scalar, replaced inline
 # ---------------------------------------------------------------------------
 write_fsf() {
-    local tmpl="$1" outdir="$2" n="$3" ff="$4" ev="$5" gm="$6" cr="$7" out="$8"
-    awk -v n="$n" -v ff="$ff" -v ev="$ev" -v gm="$gm" -v cr="$cr" '
+    local tmpl="$1" outdir="$2" n="$3" ff="$4" evg="$5" gm="$6" out="$7"
+    awk -v n="$n" -v ff="$ff" -v evg="$evg" -v gm="$gm" '
         {
-            if ($0 ~ /__FEAT_FILES_BLOCK__/) { printf "%s", ff; if (substr(ff,length(ff)) != "\n") print ""; next }
-            if ($0 ~ /__EV_BLOCK__/)         { printf "%s", ev; if (substr(ev,length(ev)) != "\n") print ""; next }
-            if ($0 ~ /__GROUPMEM_BLOCK__/)   { printf "%s", gm; if (substr(gm,length(gm)) != "\n") print ""; next }
-            if ($0 ~ /__CON_REAL_BLOCK__/)   { printf "%s", cr; if (substr(cr,length(cr)) != "\n") print ""; next }
+            if ($0 ~ /__FEAT_FILES_BLOCK__/) { printf "%s", ff;  if (substr(ff,length(ff))  != "\n") print ""; next }
+            if ($0 ~ /__EVG_BLOCK__/)        { printf "%s", evg; if (substr(evg,length(evg)) != "\n") print ""; next }
+            if ($0 ~ /__GROUPMEM_BLOCK__/)   { printf "%s", gm;  if (substr(gm,length(gm))  != "\n") print ""; next }
             gsub(/__NSUBJECTS__/, n)
             print
         }
@@ -256,51 +246,15 @@ for suffix in "${!records_by_suffix[@]}"; do
     fi
 
     for cidx in "${common_contrasts[@]}"; do
-        N=${#subs[@]}
         feat_files_block=""
-        ev_block=""
+        evg_block=""
         groupmem_block=""
-        con_real_block=""
-
         for i in "${!subs[@]}"; do
             idx=$((i + 1))
-            sub="${subs[$i]}"
             cf="${gfeats[$i]}/cope${cidx}.feat"
-
-            # feat_files line for this subject
             feat_files_block+="set feat_files(${idx}) \"${cf}\""$'\n'
-
-            # groupmem line (all in group 1)
+            evg_block+="set fmri(evg${idx}.1) 1"$'\n'
             groupmem_block+="set fmri(groupmem.${idx}) 1"$'\n'
-
-            # con_real1 element for this subject (group-mean => all ones)
-            con_real_block+="set fmri(con_real1.${idx}) 1"$'\n'
-
-            # --- Per-subject EV definition (separate-means design) ---
-            # Each EV is a unit indicator for one subject: evg{M}.{idx} = 1 iff M==idx.
-            ev_block+="# EV ${idx} (subject ${sub})"$'\n'
-            ev_block+="set fmri(evtitle${idx}) \"${sub}\""$'\n'
-            ev_block+="set fmri(shape${idx}) 2"$'\n'
-            ev_block+="set fmri(convolve${idx}) 0"$'\n'
-            ev_block+="set fmri(convolve_phase${idx}) 0"$'\n'
-            ev_block+="set fmri(tempfilt_yn${idx}) 0"$'\n'
-            ev_block+="set fmri(deriv_yn${idx}) 0"$'\n'
-            ev_block+="set fmri(custom${idx}) \"dummy\""$'\n'
-
-            # Orthogonalisation flags: ortho{idx}.0 .. ortho{idx}.N = 0
-            for (( m=0; m<=N; m++ )); do
-                ev_block+="set fmri(ortho${idx}.${m}) 0"$'\n'
-            done
-
-            # evg grid row for this EV: for each subject index j, evg{j}.{idx} = 1 iff j==idx
-            for (( j=1; j<=N; j++ )); do
-                if [ "$j" -eq "$idx" ]; then
-                    ev_block+="set fmri(evg${j}.${idx}) 1"$'\n'
-                else
-                    ev_block+="set fmri(evg${j}.${idx}) 0"$'\n'
-                fi
-            done
-            ev_block+=$'\n'
         done
 
         if [ -n "$suffix" ]; then
@@ -313,11 +267,11 @@ for suffix in "${!records_by_suffix[@]}"; do
         outdir="${groupdir}/${stem}"
         fsf="${groupdir}/${stem}.fsf"
 
-        echo "Creating: $fsf  (${label}, N=${N})"
-        write_fsf "$template" "$outdir" "$N" \
-                  "$feat_files_block" "$ev_block" "$groupmem_block" "$con_real_block" "$fsf"
+        echo "Creating: $fsf  (${label}, N=${#subs[@]})"
+        write_fsf "$template" "$outdir" "${#subs[@]}" \
+                  "$feat_files_block" "$evg_block" "$groupmem_block" "$fsf"
 
-        echo "Submitting group analysis for ${label} (N=${N})"
+        echo "Submitting group analysis for ${label} (N=${#subs[@]})"
         sbatch --job-name="feat_third_level_${stem}" \
                --mem=64G \
                --time=24:00:00 \
