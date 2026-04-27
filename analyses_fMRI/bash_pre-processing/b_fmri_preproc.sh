@@ -37,7 +37,6 @@ mriqc_group.py /project/3025011.02/bids --no-sub
 module load fmriprep/25.2.2
 
 ## Run fmriprep 
-#fmriprep_sub.py /project/3025011.02/bids --mem_mb 64000 --output-spaces MNI152NLin2009cAsym:res-native --no-submm-recon # Old method, use res-02 for ICA-AROMA and since sub 2mm resolution is not needed for fMRI
 fmriprep_sub.py /project/3025011.02/bids --mem_mb 64000 --output-spaces MNI152NLin6Asym:res-02 --no-submm-recon
 
 # Run fMRIPost_AROMA

@@ -3,6 +3,7 @@
 # Apply spatial smoothing to preprocessed BOLD files as a job array.
 shopt -s nullglob
 
+module load fsl/6.0.6
 derivdir="/project/3025011.02/bids/derivatives/fmriprep"
 fwhm_mm=8  # Smoothing kernel in mm (FWHM)
 joblist="${derivdir}/smooth_joblist_$(date +%Y%m%d_%H%M%S).txt"

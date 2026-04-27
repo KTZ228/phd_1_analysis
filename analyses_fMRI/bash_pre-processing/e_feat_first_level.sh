@@ -5,6 +5,7 @@
 # Confound files must be named: <sub>_<ses>_task-AARL_confounds_for_feat_<suffix>.txt
 shopt -s nullglob
 
+module load fsl/6.0.6
 template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_first_level.fsf"
 derivdir="/project/3025011.02/bids/derivatives/fsl"
 joblist="${derivdir}/feat_joblist_$(date +%Y%m%d_%H%M%S).txt"

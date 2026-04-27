@@ -40,6 +40,7 @@
 #
 shopt -s nullglob
 
+module load fsl/6.0.6
 template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_third_level.fsf"
 derivdir="/project/3025011.02/bids/derivatives/fsl"
 groupdir="${derivdir}/group"

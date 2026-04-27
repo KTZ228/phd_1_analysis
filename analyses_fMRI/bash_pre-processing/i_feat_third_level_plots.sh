@@ -21,8 +21,9 @@
 # Copes outside that range are skipped.
 shopt -s nullglob globstar
 
+module load fsl/6.0.6
 fsldir="${FSLDIR:-/opt/fsl/6.0.6}"
-bg="${fsldir}/data/standard/MNI152_T1_2mm_brain.nii.gz"
+bg="${fsldir}/data/standard/MNI152_T1_1mm_brain.nii.gz"
 searchdir="/project/3025011.02/bids/derivatives/fsl"
 
 # ---------------------------------------------------------------------------
@@ -35,7 +36,7 @@ searchdir="/project/3025011.02/bids/derivatives/fsl"
 coords_cope1=(
     "-26 -18 68 motor_cortex_left"
     "26 -18 68 motor_cortex_right"
-    "0 -92 -10 visual_cortex"
+    "2 -82 6 visual_cortex"
 )
 
 # cope2..cope5 (e.g. "angry>happy", "approach>avoid", "incongruent>congruent",

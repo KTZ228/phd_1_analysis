@@ -1,14 +1,14 @@
 /ContrastName1	session_mean 
-/ContrastName2	session_2>session_3 
-/ContrastName3	session_2>session_4 
-/ContrastName4	session_3>session_4 
-/NumWaves	3
+/ContrastName2	amygdala_stim>dacc_stim 
+/ContrastName3	amygdala_stim>sham_stim 
+/ContrastName4	dacc_stim>sham_stim 
+/NumWaves	6
 /NumContrasts	4
-/PPheights		3.333333e-01	1.000000e+00	1.000000e+00	1.000000e+00
+/PPheights		6.666667e-01	2.000000e+00	2.000000e+00	2.000000e+00
 /RequiredEffect		2093763.250	5128651.500	5128651.500	5128651.500
 
 /Matrix
-1.000000e+00 1.000000e+00 1.000000e+00 
-1.000000e+00 -1.000000e+00 0.000000e+00 
-1.000000e+00 0.000000e+00 -1.000000e+00 
-0.000000e+00 1.000000e+00 -1.000000e+00 
+0.000000e+00 0.000000e+00 0.000000e+00 1.000000e+00 1.000000e+00 1.000000e+00 
+1.000000e+00 -1.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 
+1.000000e+00 0.000000e+00 -1.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 
+0.000000e+00 1.000000e+00 -1.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 

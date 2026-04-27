@@ -27,8 +27,9 @@
 # zstat and named after the mask.
 shopt -s nullglob globstar
 
+module load fsl/6.0.6
 fsldir="${FSLDIR:-/opt/fsl/6.0.6}"
-bg="${fsldir}/data/standard/MNI152_T1_2mm_brain.nii.gz"
+bg="${fsldir}/data/standard/MNI152_T1_1mm_brain.nii.gz"
 searchdir="/project/3025011.02/bids/derivatives/fsl"
 maskdir="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/MNI_masks"
 

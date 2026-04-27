@@ -5,6 +5,7 @@
 # If suffix is provided, it is appended to the output directory name with an underscore.
 shopt -s nullglob
 
+module load fsl/6.0.6
 suffix="$1"
 template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_most_rewarding_response.fsf"
 derivdir="/project/3025011.02/bids/derivatives/fsl"

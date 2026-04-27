@@ -32,6 +32,7 @@
 #   columns are filled with NA.
 shopt -s nullglob globstar
 
+module load fsl/6.0.6
 searchdir="/project/3025011.02/bids/derivatives/fsl"
 maskdir="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/MNI_masks"
 force=0
