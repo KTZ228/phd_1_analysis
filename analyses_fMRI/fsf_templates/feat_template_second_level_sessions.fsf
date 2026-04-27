@@ -296,7 +296,7 @@ set feat_files(3) "/project/3025011.02/bids/derivatives/fsl/sub-000/ses-mri04/fu
 set fmri(confoundevs) 0
 
 # EV 1 title
-set fmri(evtitle1) "amygdala_stim"
+set fmri(evtitle1) "ses-mri02"
 
 # Basic waveform shape (EV 1)
 # 0 : Square
@@ -352,7 +352,7 @@ set fmri(evg2.1) 0
 set fmri(evg3.1) 0
 
 # EV 2 title
-set fmri(evtitle2) "dacc_stim"
+set fmri(evtitle2) "ses-mri03"
 
 # Basic waveform shape (EV 2)
 # 0 : Square
@@ -408,7 +408,7 @@ set fmri(evg2.2) 1.0
 set fmri(evg3.2) 0
 
 # EV 3 title
-set fmri(evtitle3) "sham_stim"
+set fmri(evtitle3) "ses-mri04"
 
 # Basic waveform shape (EV 3)
 # 0 : Square
@@ -500,7 +500,7 @@ set fmri(con_real1.3) 1.0
 set fmri(conpic_real.2) 1
 
 # Title for contrast_real 2
-set fmri(conname_real.2) "amygdala_stim>dacc_stim"
+set fmri(conname_real.2) "ses-mri02>ses-mri03"
 
 # Real contrast_real vector 2 element 1
 set fmri(con_real2.1) 1.0
@@ -515,7 +515,7 @@ set fmri(con_real2.3) 0
 set fmri(conpic_real.3) 1
 
 # Title for contrast_real 3
-set fmri(conname_real.3) "amygdala_stim>sham_stim"
+set fmri(conname_real.3) "ses-mri02>ses-mri04"
 
 # Real contrast_real vector 3 element 1
 set fmri(con_real3.1) 1.0
@@ -530,7 +530,7 @@ set fmri(con_real3.3) -1.0
 set fmri(conpic_real.4) 1
 
 # Title for contrast_real 4
-set fmri(conname_real.4) "dacc_stim>sham_stim"
+set fmri(conname_real.4) "ses-mri03>ses-mri04"
 
 # Real contrast_real vector 4 element 1
 set fmri(con_real4.1) 0

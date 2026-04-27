@@ -9,25 +9,6 @@
 # matching .feat directory. Subjects/suffixes missing any session are skipped
 # and reported.
 #
-# Per-subject session-to-target mapping
-# -------------------------------------
-# Stimulation target was randomised across sessions per subject. The template's
-# higher-level EVs are fixed:
-#   feat_files(1) -> EV1 "amygdala_stim" (target_1)
-#   feat_files(2) -> EV2 "dacc_stim"     (target_2)
-#   feat_files(3) -> EV3 "sham_stim"     (target_3)
-#
-# To wire each subject's actual session up to the right EV slot, this script
-# reads a randomisation CSV with header:
-#   subject-id;ses-mri02;ses-mri03;ses-mri04
-# and rows like:
-#   sub-001;target_3;target_1;target_2
-# (semicolon-delimited; target_1 = amygdala, target_2 = dacc, target_3 = sham).
-#
-# So for sub-001, slot 1 (amygdala) gets ses-mri03, slot 2 (dacc) gets ses-mri04,
-# and slot 3 (sham) gets ses-mri02. Subjects not listed in the CSV are skipped
-# and logged.
-#
 # Since 1st-level data is already in MNI space (from fMRIPrep), this script
 # also drops a dummy identity registration into each 1st-level .feat/reg/
 # directory so that FEAT's higher-level pipeline (which unconditionally calls
@@ -41,7 +22,6 @@ shopt -s nullglob
 
 module load fsl/6.0.6
 template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_second_level.fsf"
-randomisation="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/dummy_randomisation_list.csv"
 derivdir="/project/3025011.02/bids/derivatives/fsl"
 sessions=(ses-mri02 ses-mri03 ses-mri04)
 joblist="${derivdir}/feat_second_level_joblist_$(date +%Y%m%d_%H%M%S).txt"
@@ -52,11 +32,6 @@ if [ ! -f "$template" ]; then
     exit 1
 fi
 
-if [ ! -f "$randomisation" ]; then
-    echo "Randomisation CSV not found: $randomisation"
-    exit 1
-fi
-
 if [ -z "${FSLDIR:-}" ]; then
     echo "FSLDIR is not set. Source FSL's environment before running this script."
     exit 1
@@ -64,43 +39,6 @@ fi
 
 > "$joblist"
 > "$skiplog"
-
-# ---------------------------------------------------------------------------
-# Load the randomisation CSV into associative arrays.
-#   target_to_ses["<sub>|target_N"] -> session string (e.g. "ses-mri03")
-#   sub_in_csv["<sub>"]             -> 1 if subject is listed in the CSV
-#
-# CSV is semicolon-delimited with header:
-#   subject-id;ses-mri02;ses-mri03;ses-mri04
-# We invert the row so we can look up "which session got target_N for this sub".
-# ---------------------------------------------------------------------------
-declare -A target_to_ses=()
-declare -A sub_in_csv=()
-
-# Read header to map column index -> session name
-IFS=';' read -r -a header < <(head -n 1 "$randomisation" | tr -d '\r')
-declare -a col_ses=("${header[@]:1}")    # header[0] = "subject-id"; rest = session names
-
-# Parse body. Use process substitution so the populated arrays survive the loop.
-while IFS=';' read -r sub_csv t1 t2 t3; do
-    [ -z "$sub_csv" ] && continue
-    sub_csv="${sub_csv//$'\r'/}"
-    targets=("${t1//$'\r'/}" "${t2//$'\r'/}" "${t3//$'\r'/}")
-    sub_in_csv["$sub_csv"]=1
-    for i in 0 1 2; do
-        ses="${col_ses[$i]}"
-        target="${targets[$i]}"
-        [ -z "$target" ] && continue
-        target_to_ses["${sub_csv}|${target}"]="$ses"
-    done
-done < <(tail -n +2 "$randomisation")
-
-if [ "${#target_to_ses[@]}" -eq 0 ]; then
-    echo "ERROR: no rows parsed from $randomisation"
-    exit 1
-fi
-
-echo "Loaded randomisation for ${#sub_in_csv[@]} subjects from $randomisation"
 
 # ---------------------------------------------------------------------------
 # Helper: add dummy identity registration to a 1st-level .feat directory.
@@ -135,13 +73,6 @@ apply_reg_fix() {
 for subdir in "${derivdir}"/sub-*/; do
     sub=$(basename "$subdir")
 
-    # Skip subjects not listed in the randomisation CSV — we don't know how
-    # to wire their sessions up to EVs.
-    if [ -z "${sub_in_csv[$sub]:-}" ]; then
-        echo "SKIP ${sub} (not present in randomisation CSV)" | tee -a "$skiplog"
-        continue
-    fi
-
     # Build a per-subject set of suffixes seen in each required session.
     # Suffix "" (empty) represents the no-suffix case.
     declare -A seen_count=()    # suffix -> number of sessions it appears in
@@ -174,18 +105,6 @@ for subdir in "${derivdir}"/sub-*/; do
         done
     done
 
-    # Resolve target -> session for this subject (slot 1 = amygdala, 2 = dacc, 3 = sham)
-    ses_amygdala="${target_to_ses[${sub}|target_1]:-}"
-    ses_dacc="${target_to_ses[${sub}|target_2]:-}"
-    ses_sham="${target_to_ses[${sub}|target_3]:-}"
-
-    if [ -z "$ses_amygdala" ] || [ -z "$ses_dacc" ] || [ -z "$ses_sham" ]; then
-        echo "SKIP ${sub} (incomplete randomisation row: amygdala='${ses_amygdala}' dacc='${ses_dacc}' sham='${ses_sham}')" \
-            | tee -a "$skiplog"
-        unset seen_count seen_paths
-        continue
-    fi
-
     # For each suffix that appears in all 3 sessions, generate the .fsf.
     # Also report any suffix that fell short.
     for suffix in "${!seen_count[@]}"; do
@@ -201,13 +120,9 @@ for subdir in "${derivdir}"/sub-*/; do
             continue
         fi
 
-        # Wire up feat_files() slots according to the randomisation:
-        #   slot 1 -> amygdala -> session that got target_1
-        #   slot 2 -> dacc     -> session that got target_2
-        #   slot 3 -> sham     -> session that got target_3
-        feat_amygdala="${seen_paths[${suffix}|${ses_amygdala}]}"
-        feat_dacc="${seen_paths[${suffix}|${ses_dacc}]}"
-        feat_sham="${seen_paths[${suffix}|${ses_sham}]}"
+        feat_ses2="${seen_paths[${suffix}|${sessions[0]}]}"
+        feat_ses3="${seen_paths[${suffix}|${sessions[1]}]}"
+        feat_ses4="${seen_paths[${suffix}|${sessions[2]}]}"
 
         if [ -n "$suffix" ]; then
             outdir="${derivdir}/${sub}/${sub}_second-level_${suffix}"
@@ -220,18 +135,15 @@ for subdir in "${derivdir}"/sub-*/; do
         fi
 
         echo "Creating: $fsf  (sub: ${sub}, suffix: ${label})"
-        echo "  amygdala -> ${ses_amygdala}"
-        echo "  dacc     -> ${ses_dacc}"
-        echo "  sham     -> ${ses_sham}"
 
         # Substitute output dir, the three feat_files() entries, and any
         # remaining sub-000 / ses-mri00 placeholders. The template's
         # feat_files() lines are matched by their index, not by their old
         # path content, so a stale hardcoded path in the template is fine.
         sed -e "s|^set fmri(outputdir).*|set fmri(outputdir) \"${outdir}\"|" \
-            -e "s|^set feat_files(1).*|set feat_files(1) \"${feat_amygdala}\"|" \
-            -e "s|^set feat_files(2).*|set feat_files(2) \"${feat_dacc}\"|" \
-            -e "s|^set feat_files(3).*|set feat_files(3) \"${feat_sham}\"|" \
+            -e "s|^set feat_files(1).*|set feat_files(1) \"${feat_ses2}\"|" \
+            -e "s|^set feat_files(2).*|set feat_files(2) \"${feat_ses3}\"|" \
+            -e "s|^set feat_files(3).*|set feat_files(3) \"${feat_ses4}\"|" \
             -e "s/sub-000/${sub}/g" \
             "$template" > "$fsf"
 
