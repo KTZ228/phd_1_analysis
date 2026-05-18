@@ -654,17 +654,13 @@ def main(raw_output_path,
     # Then, import all behavioural datasets and combine them into 1
     dataframe = combine_result_files(recent_files)
 
-    # Create an untouched copy of the dataframe
-    if fmri_analysis:
-        dataframe_copy = dataframe.copy()
+    # Change responses to approach and avoid
+    mapping = {'up': 'avoid', 'down': 'approach'}
+    dataframe['response'] = dataframe['response'].map(mapping)
 
     # Restructure the columns
     dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'],
                                       ascending=[True, True, True, True])
-
-    # Change responses to approach and avoid
-    mapping = {'up': 'avoid', 'down': 'approach'}
-    dataframe['response'] = dataframe['response'].map(mapping)
 
     # If we're analysing the pilot data, make some changes to ensure backwards compatibility of the analysis
     if dataset=='speakup' or dataset=='africa':
@@ -697,6 +693,10 @@ def main(raw_output_path,
 
     # Add WSLS column before removing trials
     dataframe = add_WSLS_columns(dataframe)
+
+    # Create an untouched copy of the dataframe just before any of the trials are removed
+    if fmri_analysis:
+        dataframe_copy = dataframe.copy()
 
     # Make volatility column
     dataframe = dataframe[dataframe['probability_condition'] != 50]
