@@ -588,16 +588,16 @@ def add_WSLS_columns(dataframe: pd.DataFrame) -> (
     dataframe['choicestickiness'] = (dataframe['previous_response'] == dataframe['response_before_previous_trial']).astype('Int64')
 
     # Determine Win-Stay
-    dataframe['win_stay'] = 0
+    dataframe['win-stay'] = 0
     post_win_mask = mask & (dataframe['previous_outcome'] == 1)
-    dataframe.loc[post_win_mask, 'win_stay'] = dataframe.loc[post_win_mask, 'stay']
-    dataframe['win_stay'] = dataframe['win_stay'].astype('Int64')
+    dataframe.loc[post_win_mask, 'win-stay'] = dataframe.loc[post_win_mask, 'stay']
+    dataframe['win-stay'] = dataframe['win-stay'].astype('Int64')
 
     # Determine Lose-Shift
-    dataframe['lose_shift'] = 0
+    dataframe['lose-shift'] = 0
     post_loss_mask = mask & (dataframe['previous_outcome'] == -1)
-    dataframe.loc[post_loss_mask, 'lose_shift'] = -dataframe.loc[post_loss_mask, 'stay']
-    dataframe['lose_shift'] = dataframe['lose_shift'].astype('Int64')
+    dataframe.loc[post_loss_mask, 'lose-shift'] = -dataframe.loc[post_loss_mask, 'stay']
+    dataframe['lose-shift'] = dataframe['lose-shift'].astype('Int64')
 
     return dataframe
 
