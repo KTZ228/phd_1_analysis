@@ -3,7 +3,7 @@ import glob
 import re
 import pandas as pd
 import numpy as np
-import utils
+from collections import defaultdict
 
 
 def unique_subject_ids_and_sessions(file_path: str,
@@ -41,75 +41,6 @@ def unique_subject_ids_and_sessions(file_path: str,
     return unique_subject_ids, unique_sessions
 
 
-def list_files_with_date_and_subject_id_old(file_path: str,
-                                        unique_subject_ids: list = [],
-                                        unique_sessions: list = [],
-                                        selected_pattern: str = 'behavioural_output',
-                                        print_output = False) -> list:
-    """This will create a list of the most recent files of every subject and every session.
-
-    Parameters
-    ----------
-    file_path : str
-        Path to the experiment output folder.
-    unique_subject_ids : list(Int64)
-        A list containing all subject IDs found in the folder.
-    unique_sessions : list(Int64)
-        A list containing all sessions found in the folder.
-    selected_pattern : str
-        Either 'joystick_output' or 'speakup', otherwise it uses the default.
-    print_output : bool
-        If True, the list of recent files will be printed to the console.
-
-    Returns
-    -------
-    recent_files : list
-        A list of the most recent files of every subject and every session.
-    """
-    # Choose the files to look for
-    if selected_pattern == 'joystick_output':
-        pattern = r'joystick_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
-    elif selected_pattern == 'speakup':
-        pattern = r'sub-(\d{2})_d(\d{1})_.*\behavioural_output.csv$'
-    else:
-        pattern = r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$'
-
-    # If no subject IDs or sessions were provided, extract them using the helper function.
-    if not unique_subject_ids and not unique_sessions:
-        unique_subject_ids, unique_sessions = unique_subject_ids_and_sessions(file_path, pattern)
-
-    recent_files = []
-    # Iterate through each subject and session combination.
-    for subject_id in unique_subject_ids:
-        for session_number in unique_sessions:
-            # Build a recursive search pattern that looks in all subfolders.
-            if selected_pattern == 'joystick_output':
-                file_structure_filtered = os.path.join(
-                    file_path, '**', f'joystick_output_sub-{subject_id:03}_session-{session_number:02}*.csv'
-                )
-            else:
-                file_structure_filtered = os.path.join(
-                    file_path, '**', f'behavioural_output_sub-{subject_id:03}_session-{session_number:02}*.csv'
-                )
-            list_files_filtered = glob.glob(file_structure_filtered, recursive=True)
-            try:
-                # Choose the most recent file (assuming lexicographical order corresponds to recency).
-                recent_file = max(list_files_filtered)
-                recent_files.append(recent_file)
-            except ValueError:
-                print(f'sub-{subject_id:03} did not complete session-{session_number:02}')
-
-    if not recent_files:
-        raise Exception('No files found')
-    if print_output:
-        print(recent_files)
-
-    return recent_files
-
-# This function uses the walk function instead. It was made using Claude so needs to be checked.
-from collections import defaultdict
-
-
 def list_files_with_date_and_subject_id(file_path: str,
                                         unique_subject_ids: list = [],
                                         unique_sessions: list = [],
@@ -140,6 +71,8 @@ def list_files_with_date_and_subject_id(file_path: str,
         pattern = re.compile(r'joystick_output_sub-(\d{3})_session-(\d{2})_.*\.csv$')
     elif selected_pattern == 'speakup':
         pattern = re.compile(r'sub-(\d{2})_d(\d{1})_rlt_behavioural_output.csv$')
+    elif selected_pattern == 'africa':
+        pattern = re.compile(r'sub-(\d{2})_ses(\d{1})_rlt_behavioural_output.csv$')
     else:
         pattern = re.compile(r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$')
 
@@ -198,7 +131,9 @@ def combine_result_files(recent_results: list) -> pd.DataFrame:
     ----------
     recent_results : list
         This list should contain the location of the to be imported CSV's with the full path.
-        The filenames of each CSV should adhere to the format [experiment_output_sub-001_session-01*.csv].
+        The filenames of each CSV should adhere to one of the following formats:
+        - sub-<id>_d<session>_rlt_behavioural_output.csv  (speakup/africa datasets)
+        - behavioural_output_sub-<id>_session-<session>_*.csv  (TUS/pilot datasets)
 
     Returns
     -------
@@ -211,12 +146,29 @@ def combine_result_files(recent_results: list) -> pd.DataFrame:
     except ValueError as error:
         print(f'error: {error}')
 
+    patterns = [
+        re.compile(r'sub-(\d+)_(?:d|ses)(\d+)_rlt_behavioural_output\.csv$'),       # speakup/africa
+        re.compile(r'behavioural_output_sub-(\d+)_session-(\d+)_.*\.csv$'),  # TUS/pilot
+    ]
+
     combined_results_dataframe = pd.DataFrame()
     for list_number, value in enumerate(recent_results):
         result_dataframe = pd.read_csv(recent_results[list_number], sep=';')
         recent_result_basename = os.path.basename(recent_results[list_number])
-        result_dataframe['subject_id'] = recent_result_basename.split('_')[2]
-        result_dataframe['session'] = recent_result_basename.split('_')[3]
+
+        subject_id, session = None, None
+        for pattern in patterns:
+            match = pattern.search(recent_result_basename)
+            if match:
+                subject_id = match.group(1)
+                session = match.group(2)
+                break
+
+        if subject_id is None:
+            raise ValueError(f'Could not parse subject_id/session from filename: {recent_result_basename}')
+
+        result_dataframe['subject_id'] = int(subject_id)
+        result_dataframe['session'] = int(session)
         combined_results_dataframe = pd.concat([combined_results_dataframe, result_dataframe], ignore_index=True)
 
     return combined_results_dataframe
@@ -250,14 +202,18 @@ def combine_joystick_with_results(dataframe: pd.DataFrame,
         print(f'error: {error}')
 
     joystick_dataframe_combined = pd.DataFrame()
+    joystick_pattern = re.compile(r'joystick_output_sub-(\d+)_session-(\d+)_.*\.csv$')
     for list_number, value in enumerate(joystick_filenames):
         joystick_dataframe_single = pd.read_csv(joystick_filenames[list_number], sep=';')
         joystick_dataframe_single['joystick_location_difference'] = joystick_dataframe_single['location_y'].diff()
         joystick_dataframe_single['joystick_time_difference'] = joystick_dataframe_single['timepoint'].diff()
         joystick_dataframe_single['joystick_acceleration'] = joystick_dataframe_single['location_y'].diff() / joystick_dataframe_single['timepoint'].diff()
         recent_result_basename = os.path.basename(joystick_filenames[list_number])
-        joystick_dataframe_single['subject_id'] = recent_result_basename.split('_')[2]
-        joystick_dataframe_single['session'] = recent_result_basename.split('_')[3]
+        joystick_match = joystick_pattern.search(recent_result_basename)
+        if joystick_match is None:
+            raise ValueError(f'Could not parse subject_id/session from filename: {recent_result_basename}')
+        joystick_dataframe_single['subject_id'] = int(joystick_match.group(1))
+        joystick_dataframe_single['session'] = int(joystick_match.group(2))
         joystick_dataframe_combined = pd.concat([joystick_dataframe_combined, joystick_dataframe_single], ignore_index=True)
 
     # Remove the first row of every trial since the acceleration can be very large
@@ -310,11 +266,11 @@ def remove_invalid_files(recent_files: list,
 
 def flip_joystick_data(dataframe: pd.DataFrame) -> pd.DataFrame:
     # List of subject_session combinations to update
-    match_list = ['sub-004_session-04']
+    match_list = ['4_4']
 
     # Create a new column that combines subject_id and session in the same format as the list.
-    dataframe['sub_session'] = dataframe['subject_id'] + '_' + \
-                                                dataframe['session']
+    dataframe['sub_session'] = dataframe['subject_id'].astype(str) + '_' + \
+                                                dataframe['session'].astype(str)
 
     # Create a mask for rows that match any of the combinations in match_list.
     mask = dataframe['sub_session'].isin(match_list)
@@ -527,43 +483,69 @@ def check_volatility(dataframe: pd.DataFrame,
 
     return dataframe
 
+def check_trials_since_reversal_combined_learning(dataframe, min_gap=6):
+    """Compute trials since reversal, treating both stimuli_types as one stream.
+    Reversals occurring within min_gap rows of each other are merged."""
+    dataframe = dataframe.reset_index(drop=True)
+    counts = np.zeros(len(dataframe), dtype=int)
+
+    for _, group in dataframe.groupby(['subject_id', 'session'], sort=False):
+        is_reversal = (
+            group.groupby('stimuli_type')['probability_condition']
+            .transform(lambda x: x.ne(x.shift()).fillna(True))
+            .values
+        )
+        kept = np.zeros_like(is_reversal, dtype=bool)
+        last_kept = -min_gap
+        for i, ch in enumerate(is_reversal):
+            if ch and (i - last_kept) >= min_gap:
+                kept[i] = True
+                last_kept = i
+        block_id = kept.cumsum()
+        cumcount = pd.Series(block_id).groupby(block_id).cumcount().values
+
+        counts[group.index.values] = cumcount
+
+    return counts
+
 
 def check_stimulation_condition(row,
-                  binary_output: bool = False):
-    """ Functions that reads a row and notes the stimulation condition.
-    This is obviously a placeholder so that I can write the analyses based on the stimulation condition before deblinding.
+                                randomisation_list: pd.DataFrame,
+                                binary_output: bool = False):
+    """ Reads a row and returns the stimulation condition by looking it up
+    in the randomisation list.
 
     Parameters
     ----------
     row : pd.DataFrame.row
+    randomisation_list : pd.DataFrame
+        Dataframe loaded from the randomisation CSV.
+    binary_output : bool
 
     Returns
     -------
-    stimulation_condition : str
-        A string containing the stimulation condition for the given row.
+    stimulation_condition : str or int
+        The stimulation condition (e.g. 'target_1') or an integer (1/2/3)
+        if binary_output is True. Returns 'no_stimulation' / 0 for session 1.
     """
-    if row['session'] == 'session-02':
-        if binary_output is True:
-            stimulation_condition = 1
-        else:
-            stimulation_condition = 'amygdala'
-    elif row['session'] == 'session-03':
-        if binary_output is True:
-            stimulation_condition = 2
-        else:
-            stimulation_condition = 'dacc'
-    elif row['session'] == 'session-04':
-        if binary_output is True:
-            stimulation_condition = 3
-        else:
-            stimulation_condition = 'sham'
-    else:
-        if binary_output is True:
-            stimulation_condition = 0
-        else:
-            stimulation_condition = 'no_stimulation'
+    subject_id = f'sub-{int(row["subject_id"]):03d}'
+    session_col = f'ses-mri{int(row["session"]):02d}'
 
-    return stimulation_condition
+    if session_col not in randomisation_list.columns:
+        return 0 if binary_output else 'no_stimulation'
+
+    subject_row = randomisation_list[randomisation_list['subject-id'] == subject_id]
+
+    if subject_row.empty:
+        raise ValueError(f'Subject {subject_id} not found in randomisation list.')
+
+    target = subject_row[session_col].values[0]
+
+    if binary_output:
+        return int(target.split('_')[1])
+
+    target_mapping = {'target_1': 'amygdala', 'target_2': 'dacc', 'target_3': 'sham'}
+    return target_mapping.get(target, target)
 
 
 def add_WSLS_columns(dataframe: pd.DataFrame) -> (
@@ -583,22 +565,39 @@ def add_WSLS_columns(dataframe: pd.DataFrame) -> (
     """
 
     # Takes the values from 'subjectively_correct' and shifts them by one to look back at a previous trial
-    dataframe['previous_outcome'] = dataframe.groupby('stimuli_type')['subjectively_correct'].shift(1)
-    mapping = {1: 1, -1: 0}
-    dataframe['previous_outcome'] = dataframe['previous_outcome'].map(mapping)
-    dataframe['previous_outcome'] = dataframe['previous_outcome'].astype('Int64')
+    dataframe['previous_outcome'] = dataframe.groupby(['subject_id', 'session', 'stimuli_type'])['subjectively_correct'].shift(1)
+    mapping = {'True': 1, 'False': -1}
+    dataframe['previous_outcome'] = dataframe['previous_outcome'].map(mapping).fillna(0).astype('Int64')
 
     # Determine whether participants stuck with their choices
-    dataframe['previous_response'] = dataframe.groupby('stimuli_type')['response'].shift(1)
-    dataframe['stay'] = (dataframe['response'] == dataframe['previous_response']).astype('Int64')
+    dataframe['previous_response'] = dataframe.groupby(['subject_id', 'session', 'stimuli_type'])['response'].shift(1)
+    invalid_strings = ['late']
+    mask = (
+            ~dataframe['response'].isin(invalid_strings)
+            & ~dataframe['previous_response'].isin(invalid_strings)
+            & dataframe['response'].notna()
+            & dataframe['previous_response'].notna()
+    )
+    dataframe['stay'] = (dataframe['response'] == dataframe['previous_response'])
+    mapping = {True: 1, False: -1}
     dataframe['stay'] = dataframe['stay'].map(mapping)
-    dataframe['stay'] = dataframe['stay'].astype('Int64')
+    dataframe['stay'] = dataframe['stay'].where(mask, 0).astype('Int64')
 
     # Determine choice stickiness
-    dataframe['response_before_previous_trial'] = dataframe.groupby('stimuli_type')['response'].shift(2)
+    dataframe['response_before_previous_trial'] = dataframe.groupby(['subject_id', 'session', 'stimuli_type'])['response'].shift(2)
     dataframe['choicestickiness'] = (dataframe['previous_response'] == dataframe['response_before_previous_trial']).astype('Int64')
 
-    print(dataframe[['subject_id','session','previous_outcome','subjectively_correct','stay']])
+    # Determine Win-Stay
+    dataframe['win_stay'] = 0
+    post_win_mask = mask & (dataframe['previous_outcome'] == 1)
+    dataframe.loc[post_win_mask, 'win_stay'] = dataframe.loc[post_win_mask, 'stay']
+    dataframe['win_stay'] = dataframe['win_stay'].astype('Int64')
+
+    # Determine Lose-Shift
+    dataframe['lose_shift'] = 0
+    post_loss_mask = mask & (dataframe['previous_outcome'] == -1)
+    dataframe.loc[post_loss_mask, 'lose_shift'] = -dataframe.loc[post_loss_mask, 'stay']
+    dataframe['lose_shift'] = dataframe['lose_shift'].astype('Int64')
 
     return dataframe
 
@@ -606,13 +605,12 @@ def add_WSLS_columns(dataframe: pd.DataFrame) -> (
 def main(raw_output_path,
          unique_subject_ids,
          unique_sessions,
-         pilot_analysis=False,
+         dataset='TUS',
          binary_output=False,
          remove_reversals=False,
          remove_invalid_trials=True,
          print_output=False,
-         fmri_analysis=False,
-         selected_pattern='behavioural_output') -> pd.DataFrame:
+         fmri_analysis=False) -> pd.DataFrame:
     """ Main function that runs the import functions.
 
     Parameters
@@ -623,8 +621,8 @@ def main(raw_output_path,
         A list containing all subject IDs found in the folder.
     unique_sessions : list('Int64')
         A list containing all sessions found in the folder.
-    pilot_analysis : bool
-        If True, only the first 10 subjects will be used for analysis.
+    dataset : string
+        Since some datasets use older naming skemes, some columns have to be adjusted.
     binary_output : bool
         If True, the output will be in binary format.
     remove_reversals : bool
@@ -647,11 +645,11 @@ def main(raw_output_path,
     """
 
     # First, get a list of the behavioural datafiles
-    recent_files = list_files_with_date_and_subject_id(raw_output_path, unique_subject_ids, unique_sessions, selected_pattern, print_output)
+    recent_files = list_files_with_date_and_subject_id(raw_output_path, unique_subject_ids, unique_sessions, dataset, print_output)
 
     # Remove the invalid files
-    #if remove_invalid_trials:
-        #recent_files = remove_invalid_files(recent_files, raw_output_path)
+    if remove_invalid_trials:
+        recent_files = remove_invalid_files(recent_files, raw_output_path)
 
     # Then, import all behavioural datasets and combine them into 1
     dataframe = combine_result_files(recent_files)
@@ -660,21 +658,21 @@ def main(raw_output_path,
     if fmri_analysis:
         dataframe_copy = dataframe.copy()
 
+    # Restructure the columns
+    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'],
+                                      ascending=[True, True, True, True])
+
     # Change responses to approach and avoid
     mapping = {'up': 'avoid', 'down': 'approach'}
     dataframe['response'] = dataframe['response'].map(mapping)
 
-    # Extract one of the blocks for exclusion
-    #if block_isolated == 'block_2':
-    #    dataframe = dataframe[dataframe['probability_condition'] != 50]
-    #    datablockframe = dataframe[dataframe['trial'].isin(range(0, 448))]
-    #elif block_isolated == 'block_3':
-    #    dataframe = dataframe[dataframe['trial'].isin(range(448, 669))]
-
     # If we're analysing the pilot data, make some changes to ensure backwards compatibility of the analysis
-    if pilot_analysis:
+    if dataset=='speakup' or dataset=='africa':
         dataframe.rename(columns={'iti': 'trial_duration'}, inplace=True)
-        dataframe['stimuli_type'] = dataframe['stimuli_type'].map(3, 2)
+        dataframe['stimuli_type'] = dataframe['stimuli_type'].replace(3, 2)
+
+    if dataset=='pilot':
+        dataframe = dataframe[dataframe['trial'].isin(range(0, 451))]
 
     # Checks if and compensates for when the joystick was flipped for any of the sessions
     dataframe = flip_joystick_data(dataframe)
@@ -686,10 +684,6 @@ def main(raw_output_path,
     dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct'].map(mapping)
     dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct_boolean'].astype('Int64')
     dataframe['subjectively_correct_boolean_one_back'] = dataframe['subjectively_correct_boolean'].shift(1)
-
-    # Convert performance to errors
-    dataframe['objective_errors'] = 1 - dataframe['objectively_correct_boolean']
-    dataframe['subjective_errors'] = 1 - dataframe['subjectively_correct_boolean']
 
     # Make congruency and hidden congruency columns
     dataframe['congruency'] = dataframe.apply(check_congruency, args=(binary_output,), axis=1)
@@ -706,15 +700,16 @@ def main(raw_output_path,
 
     # Make volatility column
     dataframe = dataframe[dataframe['probability_condition'] != 50]
-    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'stimuli_type', 'trial'], ascending=[True, True, True, True])
     dataframe = dataframe.groupby('stimuli_type', group_keys=False).apply(lambda x: check_volatility(x, binary_output))
     if print_output:
         print(dataframe[['subject_id', 'session', 'stimuli_type', 'probability_condition', 'volatility']])
 
     # Make stimulation condition column
-    dataframe['stimulation_condition'] = dataframe.apply(check_stimulation_condition, args=(binary_output,), axis=1)
-    if print_output:
-        print(dataframe[['subject_id', 'session', 'stimulation_condition']])
+    if dataset in ('TUS', 'pilot'):
+        randomisation_list = pd.read_csv('/Volumes/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/dummy_randomisation_list.csv', sep=';')
+        dataframe['stimulation_condition'] = dataframe.apply(check_stimulation_condition, args=(randomisation_list, binary_output,), axis=1)
+        if print_output:
+            print(dataframe[['subject_id', 'session', 'stimulation_condition']])
 
     # Add a column for the most rewarding response
     dataframe['most_rewarding_response'] = dataframe.apply(check_most_rewarding_response, args=(binary_output,), axis=1)
@@ -724,15 +719,26 @@ def main(raw_output_path,
     dataframe['most_rewarding_response_boolean'] = dataframe['most_rewarding_response'].map(mapping)
 
     # Add a column that indicates how many trials ago the last reversal occurred
-    ## Would it be better to combine the two? Since a reversal always occurs in both stimuli at the same time
-    dataframe['trials_since_reversal'] = (
-        dataframe.groupby((dataframe['probability_condition'] != dataframe['probability_condition'].shift()).cumsum())
-        .cumcount()
+    group_change = (
+            (dataframe['probability_condition'] != dataframe['probability_condition'].shift()) |
+            (dataframe['subject_id'] != dataframe['subject_id'].shift()) |
+            (dataframe['session'] != dataframe['session'].shift()) |
+            (dataframe['stimuli_type'] != dataframe['stimuli_type'].shift())
+    ).cumsum()
+
+    dataframe['trials_since_reversal_separate_learning'] = (
+        dataframe.groupby(group_change).cumcount()
     )
+
+    # Reset order of dataframe
+    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'trial'], ascending=[True, True, True]).reset_index(drop=True)
+
+    # Compute combined reversal counter (treats both stimuli_types together)
+    dataframe['trials_since_reversal_combined_learning'] = check_trials_since_reversal_combined_learning(dataframe)
 
     # Only remove the trials where the reversal occurred if the flag is set to True
     if remove_reversals:
-        dataframe = dataframe[dataframe['trials_since_reversal'] != 0]
+        dataframe = dataframe[dataframe['trials_since_reversal_separate_learning'] != 0]
 
     if remove_invalid_trials:
         # Remove trials where RT < 50ms, please note that this number is arbitrary and can be changed
@@ -740,14 +746,6 @@ def main(raw_output_path,
 
         # Remove late trials
         dataframe = dataframe[dataframe['objectively_correct'] != 'Late']
-
-    # Reset order of dataframe
-    dataframe = dataframe.sort_values(by=['subject_id', 'session', 'trial'], ascending=[True, True, True])
-
-    # Add columns containing integers for the subject_id and session number
-    if binary_output:
-        dataframe['subject_id'] = dataframe['subject_id'].str.map('sub-', '').astype('Int64')
-        dataframe['session'] = dataframe['session'].str.map('session-', '').astype('Int64')
 
     # Now re-introduce the removed rows
     if fmri_analysis:
