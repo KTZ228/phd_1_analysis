@@ -3,6 +3,7 @@ import glob
 import re
 import pandas as pd
 import numpy as np
+from scipy.stats import zscore
 
 
 def unique_subject_ids_and_sessions(file_path: str,
@@ -842,51 +843,51 @@ def calculate_IES(dataframe,
     return dataframe
 
 
-def calculate_LISAS(dataframe,
-                    extra_grouping_columns=None):
+def calculate_BIS(dataframe,
+                  extra_grouping_columns=None):
     """
-    Function that calculates the Linear Integrated Speed-Accuracy Score (LISAS) for each subject and session.
+    Function that calculates the Balanced Integration Score (BIS) for each
+    subject × session (× condition) cell.
+
+    BIS = z(PC) − z(RT), with z-scores computed across the entire sample
+    of cells (Liesefeld & Janczyk, 2019). Higher BIS means better
+    performance (faster and/or more accurate).
+
     Parameters
     ----------
     dataframe: pd.DataFrame
-    extra_grouping_columns: list
+        Trial-level data containing 'RT_ms' and 'objectively_incorrect_boolean'.
+    extra_grouping_columns: list, optional
+        Additional condition columns (e.g. ['congruency', 'volatility']) to
+        define the cells over which performance is aggregated and standardised.
 
     Returns
     -------
     dataframe: pd.DataFrame
+        One row per subject × session (× extra condition) with mean RT,
+        accuracy, their z-scores, and BIS.
     """
-    # Original grouping columns
+    # Build grouping
     grouping_columns = ['subject_id', 'session']
+    if extra_grouping_columns:
+        grouping_columns = grouping_columns + extra_grouping_columns
 
-    # Calculate the means of overall performance and RT
-    means = (
+    # Aggregate to one row per cell
+    aggregated = (
         dataframe
         .groupby(grouping_columns, as_index=False)
         .agg(
             RT_ms_mean=('RT_ms', 'mean'),
-            error_rate_mean=('objectively_incorrect_boolean', 'mean')
+            error_rate=('objectively_incorrect_boolean', 'mean')
         )
     )
+    aggregated['accuracy'] = 1 - aggregated['error_rate']
 
-    # Add extra grouping columns if provided
-    if extra_grouping_columns:
-        grouping_columns += extra_grouping_columns
+    # Sample-wide standardisation, across all cells in the resulting frame
+    aggregated['z_RT'] = zscore(aggregated['RT_ms_mean'], nan_policy='omit')
+    aggregated['z_accuracy'] = zscore(aggregated['accuracy'], nan_policy='omit')
 
-    # Calculate the standard deviations of overall performance and RT
-    standard_deviations = (
-        dataframe
-        .groupby(grouping_columns, as_index=False)
-        .agg(
-            RT_ms_sd=('RT_ms', 'std'),
-            error_rate_sd=('objectively_incorrect_boolean', 'std')
-        )
-    )
+    # BIS = z(PC) − z(RT)
+    aggregated['BIS'] = aggregated['z_accuracy'] - aggregated['z_RT']
 
-    # Merge means and standard deviations
-    dataframe = means.merge(standard_deviations, on=['subject_id', 'session'], how='left')
-
-    # Create LISAS score
-    dataframe['LISAS'] = (dataframe['RT_ms_mean'] + dataframe['RT_ms_sd'] /
-                          dataframe['error_rate_sd'] * dataframe['error_rate_mean'])
-
-    return dataframe
+    return aggregated

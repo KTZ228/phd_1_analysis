@@ -376,12 +376,12 @@ def check_most_rewarding_response(row,
     condition : str
         A string containing the valence for the given row.
     """
-    if row['probability_condition'] == 80:
+    if row['probability_condition'] > 50:
         if binary_output:
             most_rewarding_response = 1
         else:
             most_rewarding_response = 'avoid'
-    elif row['probability_condition'] == 20:
+    elif row['probability_condition'] < 50:
         if binary_output:
             most_rewarding_response = -1
         else:
