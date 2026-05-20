@@ -1,0 +1,129 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+###############################################################################
+# Power simulation for 4-way interaction in TUS study
+# Design: 2 (emotion) x 2 (volatility) x 3 (stimulation, between-session) x
+#         2 (response, within-session)
+# DV: accuracy (binary, per trial)
+###############################################################################
+
+library(simr)
+library(lme4)
+
+set.seed(42)
+
+# ---- 1. Design -------------------------------------------------------------
+n_subjects        <- 42
+n_trials_per_cell <- 55
+
+design <- expand.grid(
+  subject     = factor(1:n_subjects),
+  stimulation = factor(c("amygdala", "dACC", "sham")),
+  emotion     = factor(c("happy", "angry")),
+  volatility  = factor(c("stable", "volatile")),
+  response    = factor(c("approach", "avoid")),
+  trial       = 1:n_trials_per_cell
+)
+design$session <- factor(paste(design$subject, design$stimulation, sep = "_"))
+
+contrasts(design$emotion)     <- contr.sum(2)
+contrasts(design$volatility)  <- contr.sum(2)
+contrasts(design$stimulation) <- contr.sum(3)
+contrasts(design$response)    <- contr.sum(2)
+
+cat("Total observations:", nrow(design), "\n")
+
+# ---- 2. Fixed effects (24 total: 1 + 5 + 9 + 7 + 2) -----------------------
+fixed_effects <- c(
+  1.0,                              # Intercept (~73% accuracy)
+  0.2, 0.2, 0.2, 0.2, 0.2,     # Main effects
+  0, 0, 0, 0, 0, 0, 0, 0, 0,        # 9 two-way interactions
+  0, 0, 0, 0, 0, 0, 0,              # 7 three-way interactions
+  0.20, 0.20                        # 4-way interaction (TARGET)
+)
+stopifnot(length(fixed_effects) == 24)
+
+# ---- 3. Random effects -----------------------------------------------------
+# Random intercepts for subject and session.
+# Slopes omitted to keep simulation tractable; document this in the protocol.
+random_var <- list(0.5, 0.2)  # subject variance, session variance
+
+# ---- 4. Build model --------------------------------------------------------
+model <- makeGlmer(
+  formula = accuracy ~ emotion * volatility * stimulation * response +
+                       (1 | subject) + (1 | session),
+  family  = "binomial",
+  fixef   = fixed_effects,
+  VarCorr = random_var,
+  data    = design
+)
+
+cat("\nModel built successfully.\n")
+
+# ---- 5. Test specification -------------------------------------------------
+# fcompare jointly tests both 4-way interaction coefficients via LRT
+reduced_formula <- ~ (emotion + volatility + stimulation + response)^3
+
+# ---- 6. Pilot run ----------------------------------------------------------
+### Set NSIM_PILOT to 3 for testing, 100 for the real pilot run.
+NSIM_PILOT <- 3
+
+cat("\n==== Pilot run (nsim =", NSIM_PILOT, ") ====\n")
+
+power_pilot <- powerSim(
+  model,
+  test     = fcompare(reduced_formula),
+  nsim     = NSIM_PILOT,
+  seed     = 42,
+  progress = TRUE
+)
+
+print(power_pilot)
+saveRDS(power_pilot, "power_pilot.rds")
+
+# ---- 7. Sensitivity grid ---------------------------------------------------
+### Set NSIM_GRID to 3 for testing, 100 for the real run.
+NSIM_GRID <- 3
+
+run_sensitivity <- function(beta_4way, nsim) {
+  m <- model
+  fourway_idx <- which(lengths(strsplit(names(fixef(m)), ":")) == 4)
+  fixef(m)[fourway_idx] <- beta_4way
+
+  ps <- powerSim(m, test = fcompare(reduced_formula),
+                 nsim = nsim, seed = 42, progress = FALSE)
+  data.frame(
+    beta_4way = beta_4way,
+    power     = summary(ps)$mean,
+    lower     = summary(ps)$lower,
+    upper     = summary(ps)$upper,
+    errors    = sum(ps$errors > 0),
+    warnings  = sum(ps$warnings > 0)
+  )
+}
+
+cat("\n==== Sensitivity grid (nsim =", NSIM_GRID, "per beta) ====\n")
+
+beta_grid <- c(0.10, 0.15, 0.20, 0.25, 0.30)
+
+sensitivity_results <- do.call(rbind, lapply(beta_grid, function(b) {
+  cat("Running beta =", b, "...\n")
+  run_sensitivity(b, nsim = NSIM_GRID)
+}))
+
+print(sensitivity_results)
+saveRDS(sensitivity_results, "sensitivity_results.rds")
+
+# ---- 8. Summary ------------------------------------------------------------
+cat("\n==== DONE ====\n")
+cat("Pilot power at b = 0.20:", round(summary(power_pilot)$mean * 100, 1), "%\n")
+cat("Sensitivity results saved to sensitivity_results.rds\n")
+```

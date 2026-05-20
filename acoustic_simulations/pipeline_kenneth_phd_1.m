@@ -12,7 +12,7 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-target_list = [3];
+target_list = [1, 2, 3];
 test_pipeline = 0;
 localite_coordinates = 0;
 include_mask = 0;
@@ -24,7 +24,7 @@ heatrise_optimised = 1;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [57];
+subject_list = [52, 53, 54, 55, 57];
 
 % Config location
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
@@ -326,23 +326,12 @@ for stimulation_target_group = target_list
                     else 
                         first_parameters.output_dir = first_parameters.sim_path;
                     end
-    
-                    % Not sure if I need these
-                    %sequential_configs.(config_field_name).adopted_heatmap = fullfile(first_parameters.output_dir, sprintf('sub-%03d_final_%s_orig_coord%s.nii.gz',...
-                    %    subject_id, 'heating_end', first_parameters.results_filename_affix));
-                    %sequential_configs.(config_field_name).adopted_cem43 = fullfile(first_parameters.output_dir, sprintf('sub-%03d_final_%s_orig_coord%s.nii.gz',...
-                    %    subject_id, 'CEM43_end', first_parameters.results_filename_affix));
                 else
                     if isfield(sequential_configs.(previous_config_field_name),'subject_subfolder') && sequential_configs.(previous_config_field_name).subject_subfolder == 1
                         sequential_configs.(previous_config_field_name).output_dir = fullfile(sequential_configs.(previous_config_field_name).sim_path, sprintf('sub-%03d', subject_id));
                     else 
                         sequential_configs.(previous_config_field_name).output_dir = sequential_configs.(previous_config_field_name).sim_path;
                     end
-                    % Not sure if I need these
-                    %sequential_configs.(config_field_name).adopted_heatmap = fullfile(sequential_configs.(previous_config_field_name).output_dir, sprintf('sub-%03d_final_%s_orig_coord%s.nii.gz',...
-                    %    subject_id, 'heating_end', sequential_configs.(previous_config_field_name).results_filename_affix));
-                    %sequential_configs.(config_field_name).adopted_cem43 = fullfile(sequential_configs.(previous_config_field_name).output_dir, sprintf('sub-%03d_final_%s_orig_coord%s.nii.gz',...
-                    %    subject_id, 'CEM43_end', sequential_configs.(previous_config_field_name).results_filename_affix));
                 end
             else
                 first_parameters = parameters;

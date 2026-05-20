@@ -706,7 +706,7 @@ def main(raw_output_path,
 
     # Make stimulation condition column
     if dataset in ('TUS', 'pilot'):
-        randomisation_list = pd.read_csv('/Volumes/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/dummy_randomisation_list.csv', sep=';')
+        randomisation_list = pd.read_csv('/Volumes/project/3025011.02/TUS_simulations/segmentation_data/dummy_randomisation_list.csv', sep=';')
         dataframe['stimulation_condition'] = dataframe.apply(check_stimulation_condition, args=(randomisation_list, binary_output,), axis=1)
         if print_output:
             print(dataframe[['subject_id', 'session', 'stimulation_condition']])
