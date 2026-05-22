@@ -204,7 +204,7 @@ def paired_raincloud(
         boxprops=dict(facecolor='white', edgecolor='black'),
         capprops=dict(color='black'),
         whiskerprops=dict(color='black'),
-        flierprops=dict(color='black', markeredgecolor='black'),
+        flierprops=dict(color='black', markeredgecolor='black', markersize=3),
         medianprops=dict(color='black'),
     )
     for patch, fc in zip(bp['boxes'], colours):
