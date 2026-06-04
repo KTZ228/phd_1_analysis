@@ -373,3 +373,9 @@ $RECYCLE.BIN/
 #---------------Matlab related---------------#
 
 *.asv
+
+#--------------Animation related-------------#
+
+*.mp4
+
+animations/slurm_logs/
