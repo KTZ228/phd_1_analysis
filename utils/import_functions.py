@@ -565,7 +565,7 @@ def add_WSLS_columns(dataframe: pd.DataFrame) -> (
     """
 
     # Takes the values from 'subjectively_correct' and shifts them by one to look back at a previous trial
-    dataframe['previous_outcome'] = dataframe.groupby(['subject_id', 'session', 'stimuli_type'])['subjectively_correct'].shift(1)
+    dataframe['previous_outcome'] = dataframe.groupby(['subject_id', 'session', 'stimuli_type'])['objectively_correct'].shift(1)
     mapping = {'True': 1, 'False': -1}
     dataframe['previous_outcome'] = dataframe['previous_outcome'].map(mapping).fillna(0).astype('Int64')
 
@@ -736,13 +736,20 @@ def main(raw_output_path,
     # Compute combined reversal counter (treats both stimuli_types together)
     dataframe['trials_since_reversal_combined_learning'] = check_trials_since_reversal_combined_learning(dataframe)
 
+    # Caries on the valence at a reversal to determine whether people only learn from one cue or from both
+    dataframe['valence_at_reversal'] = (
+        dataframe['valence']
+        .where(dataframe['trials_since_reversal_combined_learning'] == 0)
+        .ffill()
+    )
+
     # Only remove the trials where the reversal occurred if the flag is set to True
     if remove_reversals:
         dataframe = dataframe[dataframe['trials_since_reversal_separate_learning'] != 0]
 
     if remove_invalid_trials:
         # Remove trials where RT < 50ms, please note that this number is arbitrary and can be changed
-        #dataframe = dataframe[dataframe['RT_s'] >= 0.05]
+        dataframe = dataframe[dataframe['RT_s'] >= 0.05]
 
         # Remove late trials
         dataframe = dataframe[dataframe['objectively_correct'] != 'Late']
