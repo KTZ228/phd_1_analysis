@@ -378,12 +378,12 @@ def check_most_rewarding_response(row,
     """
     if row['probability_condition'] > 50:
         if binary_output:
-            most_rewarding_response = 1
+            most_rewarding_response = -1
         else:
             most_rewarding_response = 'avoid'
     elif row['probability_condition'] < 50:
         if binary_output:
-            most_rewarding_response = -1
+            most_rewarding_response = 1
         else:
             most_rewarding_response = 'approach'
     else:
@@ -714,9 +714,9 @@ def main(raw_output_path,
     # Add a column for the most rewarding response
     dataframe['most_rewarding_response'] = dataframe.apply(check_most_rewarding_response, args=(binary_output,), axis=1)
     # Make binary response column
-    mapping = {'avoid': 1, 'approach': -1}
-    dataframe['response_boolean'] = dataframe['response'].map(mapping)
-    dataframe['most_rewarding_response_boolean'] = dataframe['most_rewarding_response'].map(mapping)
+    #mapping = {'avoid': 1, 'approach': -1}
+    #dataframe['response_boolean'] = dataframe['response'].map(mapping)
+    #dataframe['most_rewarding_response_boolean'] = dataframe['most_rewarding_response'].map(mapping)
 
     # Add a column that indicates how many trials ago the last reversal occurred
     group_change = (
@@ -742,6 +742,10 @@ def main(raw_output_path,
         .where(dataframe['trials_since_reversal_combined_learning'] == 0)
         .ffill()
     )
+    dataframe['valence_at_reversal'] = dataframe['valence_at_reversal'].replace({
+        'angry': 'angry_reverses_first',
+        'happy': 'happy_reverses_first'
+    })
 
     # Only remove the trials where the reversal occurred if the flag is set to True
     if remove_reversals:
