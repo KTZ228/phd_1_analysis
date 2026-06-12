@@ -12,9 +12,9 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-target_list = [1, 2, 3];
+target_list = [2,3];
 test_pipeline = 0;
-localite_coordinates = 0;
+localite_coordinates = 1;
 include_mask = 0;
 % Should include which t1 and t2 to use based on cut-off
 
@@ -24,7 +24,7 @@ heatrise_optimised = 1;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [52, 53, 54, 55, 57];
+subject_list = [55];%52,53,54,57];
 
 % Config location
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
@@ -66,7 +66,7 @@ for stimulation_target_group = target_list
         parameters = load_parameters(config_sequential, config_location);
     
         if isfield(parameters, 'subsequent_heating_config') && test_pipeline == 1 && ~strcmp(stimulation_target_group, 'target_2') && localite_coordinates ~= 1
-            n_consecutive_simulations = 2;
+            n_consecutive_simuilations = 2;
             heating_config_list = parameters.subsequent_heating_config;
         elseif isfield(parameters, 'subsequent_heating_config')
             n_consecutive_simulations = length(parameters.subsequent_heating_config);
@@ -152,10 +152,10 @@ for stimulation_target_group = target_list
                 randomisation_list = readtable(randomisation_list_location, 'Delimiter', ';');
                 
                 % Create the subject ID string in the format 'sub-X'
-                subject_str = sprintf('sub-%d', subject_id);
+                subject_str = sprintf('sub-%03d', subject_id);
                 
                 % Find the row matching the subject ID
-                row_idx = strcmp(randomisation_list.SubjectID, subject_str);
+                row_idx = strcmp(randomisation_list.subject_id, subject_str);
                 
                 if ~any(row_idx)
                     warning('Subject ID %d not found in the file', subject_id);
@@ -168,8 +168,8 @@ for stimulation_target_group = target_list
                 
                 % Search through sessions 1-4 for the matching which_sims
                 session_number = NaN;
-                for sess = 1:4
-                    session_col = sprintf('Session%d', sess);
+                for sess = 2:4
+                    session_col = sprintf('ses_mri%02d', sess);
                     if strcmp(subject_row.(session_col){1}, stimulation_target_group)
                         session_number = sess;
                         break;
@@ -187,7 +187,7 @@ for stimulation_target_group = target_list
                 parameters.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
         
                 % To compensate for the offset between the center of the reference and the edge of the bowl
-                coupler_to_transducer_distance = 3;
+                coupler_to_transducer_distance = 11.6;
                 reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm) - coupler_to_transducer_distance;
                 
                 % Load the most recent trigger mark file
@@ -199,15 +199,39 @@ for stimulation_target_group = target_list
                 end
         
                 % Filter out files that are not InstrumentMarker files
-                trig_mark_files = trig_mark_files(contains({trig_mark_files.name}, 'InstrumentMarker'));
+                trig_mark_files = trig_mark_files(contains({trig_mark_files.name}, 'GUMMarkers'));
                 
-                % Select the most recent file and extract the coordinates
+                % Select and open the most recent xml file
                 [~,idx] = sort([arrayfun(extract_dt,trig_mark_files)],'descend');
                 trig_mark_files = trig_mark_files(idx);
                 recent_trig_mark_file = xml2struct(fullfile(trig_mark_files(1).folder, trig_mark_files(1).name));
+
+                % Select the correct instrument markers
+                % --- Find cells with a non-empty InstrumentMarker ---
+                idx = find(cellfun(@(c) isstruct(c) && isfield(c,'InstrumentMarker') ...
+                                        && ~isempty(c.InstrumentMarker), ...
+                                   recent_trig_mark_file.GUMMarkerList.Element));
+                
+                % --- Extract uid for each ---
+                uids = arrayfun(@(k) recent_trig_mark_file.GUMMarkerList.Element{k}.InstrumentMarker.Attributes.uid, ...
+                                idx, 'UniformOutput', false);
+                
+                % --- Sort by uid (assumes uid is stored as a string/char) ---
+                uidNum = str2double(uids);
+                [~, order] = sort(uidNum);
+                sortedIdx = idx(order);
+                
+                % --- Loop ---
+                % consecutive_simulation_number runs 1, 2, 3, ...
+                assert(consecutive_simulation_number <= numel(sortedIdx), ...
+                       'consecutive_simulation_number (%d) exceeds number of markers (%d).', ...
+                       consecutive_simulation_number, numel(sortedIdx));
+                
+                thisElement = recent_trig_mark_file.GUMMarkerList.Element{sortedIdx(consecutive_simulation_number)};
+                thisMarker  = thisElement.InstrumentMarker;
     
                 % Load the trigger markers and turn them into doubles
-                trigger_markers = recent_trig_mark_file.InstrumentMarkerList.InstrumentMarker{1,consecutive_simulation_number}.Marker.Matrix4D.Attributes;
+                trigger_markers = thisMarker.Matrix4D.Attributes;
                 trigger_marker_fieldnames = fieldnames(trigger_markers);
                 for i = 1:length(trigger_marker_fieldnames)
                     trigger_markers.(trigger_marker_fieldnames{i}) = str2double(trigger_markers.(trigger_marker_fieldnames{i}));
@@ -245,16 +269,16 @@ for stimulation_target_group = target_list
             
                 parameters.transducer.pos_t1_grid = [row_coordinates_left.pos_t1_grid_x, row_coordinates_left.pos_t1_grid_y, row_coordinates_left.pos_t1_grid_z];
                 parameters.focus_pos_t1_grid = [row_coordinates_left.focus_pos_t1_grid_x, row_coordinates_left.focus_pos_t1_grid_y, row_coordinates_left.focus_pos_t1_grid_z];
+
+                % Flip the coordinates around
+                parameters.transducer.pos_t1_grid = parameters.transducer.pos_t1_grid';
+                parameters.focus_pos_t1_grid = parameters.focus_pos_t1_grid';
             end
         
             %% Preview transducer location
             % Compensate for 1-based indexing in Matlab
             parameters.transducer.pos_t1_grid = parameters.transducer.pos_t1_grid + 1;
             parameters.focus_pos_t1_grid = parameters.focus_pos_t1_grid + 1;
-    
-            % Flip the coordinates around for later use
-            transducer_coordinates = parameters.transducer.pos_t1_grid';
-            focus_coordinates = parameters.focus_pos_t1_grid';
     
             % Makes a different slice depending on the target
             if contains(stimulation_target, 'target_2')
@@ -265,11 +289,11 @@ for stimulation_target_group = target_list
             
             figure;
             hImage = imshowpair(...
-                plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducer_coordinates(:,1), focus_coordinates(:,1), parameters), ...
-                plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), transducer_coordinates(:,1), focus_coordinates(:,1), parameters, 'slice_dim', slice_dim_right_figure), ...
+                plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), parameters.transducer.pos_t1_grid(:,1), parameters.focus_pos_t1_grid(:,1), parameters), ...
+                plot_t1_with_transducer(t1_image, t1_header.PixelDimensions(1), parameters.transducer.pos_t1_grid(:,1), parameters.focus_pos_t1_grid(:,1), parameters, 'slice_dim', slice_dim_right_figure), ...
                 'montage');
             hAxes = get(hImage, 'Parent');
-            title(hAxes, sprintf('sub-%03d %s [%g; %g; %g]', subject_id, stimulation_target, transducer_coordinates(:,1)-1)); % -1 is at the end to remove compensation of 1-based indexing in plot title
+            title(hAxes, sprintf('sub-%03d %s [%g; %g; %g]', subject_id, stimulation_target, parameters.transducer.pos_t1_grid(:,1)-1)); % -1 is at the end to remove compensation of 1-based indexing in plot title
             
             %% Simulations
             % Load additional parameters into config
