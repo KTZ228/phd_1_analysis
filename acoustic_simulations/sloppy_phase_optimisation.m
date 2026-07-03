@@ -21,7 +21,7 @@ real_profile_adjusted_for_intensity = real_profile;
 real_profile_adjusted_for_intensity(:,2) = real_profile_adjusted_for_intensity(:,2)./adjustment_factor_intensity;
 
 %% Part 3
-parameters = load_parameters('phase_optimisation_config.yaml', '/home/affneu/kenvdzee/Documents/acoustic_simulation_scripts/configs/'); % load the configuration file
+parameters = load_parameters('phase_optimisation_config.yaml', '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulation_scripts/configs/'); % load the configuration file
 
 parameters.simulation_medium = 'water'; % indicate that we only want the simulation in the water medium for now
 

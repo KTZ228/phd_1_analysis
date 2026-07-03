@@ -66,7 +66,7 @@ for stimulation_target_group = target_list
         parameters = load_parameters(config_sequential, config_location);
     
         if isfield(parameters, 'subsequent_heating_config') && test_pipeline == 1 && ~strcmp(stimulation_target_group, 'target_2') && localite_coordinates ~= 1
-            n_consecutive_simuilations = 2;
+            n_consecutive_simulations = 2;
             heating_config_list = parameters.subsequent_heating_config;
         elseif isfield(parameters, 'subsequent_heating_config')
             n_consecutive_simulations = length(parameters.subsequent_heating_config);

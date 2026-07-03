@@ -2,14 +2,11 @@
 clc; clear; close all;
 
 %% Set the subject_name
-subject_list = ["sub-056", "sub-057"];
+subject_list = ["sub-061"];
 
 output_location = '/project/3025011.02/localite';
 log_location = fullfile(output_location, 'slurm_job_logs');
 if ~isfolder(log_location)
-    mkdir(log_location);
-else 
-    rmdir(log_location, 's');
     mkdir(log_location);
 end
 
