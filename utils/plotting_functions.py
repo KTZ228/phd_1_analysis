@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
+import seaborn as sns # Loads in the theme
 import os
 import string
 #from titlecase import titlecase
@@ -152,21 +153,39 @@ def paired_raincloud(
             connection_pairs.append((i, j))
 
     # --- Data extraction ------------------------------------------------------
-    # For correct pairing we need a single dropna across all columns involved
-    # in any connection. Disjoint pair-sets share rows so this is the cleanest
-    # rule; columns not involved in any connection are pulled independently.
     if connection_pairs:
-        involved_idx = sorted({i for pair in connection_pairs for i in pair})
-        involved_cols = [columns[i] for i in involved_idx]
-        paired_df = df[involved_cols].dropna()
-        paired_lookup = {i: paired_df[columns[i]].values for i in involved_idx}
-        combined = []
+        # Union-Find to group indices into independent connected components
+        parent = {}
+
+        def find(x):
+            parent.setdefault(x, x)
+            while parent[x] != x:
+                x = parent[x]
+            return x
+
+        def union(a, b):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        for i, j in connection_pairs:
+            union(i, j)
+
+        components = {}
+        for i in {idx for pair in connection_pairs for idx in pair}:
+            components.setdefault(find(i), []).append(i)
+
+        combined = [None] * n_groups
+        for comp_indices in components.values():
+            comp_cols = [columns[i] for i in comp_indices]
+            comp_df = df[comp_cols].dropna()
+            for i in comp_indices:
+                combined[i] = comp_df[columns[i]].values
+
         for i, col in enumerate(columns):
-            if i in paired_lookup:
-                combined.append(paired_lookup[i])
-            else:
-                combined.append(df[col].dropna().values)
-        n_samples_paired = len(paired_df)
+            if combined[i] is None:
+                combined[i] = df[col].dropna().values
+        n_samples_paired = None  # no longer a single global value; see below
     else:
         combined = [df[c].dropna().values for c in columns]
         n_samples_paired = None
@@ -240,9 +259,10 @@ def paired_raincloud(
         xs_all.append(np.full(size, base_x) + jitter)
 
     # --- Connecting lines (drawn beneath scatter) -----------------------------
-    if connection_pairs and n_samples_paired is not None:
+    if connection_pairs:
         for (i, j) in connection_pairs:
-            for k in range(n_samples_paired):
+            n_pair = min(len(combined[i]), len(combined[j]))
+            for k in range(n_pair):
                 ax.plot(
                     [xs_all[i][k], xs_all[j][k]],
                     [combined[i][k], combined[j][k]],

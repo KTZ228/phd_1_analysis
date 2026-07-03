@@ -579,25 +579,19 @@ def add_WSLS_columns(dataframe: pd.DataFrame) -> (
             & dataframe['previous_response'].notna()
     )
     dataframe['stay'] = (dataframe['response'] == dataframe['previous_response'])
-    mapping = {True: 1, False: -1}
+    mapping = {True: 1, False: 0}
     dataframe['stay'] = dataframe['stay'].map(mapping)
-    dataframe['stay'] = dataframe['stay'].where(mask, 0).astype('Int64')
-
-    # Determine choice stickiness
-    dataframe['response_before_previous_trial'] = dataframe.groupby(['subject_id', 'session', 'stimuli_type'])['response'].shift(2)
-    dataframe['choicestickiness'] = (dataframe['previous_response'] == dataframe['response_before_previous_trial']).astype('Int64')
+    dataframe['stay'] = dataframe['stay'].where(mask, pd.NA).astype('Int64')
 
     # Determine Win-Stay
-    dataframe['win-stay'] = 0
     post_win_mask = mask & (dataframe['previous_outcome'] == 1)
+    dataframe['win-stay'] = pd.Series(pd.NA, index=dataframe.index, dtype='Int64')
     dataframe.loc[post_win_mask, 'win-stay'] = dataframe.loc[post_win_mask, 'stay']
-    dataframe['win-stay'] = dataframe['win-stay'].astype('Int64')
 
-    # Determine Lose-Shift
-    dataframe['lose-shift'] = 0
+    # Determine Lose-Shift  (shift = 1 - stay under the 0/1 scheme)
     post_loss_mask = mask & (dataframe['previous_outcome'] == -1)
-    dataframe.loc[post_loss_mask, 'lose-shift'] = -dataframe.loc[post_loss_mask, 'stay']
-    dataframe['lose-shift'] = dataframe['lose-shift'].astype('Int64')
+    dataframe['lose-shift'] = pd.Series(pd.NA, index=dataframe.index, dtype='Int64')
+    dataframe.loc[post_loss_mask, 'lose-shift'] = 1 - dataframe.loc[post_loss_mask, 'stay']
 
     return dataframe
 
@@ -675,8 +669,10 @@ def main(raw_output_path,
 
     # Turns the performance values into boolean ones
     mapping = {'True': 1, 'False': 0, 'Even': 0, 'Late': 0}
+    dataframe['objectively_correct'] = dataframe['objectively_correct'].astype(str)
     dataframe['objectively_correct_boolean'] = dataframe['objectively_correct'].map(mapping)
     dataframe['objectively_correct_boolean'] = dataframe['objectively_correct_boolean'].astype('Int64')
+    dataframe['subjectively_correct'] = dataframe['subjectively_correct'].astype(str)
     dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct'].map(mapping)
     dataframe['subjectively_correct_boolean'] = dataframe['subjectively_correct_boolean'].astype('Int64')
     dataframe['subjectively_correct_boolean_one_back'] = dataframe['subjectively_correct_boolean'].shift(1)
@@ -708,6 +704,16 @@ def main(raw_output_path,
     if dataset in ('TUS', 'pilot'):
         randomisation_list = pd.read_csv('/Volumes/project/3025011.02/TUS_simulations/segmentation_data/dummy_randomisation_list.csv', sep=';')
         dataframe['stimulation_condition'] = dataframe.apply(check_stimulation_condition, args=(randomisation_list, binary_output,), axis=1)
+        if print_output:
+            print(dataframe[['subject_id', 'session', 'stimulation_condition']])
+    elif dataset in ('speakup'):
+        randomisation_list = pd.read_csv('/Volumes/project/3025011.02/TUS_simulations/segmentation_data/dummy_randomisation_list.csv', sep=';')
+        dataframe = dataframe.merge(randomisation_list, on='subject_id', how='left')
+        if print_output:
+            print(dataframe[['subject_id', 'session', 'stimulation_condition']])
+    elif dataset in ('africa'):
+        randomisation_list = pd.read_csv('/Volumes/4kenneth/RL_task-speakup_version_martin_southafrica/uwb_condition.csv', sep=';')
+        dataframe = dataframe.merge(randomisation_list, on='subject_id', how='left')
         if print_output:
             print(dataframe[['subject_id', 'session', 'stimulation_condition']])
 
