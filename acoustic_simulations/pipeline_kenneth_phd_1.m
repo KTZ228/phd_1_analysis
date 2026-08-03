@@ -12,9 +12,9 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-target_list = [2,3];
+target_list = [1,2,3];
 test_pipeline = 0;
-localite_coordinates = 1;
+localite_coordinates = 0;
 include_mask = 0;
 % Should include which t1 and t2 to use based on cut-off
 
@@ -24,7 +24,7 @@ heatrise_optimised = 1;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [55];%52,53,54,57];
+subject_list = [68];
 
 % Config location
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
@@ -187,7 +187,7 @@ for stimulation_target_group = target_list
                 parameters.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
         
                 % To compensate for the offset between the center of the reference and the edge of the bowl
-                coupler_to_transducer_distance = 11.6;
+                coupler_to_transducer_distance = 11.6; % Even though this is accurate, it doesn't work sometimes dues to lack of negative space above the head in the scan
                 reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm) - coupler_to_transducer_distance;
                 
                 % Load the most recent trigger mark file
@@ -258,14 +258,14 @@ for stimulation_target_group = target_list
     
             else
                 %% Load coordinates from the exploratory_coordinate_list
-                exploratory_coordinate_list = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
+                planning_coordinate_list = readtable('/project/3025011.02/TUS_simulations/planning/planning_coordinate_list.csv');
                 
-                index_subject = exploratory_coordinate_list.subject_id == subject_id;
-                index_stimulation_target_left = contains(exploratory_coordinate_list.stimulation_target, stimulation_target_coordinates);
+                index_subject = planning_coordinate_list.subject_id == subject_id;
+                index_stimulation_target_left = contains(planning_coordinate_list.stimulation_target, stimulation_target_coordinates);
             
                 index_coordinates_left = index_subject & index_stimulation_target_left;
             
-                row_coordinates_left = exploratory_coordinate_list(index_coordinates_left, :);
+                row_coordinates_left = planning_coordinate_list(index_coordinates_left, :);
             
                 parameters.transducer.pos_t1_grid = [row_coordinates_left.pos_t1_grid_x, row_coordinates_left.pos_t1_grid_y, row_coordinates_left.pos_t1_grid_z];
                 parameters.focus_pos_t1_grid = [row_coordinates_left.focus_pos_t1_grid_x, row_coordinates_left.focus_pos_t1_grid_y, row_coordinates_left.focus_pos_t1_grid_z];
