@@ -26,6 +26,8 @@ def paired_raincloud(
         save=True,
         output_dir='.',
         show=True,
+        logarithmic_scale=False,
+        font_scale=1.0,
 ):
     """
     Create a paired raincloud plot (box + half/full violin + scatter) for an
@@ -75,6 +77,7 @@ def paired_raincloud(
     show_mean : bool, optional
     mean_size : float, optional
     save, show : bool, optional
+    logarithmic_scale : bool, optional
 
     Returns
     -------
@@ -92,7 +95,6 @@ def paired_raincloud(
         labels = [str(c) for c in columns]
     if len(labels) != n_groups:
         raise ValueError("Length of `labels` must match number of columns.")
-    labels = [string.capwords(l) for l in labels]
 
     # --- Colours --------------------------------------------------------------
     default_palette = ['#0066ff', '#ff3399', '#33cc33', '#ff9933',
@@ -312,13 +314,17 @@ def paired_raincloud(
         ax.axhline(y=hline, color='r', linestyle='--')
 
     # --- Aesthetics -----------------------------------------------------------
+    base = plt.rcParams['font.size']  # typically 10
     ax.set_xticks(positions)
     ax.set_xticklabels(labels)
-    if n_groups > 4:
-        ax.tick_params(axis='x', which='major', labelsize=8)
-    ax.set_ylabel(string.capwords(ylabel_name))
+    tick_fs = (8 if n_groups > 4 else base) * font_scale
+    ax.tick_params(axis='x', which='major', labelsize=tick_fs)
+    ax.tick_params(axis='y', which='major', labelsize=base * font_scale)
+    ax.set_ylabel(ylabel_name, fontsize=base * font_scale)
+    if logarithmic_scale:
+        ax.set_yscale('log')
     if plot_title:
-        ax.set_title(string.capwords(plot_name))
+        ax.set_title(plot_name, fontsize=base * 1.2 * font_scale)
     plt.tight_layout()
 
     # --- Save & show ----------------------------------------------------------
@@ -367,6 +373,7 @@ def lineplot_se(
         output_dir='.',
         show=True,
         random_state=None,
+        font_scale=1.0,
 ):
     """
     Line plot with shaded SE band. Takes long-format (trial-level) data and
@@ -686,21 +693,25 @@ def lineplot_se(
             zorder=10,
         )
 
-    ax.set_xlabel(string.capwords(xlabel_name if xlabel_name is not None else x_col))
-    ax.set_ylabel(string.capwords(ylabel_name))
+    base = plt.rcParams['font.size']  # typically 10
+    ax.set_xlabel(string.capwords(xlabel_name if xlabel_name is not None else x_col),
+                  fontsize=base * font_scale)
+    ax.set_ylabel(string.capwords(ylabel_name), fontsize=base * font_scale)
+    ax.tick_params(axis='both', which='major', labelsize=base * font_scale)
 
     # Resolve plot_name once (used for title and/or filename).
     if plot_name is None:
         plot_name = f"{y_col}_by_{x_col}"
 
     if plot_title:
-        ax.set_title(string.capwords(plot_name))
+        ax.set_title(string.capwords(plot_name), fontsize=base * 1.2 * font_scale)
     if not single_line:
         if legend_outside:
             ax.legend(frameon=False, loc='upper left',
-                      bbox_to_anchor=(1.02, 1), borderaxespad=0)
+                      bbox_to_anchor=(1.02, 1), borderaxespad=0,
+                      fontsize=base * font_scale)
         else:
-            ax.legend(frameon=False)
+            ax.legend(frameon=False, fontsize=base * font_scale)
     plt.tight_layout()
 
     # --- Save & show ---------------------------------------------------------

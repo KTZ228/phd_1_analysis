@@ -565,7 +565,7 @@ def add_WSLS_columns(dataframe: pd.DataFrame) -> (
     """
 
     # Takes the values from 'subjectively_correct' and shifts them by one to look back at a previous trial
-    dataframe['previous_outcome'] = dataframe.groupby(['subject_id', 'session', 'stimuli_type'])['objectively_correct'].shift(1)
+    dataframe['previous_outcome'] = dataframe.groupby(['subject_id', 'session', 'stimuli_type'])['subjectively_correct'].shift(1)
     mapping = {'True': 1, 'False': -1}
     dataframe['previous_outcome'] = dataframe['previous_outcome'].map(mapping).fillna(0).astype('Int64')
 
@@ -588,10 +588,10 @@ def add_WSLS_columns(dataframe: pd.DataFrame) -> (
     dataframe['win-stay'] = pd.Series(pd.NA, index=dataframe.index, dtype='Int64')
     dataframe.loc[post_win_mask, 'win-stay'] = dataframe.loc[post_win_mask, 'stay']
 
-    # Determine Lose-Shift  (shift = 1 - stay under the 0/1 scheme)
+    # Determine lose-stay
     post_loss_mask = mask & (dataframe['previous_outcome'] == -1)
-    dataframe['lose-shift'] = pd.Series(pd.NA, index=dataframe.index, dtype='Int64')
-    dataframe.loc[post_loss_mask, 'lose-shift'] = 1 - dataframe.loc[post_loss_mask, 'stay']
+    dataframe['lose-stay'] = pd.Series(pd.NA, index=dataframe.index, dtype='Int64')
+    dataframe.loc[post_loss_mask, 'lose-stay'] = dataframe.loc[post_loss_mask, 'stay']
 
     return dataframe
 
