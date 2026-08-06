@@ -9,6 +9,11 @@
 # matching .feat directory. Subjects/suffixes missing any session are skipped
 # and reported.
 #
+# Existing analyses are skipped: if the .gfeat directory that the (subject, suffix)
+# combination would write to already exists, no .fsf is written and no array task
+# is submitted. Set FORCE=1 to re-run everything regardless (existing directories
+# are left untouched; FEAT would create <name>+.gfeat next to them).
+#
 # Per-subject session-to-target mapping
 # -------------------------------------
 # Stimulation target was randomised across sessions per subject. The template's
@@ -64,6 +69,7 @@ fi
 
 > "$joblist"
 > "$skiplog"
+nexist=0    # count of (subject, suffix) combinations skipped because output exists
 
 # ---------------------------------------------------------------------------
 # Load the randomisation CSV into associative arrays.
@@ -219,6 +225,19 @@ for subdir in "${derivdir}"/sub-*/; do
             label="<no-suffix>"
         fi
 
+        # A higher-level FEAT analysis writes to <outputdir>.gfeat (unless the
+        # path already ends in .gfeat). If that directory is already there, this
+        # combination has been run before — don't write a .fsf, don't submit.
+        gfeatdir="$outdir"
+        [[ "$gfeatdir" == *.gfeat ]] || gfeatdir="${gfeatdir}.gfeat"
+
+        if [ -d "$gfeatdir" ] && [ -z "$FORCE" ]; then
+            echo "Skipping: ${gfeatdir} (already exists)"
+            echo "SKIP ${sub} suffix='${label}' (output already exists: ${gfeatdir})" >> "$skiplog"
+            nexist=$(( nexist + 1 ))
+            continue
+        fi
+
         echo "Creating: $fsf  (sub: ${sub}, suffix: ${label})"
         echo "  amygdala -> ${ses_amygdala}"
         echo "  dacc     -> ${ses_dacc}"
@@ -242,9 +261,12 @@ for subdir in "${derivdir}"/sub-*/; do
 done
 
 njobs=$(wc -l < "$joblist")
+echo "Skipped ${nexist} (subject, suffix) combinations with existing output."
+
 if [ "$njobs" -eq 0 ]; then
-    echo "No (subject, suffix) combinations had all 3 sessions present — nothing to submit."
+    echo "Nothing to submit."
     echo "See $skiplog for details on skipped combinations."
+    rm -f "$joblist"
     exit 0
 fi
 

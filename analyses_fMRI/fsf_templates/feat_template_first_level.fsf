@@ -108,7 +108,7 @@ set fmri(st_file) ""
 set fmri(bet_yn) 0
 
 # Spatial smoothing FWHM (mm)
-set fmri(smooth) 0
+set fmri(smooth) 8
 
 # Intensity normalization
 set fmri(norm_yn) 0
@@ -272,7 +272,7 @@ set fmri(totalVoxels) 1228478069
 set fmri(ncopeinputs) 0
 
 # 4D AVW data or FEAT directory (1)
-set feat_files(1) "/project/3025011.02/bids/derivatives/fmriprep/sub-000/ses-mri00/func/sub-000_ses-mri00_task-AARL_space-MNI152NLin6Asym_res-02_desc-preproc_bold_smoothed"
+set feat_files(1) "/project/3025011.02/bids/derivatives/fmriprep/sub-000/ses-mri00/func/sub-000_ses-mri00_task-AARL_space-MNI152NLin6Asym_res-02_desc-preproc_bold"
 
 # Add confound EVs text file
 set fmri(confoundevs) 1

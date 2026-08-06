@@ -9,9 +9,23 @@
 #   bash h_feat_third_level.sh -x 55                    # exclude sub-055
 #   bash h_feat_third_level.sh -x 55 -x 57              # exclude multiple
 #   bash h_feat_third_level.sh --exclude 55 57 60       # ...or all at once
+#   FORCE=1 bash h_feat_third_level.sh                  # re-run existing analyses
 #
 # Subject numbers can be given as "55", "055", or "sub-055" — all are
 # normalised to sub-055.
+#
+# Output layout
+# -------------
+# Results are written to a per-suffix group directory:
+#   ${derivdir}/group_<suffix>/group_third-level_<suffix>_cope<N>.gfeat
+#   ${derivdir}/group/group_third-level_cope<N>.gfeat            (no suffix)
+# so that variants (e.g. different confound sets or highpass cutoffs) don't
+# pile up in a single directory.
+#
+# Existing analyses are skipped: if the .gfeat for a (suffix, contrast)
+# combination already exists, no .fsf is written and no job is submitted.
+# Set FORCE=1 to submit regardless (existing directories are left untouched;
+# FEAT would create <name>+.gfeat next to them).
 #
 # Design
 # ------
@@ -43,8 +57,8 @@ shopt -s nullglob
 module load fsl/6.0.6
 template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_third_level.fsf"
 derivdir="/project/3025011.02/bids/derivatives/fsl"
-groupdir="${derivdir}/group"
-skiplog="${groupdir}/feat_third_level_skipped_$(date +%Y%m%d_%H%M%S).txt"
+groupbase="${derivdir}/group"        # holds the skiplog and the no-suffix results
+skiplog="${groupbase}/feat_third_level_skipped_$(date +%Y%m%d_%H%M%S).txt"
 
 # ---------------------------------------------------------------------------
 # Parse command-line arguments: --exclude / -x to drop subjects from the
@@ -70,7 +84,8 @@ while [ $# -gt 0 ]; do
             done
             ;;
         -h|--help)
-            sed -n '2,30p' "$0"
+            # Print the header comment block (line 2 up to the first non-comment line)
+            awk 'NR==1 {next} /^#/ {sub(/^#[[:space:]]?/, ""); print; next} {exit}' "$0"
             exit 0
             ;;
         *)
@@ -95,7 +110,7 @@ if [ -z "${FSLDIR:-}" ]; then
     exit 1
 fi
 
-mkdir -p "$groupdir"
+mkdir -p "$groupbase"
 > "$skiplog"
 
 # Log excluded subjects at the top of the skiplog for traceability
@@ -202,6 +217,7 @@ write_fsf() {
 # each subject's copeC.feat, and submit it.
 # ---------------------------------------------------------------------------
 submitted=0
+nexist=0
 for suffix in "${!records_by_suffix[@]}"; do
     mapfile -t recs < <(printf '%s' "${records_by_suffix[$suffix]}")
     subs=()
@@ -214,6 +230,15 @@ for suffix in "${!records_by_suffix[@]}"; do
         gfeats+=("$g")
         copesets+=("$c")
     done
+
+    # Each suffix gets its own group directory: group_<suffix>, or plain
+    # group/ for the no-suffix case.
+    if [ -n "$suffix" ]; then
+        groupdir="${derivdir}/group_${suffix}"
+    else
+        groupdir="$groupbase"
+    fi
+    mkdir -p "$groupdir"
 
     declare -A contrast_count=()
     for c in "${copesets[@]}"; do
@@ -247,6 +272,29 @@ for suffix in "${!records_by_suffix[@]}"; do
     fi
 
     for cidx in "${common_contrasts[@]}"; do
+        if [ -n "$suffix" ]; then
+            stem="group_third-level_${suffix}_cope${cidx}"
+            label="${suffix} cope${cidx}"
+        else
+            stem="group_third-level_cope${cidx}"
+            label="<no-suffix> cope${cidx}"
+        fi
+        outdir="${groupdir}/${stem}"
+        fsf="${groupdir}/${stem}.fsf"
+
+        # A higher-level FEAT analysis writes to <outputdir>.gfeat. If that
+        # directory is already there, this (suffix, contrast) combination has
+        # been run before — don't write a .fsf, don't submit.
+        gfeatdir="$outdir"
+        [[ "$gfeatdir" == *.gfeat ]] || gfeatdir="${gfeatdir}.gfeat"
+
+        if [ -d "$gfeatdir" ] && [ -z "$FORCE" ]; then
+            echo "Skipping: ${gfeatdir} (already exists)"
+            echo "SKIP ${label} (output already exists: ${gfeatdir})" >> "$skiplog"
+            nexist=$(( nexist + 1 ))
+            continue
+        fi
+
         feat_files_block=""
         evg_block=""
         groupmem_block=""
@@ -257,16 +305,6 @@ for suffix in "${!records_by_suffix[@]}"; do
             evg_block+="set fmri(evg${idx}.1) 1"$'\n'
             groupmem_block+="set fmri(groupmem.${idx}) 1"$'\n'
         done
-
-        if [ -n "$suffix" ]; then
-            stem="group_third-level_${suffix}_cope${cidx}"
-            label="${suffix} cope${cidx}"
-        else
-            stem="group_third-level_cope${cidx}"
-            label="<no-suffix> cope${cidx}"
-        fi
-        outdir="${groupdir}/${stem}"
-        fsf="${groupdir}/${stem}.fsf"
 
         echo "Creating: $fsf  (${label}, N=${#subs[@]})"
         write_fsf "$template" "$outdir" "${#subs[@]}" \
@@ -283,6 +321,7 @@ for suffix in "${!records_by_suffix[@]}"; do
     done
 done
 
+echo "Skipped ${nexist} analyses with existing output."
 echo "Submitted ${submitted} group-level job(s)."
 if [ -s "$skiplog" ]; then
     echo "Skipped subjects/suffixes logged to: $skiplog"
