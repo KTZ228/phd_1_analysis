@@ -2,7 +2,7 @@
 clc; clear; close all;
 
 %% Set the subject_name
-subject_list = ["sub-061"];
+subject_list = ["sub-069"];
 
 output_location = '/project/3025011.02/localite';
 log_location = fullfile(output_location, 'slurm_job_logs');

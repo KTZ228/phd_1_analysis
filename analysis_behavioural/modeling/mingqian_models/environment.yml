@@ -1,0 +1,12 @@
+name: stan-fit
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - cmdstan          # pulls in the CmdStan C++ toolchain + a matching cmdstanpy build
+  - cmdstanpy
+  - arviz
+  - numpy
+  - pandas
+  - matplotlib
+  - seaborn

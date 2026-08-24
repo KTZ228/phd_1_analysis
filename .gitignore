@@ -10,7 +10,10 @@
 
 plots/
 pre-processed/
-analyses_behavioural/modelling/martin_modelling/slurm_output/
+analysis_behavioural/modeling/martin_modelling/slurm_output/
+analysis_behavioural/modeling/mingqian_models/log/
+analysis_behavioural/modeling/mingqian_models/stan_file/
+analysis_behavioural/modeling/mingqian_models/fit_result/
 
 
 #------------Python related ignores-----------#
