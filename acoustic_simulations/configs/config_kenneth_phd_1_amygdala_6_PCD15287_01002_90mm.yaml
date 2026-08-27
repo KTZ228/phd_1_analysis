@@ -25,7 +25,7 @@ transducer:
     35.3, 37.7667, 39.2333, 40.7, 43.0, 44.3, 45.6, 47.6667, 48.8333, 50.0, 52.0333,
     53.0667, 54.1, 56.0667, 57.0333, 58.0, 59.8, 60.7, 61.6, 63.3333, 64.1667, 65.0]
   curv_radius_mm: 75 # radius of curvature of the bowl 
-  dist_to_plane_mm: 65.3 # distance to the transducer plane from the geometric focus
+  dist_to_plane_mm: 63.8 # distance to the transducer plane (including holder) from the geometric focus
   source_amp: 181278 # [Pa]
   strength_1: 181278
   strength_2: 182900

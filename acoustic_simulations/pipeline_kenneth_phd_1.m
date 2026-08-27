@@ -14,7 +14,7 @@ addpath('/home/common/matlab/fieldtrip/qsub')
 %% The following options can be altered
 target_list = [1,2,3];
 test_pipeline = 0;
-localite_coordinates = 0;
+localite_coordinates = 1;
 include_mask = 0;
 % Should include which t1 and t2 to use based on cut-off
 
@@ -24,7 +24,7 @@ heatrise_optimised = 1;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [49,69];
+subject_list = [48, 49, 52, 53, 54, 55, 57, 58, 59, 60, 61, 63, 64, 65, 66, 67, 68]; 
 
 % Config location
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
@@ -187,8 +187,7 @@ for stimulation_target_group = target_list
                 parameters.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
         
                 % To compensate for the offset between the center of the reference and the edge of the bowl
-                coupler_to_transducer_distance = 11.6; % Even though this is accurate, it doesn't work sometimes dues to lack of negative space above the head in the scan
-                reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm) - coupler_to_transducer_distance;
+                reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm);
                 
                 % Load the most recent trigger mark file
                 extract_dt = @(x) datetime(x.name(end-20:end-4),'InputFormat','yyyyMMddHHmmssSSS');
@@ -370,6 +369,8 @@ for stimulation_target_group = target_list
             else
                 single_subject_pipeline_with_slurm(subject_id, first_parameters, false, timelimit, memorylimit, 'sequential_configs', sequential_configs);
             end
+            % Close all figures from this subject before moving on
+            close all
         end
     end
 end
