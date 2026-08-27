@@ -707,7 +707,7 @@ def main(raw_output_path,
         if print_output:
             print(dataframe[['subject_id', 'session', 'stimulation_condition']])
     elif dataset in ('speakup'):
-        randomisation_list = pd.read_csv('/Volumes/project/3025011.02/TUS_simulations/segmentation_data/dummy_randomisation_list.csv', sep=';')
+        randomisation_list = pd.read_csv('/Volumes/4kenneth/190526/stimulation_condition.csv', sep=';')
         dataframe = dataframe.merge(randomisation_list, on='subject_id', how='left')
         if print_output:
             print(dataframe[['subject_id', 'session', 'stimulation_condition']])

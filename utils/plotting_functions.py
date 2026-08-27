@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
-import seaborn as sns # Loads in the theme
+plt.style.use('seaborn-v0_8')
 import os
 import string
 #from titlecase import titlecase
