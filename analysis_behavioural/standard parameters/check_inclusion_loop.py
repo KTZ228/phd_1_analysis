@@ -38,6 +38,8 @@ def render_reports(subjects=None,
     os.environ["PYTHONPATH"] = os.pathsep.join(
         p for p in [str(REPO_ROOT), os.environ.get("PYTHONPATH", "")] if p
     )
+    # FIXED: force inline figures, so plots end up in the notebook and the HTML
+    os.environ["MPLBACKEND"] = "module://matplotlib_inline.backend_inline"
 
     excluded, crashed = [], []
     for i, subject in enumerate(subjects, start=1):
