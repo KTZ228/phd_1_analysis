@@ -1,16 +1,28 @@
+import argparse
+import os
 import subprocess
+import time
 from pathlib import Path
 
 import papermill as pm
 
+# FIXED: locate files from this script, not from wherever the console was started
+try:
+    HERE = Path(__file__).resolve().parent
+except NameError:  # pasted into a console
+    HERE = Path("/Volumes/kenvdzee/Documents/phd_1_analysis/analysis_behavioural/standard parameters")  # CHECK: your local path
+REPO_ROOT = HERE.parents[1]
+
 included_subjects_list = [39, 48, 49, 52, 53, 54, 55, 57, 58, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 76, 77, 78, 79, 81, 82, 83, 85, 86, 87, 88, 92, 94, 95]
 
 
-def render_reports(subjects=None, notebook="check_inclusion.ipynb", outdir=f'/Volumes/kenvdzee/Documents/phd_1_analysis/plots/TUS/summary_reports/'):
+def render_reports(subjects=None,
+                   notebook=HERE / "check_inclusion.ipynb",
+                   outdir="/Volumes/kenvdzee/Documents/phd_1_analysis/plots/TUS/summary_reports/"):
     """Execute the notebook per subject and save a code-free HTML report for each.
 
     subjects: a single ID (39), a list ([39, 48]), or None for the full list.
-    Returns the list of subjects that failed.
+    Returns (excluded, crashed) lists of subject IDs.
     """
     if subjects is None:
         subjects = included_subjects_list
@@ -22,27 +34,52 @@ def render_reports(subjects=None, notebook="check_inclusion.ipynb", outdir=f'/Vo
     executed_dir = outdir / "executed"
     executed_dir.mkdir(parents=True, exist_ok=True)
 
-    failed = []
-    for subject in subjects:
+    # FIXED: the kernel papermill starts must be able to `import utils` from the repo root
+    os.environ["PYTHONPATH"] = os.pathsep.join(
+        p for p in [str(REPO_ROOT), os.environ.get("PYTHONPATH", "")] if p
+    )
+
+    excluded, crashed = [], []
+    for i, subject in enumerate(subjects, start=1):
+        print(f"[{i}/{len(subjects)}] sub-{subject} started")
+        start = time.time()
         executed = executed_dir / f"{notebook.stem}_sub-{subject}.ipynb"
         try:
             pm.execute_notebook(
                 notebook, executed,
-                parameters={"unique_subject_ids": list(subject)},
+                parameters={
+                    "unique_subject_ids": [subject],
+                    "included_subjects_list": included_subjects_list,  # FIXED: was missing
+                },  # FIXED: was list(subject)
                 cwd=notebook.parent,
+                log_output=True,
             )
+            status = "included"
         except pm.PapermillExecutionError as err:
-            print(f"sub-{subject} failed: {err.ename}: {err.evalue}")
-            failed.append(subject)
-            continue
+            # FIXED: the last cell raises on purpose for excluded participants
+            if "Participant excluded" in str(err.evalue):
+                status = "excluded"
+                excluded.append(subject)
+            else:
+                status = f"CRASHED ({err.ename}: {err.evalue})"
+                crashed.append(subject)
 
-        subprocess.run([
-            "jupyter", "nbconvert", str(executed),
-            "--to", "html", "--no-input",
-            "--output", f"sub-{subject}_summary_report",
-            "--output-dir", str(outdir),
-        ], check=True)
-        print(f"sub-{subject} saved")
+        # FIXED: render the report whatever happened, so excluded and crashed runs are visible too
+        if executed.exists():
+            subprocess.run([
+                "jupyter", "nbconvert", str(executed),
+                "--to", "html", "--no-input",
+                "--output", f"sub-{subject}_summary_report",
+                "--output-dir", str(outdir),
+            ], check=True)
+        print(f"[{i}/{len(subjects)}] sub-{subject} {status}, {time.time() - start:.0f} s")
 
-    print(f"Done. Failed: {failed or 'none'}")
-    return failed
+    print(f"Done. Excluded: {excluded or 'none'}. Crashed: {crashed or 'none'}")
+    return excluded, crashed
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--subjects", type=int, nargs="+", default=None)
+    args, _ = parser.parse_known_args()  # FIXED: ignores PyCharm's console arguments
+    render_reports(args.subjects)
