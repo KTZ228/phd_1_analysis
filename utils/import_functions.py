@@ -592,6 +592,8 @@ def add_WSLS_columns(dataframe: pd.DataFrame) -> (
     post_loss_mask = mask & (dataframe['previous_outcome'] == -1)
     dataframe['lose-stay'] = pd.Series(pd.NA, index=dataframe.index, dtype='Int64')
     dataframe.loc[post_loss_mask, 'lose-stay'] = dataframe.loc[post_loss_mask, 'stay']
+    # Determine lose-shift
+    dataframe['lose-shift'] = 1 - dataframe['lose-stay']
 
     return dataframe
 
