@@ -7,6 +7,16 @@ import os
 import string
 #from titlecase import titlecase
 
+import base64
+import gzip
+import html
+import json
+import warnings
+from pathlib import Path
+
+import nibabel as nib
+from IPython.display import HTML
+
 
 def paired_raincloud(
         df,
@@ -1462,3 +1472,71 @@ def plot_average_performance(df, output_dir, plot_name, window_size=6, fit_linea
         results['quadratic_r2'] = r_squared_quad
 
     return results
+
+
+NIIVUE_URL = 'https://cdn.jsdelivr.net/npm/@niivue/niivue@0.69.0/+esm'
+
+def _shrink(path, kind, step, threshold=None, two_sided=False):
+    """Downsample, threshold and downcast one image, return gzipped NIfTI bytes."""
+    img = nib.load(path)
+    if step > 1:
+        img = img.slicer[::step, ::step, ::step]
+    data = np.nan_to_num(np.asarray(img.dataobj, dtype=np.float32))
+    if kind == 'mask':
+        out = nib.Nifti1Image((data > 0).astype(np.uint8), img.affine)
+    else:
+        if threshold is not None:
+            below = np.abs(data) < threshold if two_sided else data < threshold
+            data[below] = 0
+        out = nib.Nifti1Image(data, img.affine)
+        if data.min() >= 0:
+            out.set_data_dtype(np.uint8)
+        else:
+            # CHANGED: slope-only int16 scaling, so 0 stays exactly 0
+            slope = float(np.abs(data).max()) / 32767 or 1.0
+            out = nib.Nifti1Image(np.round(data / slope).astype(np.int16), img.affine)
+            out.header.set_slope_inter(slope, 0)
+    return gzip.compress(out.to_bytes(), compresslevel=6)
+
+
+def view_nifti_slices(volumes, step=1, height=450, verbose=True):
+    """Three-plane NIfTI viewer (no 3D render) that survives papermill + nbconvert.
+
+    volumes: list of dicts, first entry is the background, e.g.
+        [{'path': anat_path, 'step': 2},
+         {'path': pressure_path, 'colormap': 'warm', 'opacity': 0.5, 'cal_min': 0.1},
+         {'path': target_mask_path, 'kind': 'mask', 'colormap': 'green'}]
+        Optional keys: kind ('continuous' or 'mask'), step, colormap, opacity, cal_min, cal_max.
+    step: default downsampling factor, overridden per volume.
+    """
+    vols, total = [], 0
+    for v in volumes:
+        p = Path(v['path'])
+        raw = _shrink(p, v.get('kind', 'continuous'), v.get('step', step),
+                      threshold=v.get('cal_min'),
+                      two_sided='colormapNegative' in v)
+        total += len(raw)
+        entry = {'url': 'data:application/octet-stream;base64,' + base64.b64encode(raw).decode('ascii'),
+                 'name': p.name.split('.')[0] + '.nii.gz'}
+        entry.update({k: v[k] for k in ('colormap', 'opacity', 'cal_min', 'cal_max',
+                                        'colormapNegative', 'cal_minNeg', 'cal_maxNeg')
+                      if k in v})
+        vols.append(entry)
+    if verbose:
+        print(f'Embedded image data: {total * 4 / 3 / 1e6:.1f} MB')  # diagnostic: keep this well under ~50 MB
+
+    # CHANGED: multiplanarShowRender 0 drops the 3D panel
+    doc = f"""<!DOCTYPE html><html><head><style>html,body{{margin:0;height:100%;background:#000}}</style></head>
+<body><canvas id="gl"></canvas>
+<script type="module">
+import {{ Niivue }} from '{NIIVUE_URL}';
+const nv = new Niivue({{ multiplanarShowRender: 0 }});
+await nv.attachTo('gl');
+await nv.loadVolumes({json.dumps(vols)});
+nv.setSliceType(nv.sliceTypeMultiplanar);
+</script></body></html>"""
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        return HTML(f'<iframe srcdoc="{html.escape(doc)}" '
+                    f'style="width:100%;height:{height}px;border:0"></iframe>')

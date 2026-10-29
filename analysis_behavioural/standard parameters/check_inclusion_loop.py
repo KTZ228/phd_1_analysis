@@ -3,6 +3,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
+import nbformat
 
 import papermill as pm
 
@@ -13,7 +14,8 @@ except NameError:  # pasted into a console
     HERE = Path("/Volumes/kenvdzee/Documents/phd_1_analysis/analysis_behavioural/standard parameters")  # CHECK: your local path
 REPO_ROOT = HERE.parents[1]
 
-included_subjects_list = [39, 48, 49, 52, 53, 54, 55, 57, 58, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 76, 77, 78, 79, 81, 82, 83, 85, 86, 87, 88, 92, 94, 95]
+#included_subjects_list = [39, 48, 49, 52, 53, 54, 55, 57, 58, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 76, 77, 78, 79, 81, 82, 83, 85, 86, 87, 88, 92, 94, 95]
+included_subjects_list = [52, 53]
 
 
 def render_reports(subjects=None,
@@ -66,14 +68,25 @@ def render_reports(subjects=None,
                 status = f"CRASHED ({err.ename}: {err.evalue})"
                 crashed.append(subject)
 
-        # FIXED: render the report whatever happened, so excluded and crashed runs are visible too
+        # FIXED: drop warnings (stderr) from the HTML copy only; errors are kept
         if executed.exists():
+            nb = nbformat.read(executed, as_version=4)
+            for cell in nb.cells:
+                if cell.cell_type == "code":
+                    cell.outputs = [
+                        o for o in cell.outputs
+                        if not (o.output_type == "stream" and o.get("name") == "stderr")
+                    ]
+            clean = executed.with_name(executed.stem + "_clean.ipynb")
+            nbformat.write(nb, clean)
+
             subprocess.run([
-                "jupyter", "nbconvert", str(executed),
+                "jupyter", "nbconvert", str(clean),
                 "--to", "html", "--no-input",
                 "--output", f"sub-{subject}_summary_report",
                 "--output-dir", str(outdir),
             ], check=True)
+            clean.unlink()  # remove the temporary copy
         print(f"[{i}/{len(subjects)}] sub-{subject} {status}, {time.time() - start:.0f} s")
 
     print(f"Done. Excluded: {excluded or 'none'}. Crashed: {crashed or 'none'}")
