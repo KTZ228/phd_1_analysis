@@ -66,7 +66,7 @@
 shopt -s nullglob
 
 module load fsl/6.0.6
-template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/fsf_templates/feat_template_third_level.fsf"
+template="/home/affneu/kenvdzee/Documents/phd_1_analysis/analysis_fMRI/fsf_templates/feat_template_third_level.fsf"
 derivdir="/project/3025011.02/bids/derivatives/fsl"
 groupbase="${derivdir}/group"        # results for the no-suffix case
 # Skiplog lives at the derivatives root (skips can span several suffixes) and

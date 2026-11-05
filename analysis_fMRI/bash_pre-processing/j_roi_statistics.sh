@@ -6,7 +6,7 @@
 shopt -s nullglob
 
 derivdir="/project/3025011.02/bids/derivatives/fsl"
-maskdir="/home/affneu/kenvdzee/Documents/phd_1_analysis/analyses_fMRI/MNI_masks"
+maskdir="/home/affneu/kenvdzee/Documents/phd_1_analysis/analysis_fMRI/MNI_masks"
 featquery="/opt/fsl/6.0.6/bin/featquery"
 
 # Collect masks once
