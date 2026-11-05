@@ -14,8 +14,8 @@ except NameError:  # pasted into a console
     HERE = Path("/Volumes/kenvdzee/Documents/phd_1_analysis/analysis_behavioural/standard parameters")  # CHECK: your local path
 REPO_ROOT = HERE.parents[1]
 
-#included_subjects_list = [39, 48, 49, 52, 53, 54, 55, 57, 58, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 76, 77, 78, 79, 81, 82, 83, 85, 86, 87, 88, 92, 94, 95]
-included_subjects_list = [39, 48, 53, 54]
+included_subjects_list = [39, 48, 49, 52, 53, 54, 55, 57, 58, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 76,
+                          77, 78, 79, 81, 82, 83, 85, 86, 87, 92, 94, 95, 96, 97, 99, 100]
 
 
 def render_reports(subjects=None,
