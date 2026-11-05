@@ -12,9 +12,9 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-target_list = [1,2,3];
+target_list = [3]; % remove the 8, that's only for sub-052
 test_pipeline = 0;
-localite_coordinates = 1;
+localite_coordinates = 0;
 include_mask = 0;
 % Should include which t1 and t2 to use based on cut-off
 
@@ -24,7 +24,7 @@ heatrise_optimised = 1;
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [48, 49, 52, 53, 54, 55, 57, 58, 59, 60, 61, 63, 64, 65, 66, 67, 68]; 
+subject_list = [95]; % 95, 96
 
 % Config location
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
@@ -97,7 +97,7 @@ for stimulation_target_group = target_list
                 parameters = load_parameters(heating_config_list(consecutive_simulation_number), config_location);
             end
     
-            if strcmp(interactive_or_slurm = 'interactive')
+            if strcmp(interactive_or_slurm, 'interactive')
                 parameters.interactive = 1;
             else
                 parameters.interactive = 0;
@@ -111,6 +111,11 @@ for stimulation_target_group = target_list
             else
                 stimulation_target_coordinates = stimulation_target;
             end
+
+            %% Manually adding the subject subfolder
+            parameters.sim_path = strrep(parameters.sim_path, stimulation_target, fullfile(sprintf('sub-%03d', subject_id), stimulation_target));
+            parameters.output_location = strrep(parameters.output_location, stimulation_target, fullfile(sprintf('sub-%03d', subject_id), stimulation_target));
+            parameters.subject_subfolder = 0; % PRESTUS must not append sub-xxx again
     
             %% Setting folder locations for structural data
             filename_t1 = dir(sprintf(fullfile(parameters.data_path, parameters.t1_path_template), subject_id));
@@ -187,7 +192,7 @@ for stimulation_target_group = target_list
                 parameters.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
         
                 % To compensate for the offset between the center of the reference and the edge of the bowl
-                reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm);
+                reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm + 8);
                 
                 % Load the most recent trigger mark file
                 extract_dt = @(x) datetime(x.name(end-20:end-4),'InputFormat','yyyyMMddHHmmssSSS');
@@ -248,7 +253,7 @@ for stimulation_target_group = target_list
         
                 % -- Compute the RAS mm position of the transducer surface
                 transducer_pos_ras = reference_position + reference_to_transducer_distance * reference_vector;
-                % -- Compute the RAS mm position of the acoustic focal point (forward along vector)
+                % -- Compute the RAS mm posqition of the acoustic focal point (forward along vector)
                 target_pos_ras = reference_position + parameters.expected_focal_distance_mm * reference_vector;
         
                 % -- Convert these world (RAS mm) positions into MRI voxel index space

@@ -21,39 +21,38 @@ for c = 1:numel(conditions)
     cond     = conditions{c};
     cond_dir = fullfile(base, cond);
 
-    % Find all target_* subfolders, keep only directories
-    target_dirs = dir(fullfile(cond_dir, 'target_*'));
-    target_dirs = target_dirs([target_dirs.isdir]);
+    % Find all sub-* subfolders, keep only directories
+    subj_dirs = dir(fullfile(cond_dir, 'sub-*'));
+    subj_dirs = subj_dirs([subj_dirs.isdir]);
 
-    % --- Loop over targets ---
-    for t = 1:numel(target_dirs)
-        target   = target_dirs(t).name;             % e.g. 'target_1_1'
-        targ_dir = fullfile(cond_dir, target);
+    % --- Loop over subjects ---
+    for s = 1:numel(subj_dirs)
+        subj      = subj_dirs(s).name;             % e.g. 'sub-052'
+        subj_root = fullfile(cond_dir, subj);
 
-        % --- pick the single relevant mask from target indices ---
-        idx = sscanf(target, 'target_%d_%d');        % [group; sub]
-        grp = idx(1); sub_idx = idx(2);
-        % Hemisphere convention: odd sub_idx = left, even = right
-        side = 'left'; if mod(sub_idx,2)==0, side = 'right'; end
+        target_dirs = dir(fullfile(subj_root, 'target_*'));
+        target_dirs = target_dirs([target_dirs.isdir]);
 
-        % Map target group -> mask filename suffix
-        switch grp
-            case 1, mask_suffix = sprintf('amygdala_%s', side);
-            case 2, mask_suffix = sprintf('payam_dacc_%s_mask', side);
-            case 3, continue;                         % target_3_* ignored
-            otherwise
-                warning('Unrecognized target group: %s', target);
-                continue;
-        end
+        % --- Loop over targets ---
+        for t = 1:numel(target_dirs)
+            target   = target_dirs(t).name;        % e.g. 'target_1_1'
+            subj_dir = fullfile(subj_root, target); % folder holding the data file
 
-        % Find all subject subfolders under this target
-        subj_dirs = dir(fullfile(targ_dir, 'sub-*'));
-        subj_dirs = subj_dirs([subj_dirs.isdir]);
+            % --- pick the single relevant mask from target indices ---
+            idx = sscanf(target, 'target_%d_%d');        % [group; sub]
+            grp = idx(1); sub_idx = idx(2);
+            % Hemisphere convention: odd sub_idx = left, even = right
+            side = 'left'; if mod(sub_idx,2)==0, side = 'right'; end
 
-        % --- Loop over subjects ---
-        for s = 1:numel(subj_dirs)
-            subj     = subj_dirs(s).name;           % e.g. 'sub-052'
-            subj_dir = fullfile(targ_dir, subj);
+            % Map target group -> mask filename suffix
+            switch grp
+                case 1, mask_suffix = sprintf('amygdala_%s', side);
+                case 2, mask_suffix = sprintf('payam_dacc_%s_mask', side);
+                case 3, continue;                         % target_3_* ignored
+                otherwise
+                    warning('Unrecognized target group: %s', target);
+                    continue;
+            end
 
             % --- locate the single data file ---
             % Pattern allows arbitrary duty-cycle / strength values.
