@@ -75,6 +75,12 @@ def list_files_with_date_and_subject_id(file_path: str,
         pattern = re.compile(r'sub-(\d{2})_ses(\d{1})_rlt_behavioural_output.csv$')
     else:
         pattern = re.compile(r'behavioural_output_sub-(\d{3})_session-(\d{2})_.*\.csv$')
+        if len(unique_subject_ids) == 1:
+            subject_dir = os.path.join(file_path, f'sub-{int(unique_subject_ids[0]):03d}')
+            if os.path.isdir(subject_dir):
+                file_path = subject_dir
+            else:
+                print(f'{subject_dir} not found; searching all of {file_path}')
 
     # Single walk through the directory tree
     file_dict = defaultdict(list)
