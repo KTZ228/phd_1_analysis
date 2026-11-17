@@ -7,15 +7,14 @@ import nbformat
 
 import papermill as pm
 
-# FIXED: locate files from this script, not from wherever the console was started
 try:
     HERE = Path(__file__).resolve().parent
-except NameError:  # pasted into a console
-    HERE = Path("/Volumes/kenvdzee/Documents/phd_1_analysis/analysis_behavioural/standard parameters")  # CHECK: your local path
+except NameError:
+    HERE = Path("/Volumes/kenvdzee/Documents/phd_1_analysis/analysis_behavioural/standard parameters")
 REPO_ROOT = HERE.parents[1]
 
-included_subjects_list = [39, 48, 49, 52, 53, 54, 55, 57, 58, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 76,
-                          77, 78, 79, 81, 82, 83, 85, 86, 87, 92, 94, 95, 96, 97, 99, 100]
+included_subjects_list = [48]#[39, 48, 49, 52, 53, 54, 55, 57, 58, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 76, 77, 78, 79, 81, 82, 83, 85, 86, 87, 94,
+                          #92, 95, 96, 99, 100, 101, 102, 103, 104, 105, 106]
 
 
 def render_reports(subjects=None,
@@ -36,11 +35,9 @@ def render_reports(subjects=None,
     executed_dir = outdir / "executed"
     executed_dir.mkdir(parents=True, exist_ok=True)
 
-    # FIXED: the kernel papermill starts must be able to `import utils` from the repo root
     os.environ["PYTHONPATH"] = os.pathsep.join(
         p for p in [str(REPO_ROOT), os.environ.get("PYTHONPATH", "")] if p
     )
-    # FIXED: force inline figures, so plots end up in the notebook and the HTML
     os.environ["MPLBACKEND"] = "module://matplotlib_inline.backend_inline"
 
     excluded, crashed = [], []
@@ -53,14 +50,13 @@ def render_reports(subjects=None,
                 notebook, executed,
                 parameters={
                     "unique_subject_ids": [subject],
-                    "included_subjects_list": included_subjects_list,  # FIXED: was missing
-                },  # FIXED: was list(subject)
+                },
                 cwd=notebook.parent,
                 log_output=True,
+                request_save_on_cell_execute=False,
             )
             status = "included"
         except pm.PapermillExecutionError as err:
-            # FIXED: the last cell raises on purpose for excluded participants
             if "Participant excluded" in str(err.evalue):
                 status = "excluded"
                 excluded.append(subject)
@@ -68,7 +64,6 @@ def render_reports(subjects=None,
                 status = f"CRASHED ({err.ename}: {err.evalue})"
                 crashed.append(subject)
 
-        # FIXED: drop warnings (stderr) from the HTML copy only; errors are kept
         if executed.exists():
             nb = nbformat.read(executed, as_version=4)
             for cell in nb.cells:
@@ -86,7 +81,7 @@ def render_reports(subjects=None,
                 "--output", f"sub-{subject}_summary_report",
                 "--output-dir", str(outdir),
             ], check=True)
-            clean.unlink()  # remove the temporary copy
+            clean.unlink()
         print(f"[{i}/{len(subjects)}] sub-{subject} {status}, {time.time() - start:.0f} s")
 
     print(f"Done. Excluded: {excluded or 'none'}. Crashed: {crashed or 'none'}")
@@ -96,5 +91,5 @@ def render_reports(subjects=None,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--subjects", type=int, nargs="+", default=None)
-    args, _ = parser.parse_known_args()  # FIXED: ignores PyCharm's console arguments
+    args, _ = parser.parse_known_args()
     render_reports(args.subjects)

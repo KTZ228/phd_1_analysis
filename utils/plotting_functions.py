@@ -1476,9 +1476,11 @@ def plot_average_performance(df, output_dir, plot_name, window_size=6, fit_linea
 
 NIIVUE_URL = 'https://cdn.jsdelivr.net/npm/@niivue/niivue@0.69.0/+esm'
 
-def _shrink(path, kind, step, threshold=None, two_sided=False):
+def _shrink(path, kind, step, threshold=None, two_sided=False, volume=None):
     """Downsample, threshold and downcast one image, return gzipped NIfTI bytes."""
     img = nib.load(path)
+    if volume is not None:
+        img = img.slicer[..., volume]
     if step > 1:
         img = img.slicer[::step, ::step, ::step]
     data = np.nan_to_num(np.asarray(img.dataobj, dtype=np.float32))
@@ -1499,7 +1501,7 @@ def _shrink(path, kind, step, threshold=None, two_sided=False):
     return gzip.compress(out.to_bytes(), compresslevel=6)
 
 
-def view_nifti_slices(volumes, step=1, height=450, verbose=True):
+def view_nifti_slices(volumes, step=1, height=450, verbose=True, scroll_slices=False, toggle=False):
     """Three-plane NIfTI viewer (no 3D render) that survives papermill + nbconvert.
 
     volumes: list of dicts, first entry is the background, e.g.
@@ -1508,13 +1510,16 @@ def view_nifti_slices(volumes, step=1, height=450, verbose=True):
          {'path': target_mask_path, 'kind': 'mask', 'colormap': 'green'}]
         Optional keys: kind ('continuous' or 'mask'), step, colormap, opacity, cal_min, cal_max.
     step: default downsampling factor, overridden per volume.
+    scroll_slices: if False (default), the mouse wheel scrolls the page instead of the slices.
+    toggle: if True, adds a button (and the space bar) that hides and shows the top overlay.
     """
     vols, total = [], 0
     for v in volumes:
         p = Path(v['path'])
         raw = _shrink(p, v.get('kind', 'continuous'), v.get('step', step),
                       threshold=v.get('cal_min'),
-                      two_sided='colormapNegative' in v)
+                      two_sided='colormapNegative' in v,
+                      volume=v.get('volume'))
         total += len(raw)
         entry = {'url': 'data:application/octet-stream;base64,' + base64.b64encode(raw).decode('ascii'),
                  'name': p.name.split('.')[0] + '.nii.gz'}
@@ -1525,18 +1530,35 @@ def view_nifti_slices(volumes, step=1, height=450, verbose=True):
     if verbose:
         print(f'Embedded image data: {total * 4 / 3 / 1e6:.1f} MB')  # diagnostic: keep this well under ~50 MB
 
-    # CHANGED: multiplanarShowRender 0 drops the 3D panel
-    doc = f"""<!DOCTYPE html><html><head><style>html,body{{margin:0;height:100%;background:#000}}</style></head>
-<body><canvas id="gl"></canvas>
-<script type="module">
-import {{ Niivue }} from '{NIIVUE_URL}';
-const nv = new Niivue({{ multiplanarShowRender: 0 }});
-await nv.attachTo('gl');
-await nv.loadVolumes({json.dumps(vols)});
-nv.setSliceType(nv.sliceTypeMultiplanar);
-</script></body></html>"""
+        wheel_js = '' if scroll_slices else (
+            "window.addEventListener('wheel', e => e.stopImmediatePropagation(), "
+            "{capture: true, passive: true});")
 
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        return HTML(f'<iframe srcdoc="{html.escape(doc)}" '
-                    f'style="width:100%;height:{height}px;border:0"></iframe>')
+        # CHANGED: flicker control for the last-loaded layer
+        toggle_html = ('<button id="flick" style="position:absolute;top:8px;right:8px;z-index:10">'
+                       'Hide overlay</button>') if toggle else ''
+        toggle_js = '' if not toggle else """
+    const ov = nv.volumes.length - 1;
+    const shown = nv.volumes[ov].opacity;
+    const btn = document.getElementById('flick');
+    let on = true;
+    function flick() {
+      on = !on;
+      nv.setOpacity(ov, on ? shown : 0);
+      btn.textContent = on ? 'Hide overlay' : 'Show overlay';
+    }
+    btn.onclick = flick;
+    window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); flick(); } });
+    """
+
+        doc = f"""<!DOCTYPE html><html><head><style>html,body{{margin:0;height:100%;overflow:hidden;background:#000}}</style></head>
+    <body>{toggle_html}<canvas id="gl"></canvas>
+    <script type="module">
+    {wheel_js}
+    import {{ Niivue }} from '{NIIVUE_URL}';
+    const nv = new Niivue({{ multiplanarShowRender: 0 }});
+    await nv.attachTo('gl');
+    await nv.loadVolumes({json.dumps(vols)});
+    nv.setSliceType(nv.sliceTypeMultiplanar);
+    {toggle_js}
+    </script></body></html>"""
