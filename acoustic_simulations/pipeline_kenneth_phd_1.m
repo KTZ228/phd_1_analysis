@@ -12,19 +12,22 @@ addpath(genpath('toolboxes'))
 addpath('/home/common/matlab/fieldtrip/qsub')
 
 %% The following options can be altered
-target_list = [3]; % remove the 8, that's only for sub-052
+target_list = [2];
 test_pipeline = 0;
-localite_coordinates = 0;
+localite_coordinates = 1;
 include_mask = 0;
 % Should include which t1 and t2 to use based on cut-off
 
 heating_sims = 1;
 heatrise_optimised = 1;
+localite_compensation_mm = 0;
 
 interactive_or_slurm = 'slurm'; % interactive or slurm
 
 % Add an integer or list of the subjects you want to simulate
-subject_list = [95]; % 95, 96
+subject_list = [85];
+% [71, 72, 76, 77, 78, 79, 81, 82, 83, 85, 86, 87, 94, 92, 95, 96, 99, 100,
+% 101, 102, 103, 104, 105, 106]
 
 % Config location
 config_location = '/home/affneu/kenvdzee/Documents/phd_1_analysis/acoustic_simulations/configs/';
@@ -192,7 +195,7 @@ for stimulation_target_group = target_list
                 parameters.expected_focal_distance_mm = focal_distance_t1 * t1_grid_step_mm;
         
                 % To compensate for the offset between the center of the reference and the edge of the bowl
-                reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - parameters.transducer.dist_to_plane_mm + 8);
+                reference_to_transducer_distance = -(parameters.transducer.curv_radius_mm - (parameters.transducer.dist_to_plane_mm + localite_compensation_mm));
                 
                 % Load the most recent trigger mark file
                 extract_dt = @(x) datetime(x.name(end-20:end-4),'InputFormat','yyyyMMddHHmmssSSS');
