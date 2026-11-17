@@ -1508,7 +1508,8 @@ def view_nifti_slices(volumes, step=1, height=450, verbose=True, scroll_slices=F
         [{'path': anat_path, 'step': 2},
          {'path': pressure_path, 'colormap': 'warm', 'opacity': 0.5, 'cal_min': 0.1},
          {'path': target_mask_path, 'kind': 'mask', 'colormap': 'green'}]
-        Optional keys: kind ('continuous' or 'mask'), step, colormap, opacity, cal_min, cal_max.
+        Optional keys: kind ('continuous' or 'mask'), step, colormap, opacity, cal_min, cal_max,
+        volume (index into the 4th axis of a 4D image; -1 for the last).
     step: default downsampling factor, overridden per volume.
     scroll_slices: if False (default), the mouse wheel scrolls the page instead of the slices.
     toggle: if True, adds a button (and the space bar) that hides and shows the top overlay.
@@ -1527,43 +1528,42 @@ def view_nifti_slices(volumes, step=1, height=450, verbose=True, scroll_slices=F
                                         'colormapNegative', 'cal_minNeg', 'cal_maxNeg')
                       if k in v})
         vols.append(entry)
-        if verbose:
-            print(f'Embedded image data: {total * 4 / 3 / 1e6:.1f} MB')  # diagnostic: keep this well under ~50 MB
+    if verbose:
+        print(f'Embedded image data: {total * 4 / 3 / 1e6:.1f} MB')  # diagnostic: keep this well under ~50 MB
 
-        wheel_js = '' if scroll_slices else (
-            "window.addEventListener('wheel', e => e.stopImmediatePropagation(), "
-            "{capture: true, passive: true});")
+    wheel_js = '' if scroll_slices else (
+        "window.addEventListener('wheel', e => e.stopImmediatePropagation(), "
+        "{capture: true, passive: true});")
 
-        toggle_html = ('<button id="flick" style="position:absolute;top:8px;right:8px;z-index:10">'
-                       'Hide overlay</button>') if toggle else ''
-        toggle_js = '' if not toggle else """
-    const ov = nv.volumes.length - 1;
-    const shown = nv.volumes[ov].opacity;
-    const btn = document.getElementById('flick');
-    let on = true;
-    function flick() {
-      on = !on;
-      nv.setOpacity(ov, on ? shown : 0);
-      btn.textContent = on ? 'Hide overlay' : 'Show overlay';
-    }
-    btn.onclick = flick;
-    window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); flick(); } });
-    """
+    toggle_html = ('<button id="flick" style="position:absolute;top:8px;right:8px;z-index:10">'
+                   'Hide overlay</button>') if toggle else ''
+    toggle_js = '' if not toggle else """
+const ov = nv.volumes.length - 1;
+const shown = nv.volumes[ov].opacity;
+const btn = document.getElementById('flick');
+let on = true;
+function flick() {
+  on = !on;
+  nv.setOpacity(ov, on ? shown : 0);
+  btn.textContent = on ? 'Hide overlay' : 'Show overlay';
+}
+btn.onclick = flick;
+window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); flick(); } });
+"""
 
-        doc = f"""<!DOCTYPE html><html><head><style>html,body{{margin:0;height:100%;overflow:hidden;background:#000}}</style></head>
-    <body>{toggle_html}<canvas id="gl"></canvas>
-    <script type="module">
-    {wheel_js}
-    import {{ Niivue }} from '{NIIVUE_URL}';
-    const nv = new Niivue({{ multiplanarShowRender: 0 }});
-    await nv.attachTo('gl');
-    await nv.loadVolumes({json.dumps(vols)});
-    nv.setSliceType(nv.sliceTypeMultiplanar);
-    {toggle_js}
-    </script></body></html>"""
+    doc = f"""<!DOCTYPE html><html><head><style>html,body{{margin:0;height:100%;overflow:hidden;background:#000}}</style></head>
+<body>{toggle_html}<canvas id="gl"></canvas>
+<script type="module">
+{wheel_js}
+import {{ Niivue }} from '{NIIVUE_URL}';
+const nv = new Niivue({{ multiplanarShowRender: 0 }});
+await nv.attachTo('gl');
+await nv.loadVolumes({json.dumps(vols)});
+nv.setSliceType(nv.sliceTypeMultiplanar);
+{toggle_js}
+</script></body></html>"""
 
-        # FIXED: restored return
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            return HTML(f'<iframe srcdoc="{html.escape(doc)}" '
-                        f'style="width:100%;height:{height}px;border:0"></iframe>')
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        return HTML(f'<iframe srcdoc="{html.escape(doc)}" '
+                    f'style="width:100%;height:{height}px;border:0"></iframe>')
