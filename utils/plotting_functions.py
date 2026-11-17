@@ -1527,14 +1527,13 @@ def view_nifti_slices(volumes, step=1, height=450, verbose=True, scroll_slices=F
                                         'colormapNegative', 'cal_minNeg', 'cal_maxNeg')
                       if k in v})
         vols.append(entry)
-    if verbose:
-        print(f'Embedded image data: {total * 4 / 3 / 1e6:.1f} MB')  # diagnostic: keep this well under ~50 MB
+        if verbose:
+            print(f'Embedded image data: {total * 4 / 3 / 1e6:.1f} MB')  # diagnostic: keep this well under ~50 MB
 
         wheel_js = '' if scroll_slices else (
             "window.addEventListener('wheel', e => e.stopImmediatePropagation(), "
             "{capture: true, passive: true});")
 
-        # CHANGED: flicker control for the last-loaded layer
         toggle_html = ('<button id="flick" style="position:absolute;top:8px;right:8px;z-index:10">'
                        'Hide overlay</button>') if toggle else ''
         toggle_js = '' if not toggle else """
@@ -1562,3 +1561,9 @@ def view_nifti_slices(volumes, step=1, height=450, verbose=True, scroll_slices=F
     nv.setSliceType(nv.sliceTypeMultiplanar);
     {toggle_js}
     </script></body></html>"""
+
+        # FIXED: restored return
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            return HTML(f'<iframe srcdoc="{html.escape(doc)}" '
+                        f'style="width:100%;height:{height}px;border:0"></iframe>')
